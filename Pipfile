@@ -1,0 +1,20 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+autopep8 = "*"
+pylint = "*"
+pycodestyle = "*"
+isort = "*"
+pipenv-setup = "*"
+rope = "*"
+pytest = "*"
+pytest-xdist = "*"
+recording-script-generator = {editable = true, path = "."}
+
+[packages]
+
+[requires]
+python_version = "3.8"
