@@ -2,7 +2,7 @@
 from collections import OrderedDict
 
 from ordered_set import OrderedSet
-from recording_script_generator.core.merge import merge
+from recording_script_generator.core.merge import ScriptData, merge
 from recording_script_generator.core.preparation import PreparationData
 from text_utils.language import Language
 
@@ -17,6 +17,7 @@ def test_merge():
 
   res = merge([d1])
 
+  assert isinstance(res, ScriptData)
   assert res.reading_passages == OrderedDict({0: ["a", "b"]})
   assert res.representations == OrderedDict({0: ["a", "b"]})
 
