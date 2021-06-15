@@ -2,6 +2,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from typing import List
 from typing import OrderedDict as OrderedDictType
+from typing import Tuple
 
 from ordered_set import OrderedSet
 from recording_script_generator.core.preparation import PreparationData
@@ -13,20 +14,18 @@ class ScriptData:
   representations: OrderedDictType[int, List[str]]
 
 
-def merge(data: OrderedSet[PreparationData]) -> ScriptData:
-  reading_passages: OrderedSet[str] = OrderedSet()
-  representations: OrderedSet[str] = OrderedSet()
+def merge(data: List[PreparationData]) -> ScriptData:
+  entries: List[Tuple[Tuple[str], Tuple[str]]] = []
 
   for entry in data:
-    reading_passages |= OrderedSet(entry.reading_passages.values())
-    representations |= OrderedSet(entry.representations.values())
+    for reading_passage, representation in zip(entry.reading_passages, entry.representations):
+      entries.append(tuple([tuple(reading_passage), tuple(representation)]))
 
-  reading_passages |= OrderedSet(entry.reading_passages.values())
-  representations |= OrderedSet(entry.representations.values())
+  entries_set = OrderedSet(entries)
 
   res = ScriptData(
-    reading_passages=OrderedDict({i: list(v) for i, v in enumerate(reading_passages)}),
-    representations=OrderedDict({i: list(v) for i, v in enumerate(representations)}),
+    reading_passages=OrderedDict({i: list(read) for i, (read, _) in enumerate(entries_set)}),
+    representations=OrderedDict({i: list(rep) for i, (_, rep) in enumerate(entries_set)}),
   )
 
   return res
