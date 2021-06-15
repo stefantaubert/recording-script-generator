@@ -1,6 +1,7 @@
 
 from collections import OrderedDict
 
+from ordered_set import OrderedSet
 from recording_script_generator.core.preparation import (PreparationData,
                                                          PreparationTarget,
                                                          add_corpus_from_text,
@@ -27,13 +28,13 @@ def test_add_corpus_from_text():
 
 def test_normalize():
   data = PreparationData(
-    reading_passages=OrderedDict({
-      0: tuple(["t", " ", " ", "t"]),
-    }),
+    reading_passages=OrderedSet([
+      tuple(["t", " ", " ", "t"]),
+    ]),
     reading_passages_lang=Language.ENG,
-    representations=OrderedDict({
-      0: tuple(["t", " ", " ", "t"]),
-    }),
+    representations=OrderedSet([
+      tuple(["t", " ", " ", "t"]),
+    ]),
     representations_lang=Language.ENG,
   )
 
@@ -47,13 +48,13 @@ def test_normalize():
 
 def test_convert_to_ipa():
   data = PreparationData(
-    reading_passages=OrderedDict({
-      0: tuple(["t", "e", "s", "t"]),
-    }),
+    reading_passages=OrderedSet([
+      tuple(["t", "e", "s", "t"]),
+    ]),
     reading_passages_lang=Language.ENG,
-    representations=OrderedDict({
-      0: tuple(["t", "e", "s", "t"]),
-    }),
+    representations=OrderedSet([
+      tuple(["t", "e", "s", "t"]),
+    ]),
     representations_lang=Language.ENG,
   )
 
