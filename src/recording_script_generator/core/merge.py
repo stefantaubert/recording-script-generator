@@ -21,9 +21,12 @@ def merge(data: OrderedSet[PreparationData]) -> ScriptData:
     reading_passages |= OrderedSet(entry.reading_passages.values())
     representations |= OrderedSet(entry.representations.values())
 
+  reading_passages |= OrderedSet(entry.reading_passages.values())
+  representations |= OrderedSet(entry.representations.values())
+
   res = ScriptData(
-    reading_passages=OrderedDict({i: v for i, v in enumerate(reading_passages)}),
-    representations=OrderedDict({i: v for i, v in enumerate(representations)}),
+    reading_passages=OrderedDict({i: list(v) for i, v in enumerate(reading_passages)}),
+    representations=OrderedDict({i: list(v) for i, v in enumerate(representations)}),
   )
 
   return res

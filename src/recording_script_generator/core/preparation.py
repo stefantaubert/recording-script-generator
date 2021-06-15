@@ -20,14 +20,14 @@ class PreparationTarget(IntEnum):
 @dataclass
 class PreparationData:
   reading_passages_lang: Language
-  reading_passages: OrderedSet[Tuple[str]]
+  reading_passages: List[List[str]]
   representations_lang: Language
-  representations: OrderedSet[Tuple[str]]
+  representations: List[List[str]]
 
 
 def add_corpus_from_text(utterances: List[str], lang: Language, ipa_settings: Optional[IPAExtractionSettings]) -> PreparationData:
   logger = getLogger(__name__)
-  reading_passages: OrderedSet[Tuple[str]] = OrderedSet()
+  reading_passages: List[List[str]] = []
   unique_entries = OrderedSet(utterances)
   if len(unique_entries) < len(utterances):
     ignored_count = len(utterances) - len(unique_entries)
@@ -41,9 +41,9 @@ def add_corpus_from_text(utterances: List[str], lang: Language, ipa_settings: Op
       ipa_settings=ipa_settings,
       logger=logger,
     )
-    reading_passages.add(tuple(symbols))
+    reading_passages.append(symbols)
 
-  representation: OrderedSet[Tuple[str]] = reading_passages.copy()
+  representation: List[List[str]] = reading_passages.copy()
   res = PreparationData(
     reading_passages_lang=lang,
     reading_passages=reading_passages,
@@ -53,14 +53,14 @@ def add_corpus_from_text(utterances: List[str], lang: Language, ipa_settings: Op
   return res
 
 
-def _normalize_target(target: OrderedSet[Tuple[str]], lang: Language, ipa_settings: Optional[IPAExtractionSettings]) -> OrderedSet[Tuple[str]]:
+def _normalize_target(target: List[List[str]], lang: Language, ipa_settings: Optional[IPAExtractionSettings]) -> List[List[str]]:
   logger = getLogger(__name__)
-  res: OrderedSet[Tuple[str]] = OrderedSet()
+  res: List[List[str]] = []
   for symbols in target:
     text = ''.join(symbols)
     normalized_text = text_normalize(text, lang, logger)
     symbols = text_to_symbols(normalized_text, lang, ipa_settings, logger)
-    res.add(tuple(symbols))
+    res.append(symbols)
   return res
 
 
@@ -74,12 +74,12 @@ def normalize(data: PreparationData, target: PreparationTarget, ipa_settings: Op
   return data
 
 
-def _convert_to_ipa_target(target: OrderedSet[Tuple[str]], lang: Language, ipa_settings: Optional[IPAExtractionSettings], mode: Optional[EngToIpaMode], replace_unknown_with: Optional[str], use_cache: Optional[bool]) -> OrderedSet[Tuple[str]]:
+def _convert_to_ipa_target(target: List[List[str]], lang: Language, ipa_settings: Optional[IPAExtractionSettings], mode: Optional[EngToIpaMode], replace_unknown_with: Optional[str], use_cache: Optional[bool]) -> List[List[str]]:
   logger = getLogger(__name__)
   if lang == Language.IPA:
     logger.info("Text is already IPA.")
     return
-  res: OrderedSet[Tuple[str]] = OrderedSet()
+  res: List[List[str]] = []
   for symbols in tqdm(target):
     text = ''.join(symbols)
     ipa_text = text_to_ipa(
@@ -91,7 +91,7 @@ def _convert_to_ipa_target(target: OrderedSet[Tuple[str]], lang: Language, ipa_s
       logger=logger
     )
     symbols = text_to_symbols(ipa_text, Language.IPA, ipa_settings, logger)
-    res.add(tuple(symbols))
+    res.append(symbols)
   return res
 
 

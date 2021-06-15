@@ -1,7 +1,3 @@
-
-from collections import OrderedDict
-
-from ordered_set import OrderedSet
 from recording_script_generator.core.preparation import (PreparationData,
                                                          PreparationTarget,
                                                          add_corpus_from_text,
@@ -18,43 +14,51 @@ def test_add_corpus_from_text():
     lang=Language.ENG,
     ipa_settings=None,
   )
-  assert res.reading_passages[0] == tuple(["t", "e", "s", "t", "1", " ", "t"])
-  assert res.reading_passages[1] == tuple(["t", "e", "s", "t", "2", " ", "t"])
-  assert res.representations[0] == tuple(["t", "e", "s", "t", "1", " ", "t"])
-  assert res.representations[1] == tuple(["t", "e", "s", "t", "2", " ", "t"])
+  assert res.reading_passages == [
+    ["t", "e", "s", "t", "1", " ", "t"],
+    ["t", "e", "s", "t", "2", " ", "t"]
+  ]
+  assert res.representations == [
+    ["t", "e", "s", "t", "1", " ", "t"],
+    ["t", "e", "s", "t", "2", " ", "t"]
+  ]
+  assert res.reading_passages_lang == Language.ENG
+  assert res.representations_lang == Language.ENG
+
+
+def test_add_corpus_from_text__ignores_duplicates():
+  res = add_corpus_from_text(
+    utterances=["test1 t", "test1 t"],
+    lang=Language.ENG,
+    ipa_settings=None,
+  )
+  assert res.reading_passages == [["t", "e", "s", "t", "1", " ", "t"]]
+  assert res.representations == [["t", "e", "s", "t", "1", " ", "t"]]
   assert res.reading_passages_lang == Language.ENG
   assert res.representations_lang == Language.ENG
 
 
 def test_normalize():
   data = PreparationData(
-    reading_passages=OrderedSet([
-      tuple(["t", " ", " ", "t"]),
-    ]),
+    reading_passages=[["t", " ", " ", "t"]],
     reading_passages_lang=Language.ENG,
-    representations=OrderedSet([
-      tuple(["t", " ", " ", "t"]),
-    ]),
+    representations=[["t", " ", " ", "t"]],
     representations_lang=Language.ENG,
   )
 
   normalize(data, target=PreparationTarget.BOTH, ipa_settings=None)
 
-  assert data.reading_passages[0] == tuple(["t", " ", "t"])
-  assert data.representations[0] == tuple(["t", " ", "t"])
+  assert data.reading_passages == [["t", " ", "t"]]
+  assert data.representations == [["t", " ", "t"]]
   assert data.reading_passages_lang == Language.ENG
   assert data.representations_lang == Language.ENG
 
 
 def test_convert_to_ipa():
   data = PreparationData(
-    reading_passages=OrderedSet([
-      tuple(["t", "e", "s", "t"]),
-    ]),
+    reading_passages=[["t", "e", "s", "t"]],
     reading_passages_lang=Language.ENG,
-    representations=OrderedSet([
-      tuple(["t", "e", "s", "t"]),
-    ]),
+    representations=[["t", "e", "s", "t"]],
     representations_lang=Language.ENG,
   )
 
@@ -71,7 +75,7 @@ def test_convert_to_ipa():
     use_cache=True,
   )
 
-  assert data.reading_passages[0] == tuple(["t", "ˈ", "ɛ", "s", "t"])
-  assert data.representations[0] == tuple(["t", "ˈ", "ɛ", "s", "t"])
+  assert data.reading_passages == [["t", "ˈ", "ɛ", "s", "t"]]
+  assert data.representations == [["t", "ˈ", "ɛ", "s", "t"]]
   assert data.reading_passages_lang == Language.IPA
   assert data.representations_lang == Language.IPA
