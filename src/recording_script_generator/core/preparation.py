@@ -4,7 +4,9 @@ from enum import IntEnum
 from logging import getLogger
 from typing import List, Optional
 from typing import OrderedDict as OrderedDictType
+from typing import Tuple
 
+from ordered_set import OrderedSet
 from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings
 from text_utils.text import (EngToIpaMode, text_normalize, text_to_ipa,
@@ -21,24 +23,30 @@ class PreparationTarget(IntEnum):
 @dataclass
 class PreparationData:
   reading_passages_lang: Language
-  reading_passages: OrderedDictType[int, List[str]]
+  reading_passages: OrderedDictType[int, Tuple[str]]
   representations_lang: Language
-  representations: OrderedDictType[int, List[str]]
+  representations: OrderedDictType[int, Tuple[str]]
 
 
 def add_corpus_from_text(utterances: List[str], lang: Language, ipa_settings: Optional[IPAExtractionSettings]) -> PreparationData:
   logger = getLogger(__name__)
-  reading_passages: OrderedDictType[int, List[str]] = OrderedDict()
-  for i, utt in enumerate(utterances):
+  reading_passages: OrderedDictType[int, Tuple[str]] = OrderedDict()
+  unique_entries = OrderedSet(utterances)
+  if len(unique_entries) < len(utterances):
+    ignored_count = len(utterances) - len(unique_entries)
+    logger.info(f"Ignored doubling entries ({ignored_count}/{len(utterances)}).")
+  else:
+    logger.info("No doubling entries found.")
+  for i, utt in enumerate(unique_entries):
     symbols = text_to_symbols(
       text=utt,
       lang=lang,
       ipa_settings=ipa_settings,
       logger=logger,
     )
-    reading_passages[i] = symbols
+    reading_passages[i] = tuple(symbols)
 
-  representation: OrderedDictType[int, List[str]] = reading_passages.copy()
+  representation: OrderedDictType[int, Tuple[str]] = reading_passages.copy()
   res = PreparationData(
     reading_passages_lang=lang,
     reading_passages=reading_passages,
@@ -48,13 +56,13 @@ def add_corpus_from_text(utterances: List[str], lang: Language, ipa_settings: Op
   return res
 
 
-def _normalize_target(target: OrderedDictType[int, List[str]], lang: Language, ipa_settings: Optional[IPAExtractionSettings]):
+def _normalize_target(target: OrderedDictType[int, Tuple[str]], lang: Language, ipa_settings: Optional[IPAExtractionSettings]):
   logger = getLogger(__name__)
   for i, symbols in target.items():
     text = ''.join(symbols)
     normalized_text = text_normalize(text, lang, logger)
     symbols = text_to_symbols(normalized_text, lang, ipa_settings, logger)
-    target[i] = symbols
+    target[i] = tuple(symbols)
 
 
 def normalize(data: PreparationData, target: PreparationTarget, ipa_settings: Optional[IPAExtractionSettings]):
@@ -65,7 +73,7 @@ def normalize(data: PreparationData, target: PreparationTarget, ipa_settings: Op
   return data
 
 
-def _convert_to_ipa_target(target: OrderedDictType[int, List[str]], lang: Language, ipa_settings: Optional[IPAExtractionSettings], mode: Optional[EngToIpaMode], replace_unknown_with: Optional[str], use_cache: Optional[bool]):
+def _convert_to_ipa_target(target: OrderedDictType[int, Tuple[str]], lang: Language, ipa_settings: Optional[IPAExtractionSettings], mode: Optional[EngToIpaMode], replace_unknown_with: Optional[str], use_cache: Optional[bool]):
   logger = getLogger(__name__)
   if lang == Language.IPA:
     logger.info("Text is already IPA.")
@@ -81,7 +89,7 @@ def _convert_to_ipa_target(target: OrderedDictType[int, List[str]], lang: Langua
       logger=logger
     )
     symbols = text_to_symbols(ipa_text, Language.IPA, ipa_settings, logger)
-    target[i] = symbols
+    target[i] = tuple(symbols)
 
 
 def convert_to_ipa(data: PreparationData, target: PreparationTarget, ipa_settings: Optional[IPAExtractionSettings], mode: Optional[EngToIpaMode], replace_unknown_with: Optional[str], use_cache: Optional[bool]):

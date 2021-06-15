@@ -21,7 +21,7 @@ numpy = "*"
 text-utils = {editable = true, ref = "master", git = "https://github.com/stefantaubert/text-utils.git"}
 text-selection = {editable = true, ref = "master", git = "https://github.com/stefantaubert/text-selection.git"}
 speech-dataset-parser = {editable = true, ref = "master", git = "https://github.com/stefantaubert/speech-dataset-parser.git"}
-
+ordered-set = "*"
 
 [requires]
 python_version = "3.8"
