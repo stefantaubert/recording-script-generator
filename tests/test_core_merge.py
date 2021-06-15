@@ -1,7 +1,5 @@
-
 from collections import OrderedDict
 
-from ordered_set import OrderedSet
 from recording_script_generator.core.merge import ScriptData, merge
 from recording_script_generator.core.preparation import PreparationData
 from text_utils.language import Language
