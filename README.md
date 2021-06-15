@@ -18,14 +18,14 @@ scripts
 |  ├── data.json
 │  ├── default_script
 |  │  ├── selection.json
-|  │  ├── selected.txt
-|  │  ├── ignored.txt
-|  │  └── rest.txt
+|  │  ├── selected.csv
+|  │  ├── ignored.csv
+|  │  └── rest.csv
 │  ├── final_script
 |  │  ├── selection.json
-|  │  ├── selected.txt
-|  │  ├── ignored.txt
-|  │  └── rest.txt
+|  │  ├── selected.csv
+|  │  ├── ignored.csv
+|  │  └── rest.csv
 │  ├── ...
 ├── ...
 ```
@@ -84,7 +84,7 @@ Example content of script `selection.json`:
 }
 ```
 
-Example content of `script.csv`:
+Example content of `selected.csv`:
 
 ```csv
 0;"ab"
@@ -109,10 +109,11 @@ Each line contains one utterance.
 - **select_greedy_ngrams_epochs**(merge_name, in_script_name, out_script_name, ngram, epochs, ignore_symbols)
   - selects from those ids that are not `selected` or `ignored`.
 - **select_greedy_ngrams_minutes**(merge_name, in_script_name, out_script_name, ngram, minutes, ignore_symbols, estimated_symbols_per_s)
-- **filter**(merge_name, in_script_name, out_script_name, min_len, max_len, allowed_symbols, not_allowed_symbols)
+- **filter**(merge_name, in_script_name, out_script_name, min_len, max_len, not_allowed_symbols)
   - adds the utterances which have less chars or more chars to ignored
 - **print_stats**(merge_name, script_name, estimated_symbols_per_s)
   - prints u.a. the potential duration of the script
+  - prints all symbols
 - **merge_merged**(in_merge_names, out_merge_name)
   - merges merged corpora
   - in_merge_names: `"{merge_name};..."`
