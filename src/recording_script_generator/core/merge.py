@@ -118,3 +118,37 @@ def select_rest(selection: Selection) -> Selection:
   logger.info(f"Added {len(selection.rest)} utterances to selection.")
 
   return result
+
+
+def merge_merged(merged_data: List[Tuple[ScriptData, Selection]]) -> Tuple[ScriptData, Selection]:
+  reading_passages: OrderedDictType[int, List[str]] = OrderedDict()
+  representations: OrderedDictType[int, List[str]] = OrderedDict()
+  selected: OrderedSet[int] = OrderedSet()
+  ignored: OrderedSet[int] = OrderedSet()
+  rest: OrderedSet[int] = OrderedSet()
+
+  offset = 0
+  for script, selection in merged_data:
+    copied_reading_passages = OrderedDict(
+      {k + offset: v for k, v in script.reading_passages.items()})
+    copied_representations = OrderedDict(
+      {k + offset: v for k, v in script.representations.items()})
+    reading_passages.update(copied_reading_passages)
+    representations.update(copied_representations)
+    selected |= OrderedSet([k + offset for k in selection.selected])
+    ignored |= OrderedSet([k + offset for k in selection.ignored])
+    rest |= OrderedSet([k + offset for k in selection.rest])
+    offset += len(copied_reading_passages)
+
+  res_data = ScriptData(
+    reading_passages=reading_passages,
+    representations=representations,
+  )
+
+  res_selection = Selection(
+    selected=selected,
+    ignored=ignored,
+    rest=rest,
+  )
+
+  return res_data, res_selection

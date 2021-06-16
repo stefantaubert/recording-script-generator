@@ -4,7 +4,8 @@ import numpy as np
 from ordered_set import OrderedSet
 from recording_script_generator.core.merge import (
     ScriptData, Selection, get_df_from_reading_passages, get_reading_scripts,
-    merge, number_prepend_zeros, select_greedy_ngrams_epochs, select_rest)
+    merge, merge_merged, number_prepend_zeros, select_greedy_ngrams_epochs,
+    select_rest)
 from recording_script_generator.core.preparation import PreparationData
 from text_utils.language import Language
 
@@ -181,7 +182,7 @@ def test_get_reading_scripts():
     representations=OrderedDict({
       0: ["aa"],
       1: ["bb"],
-      2: ["ac"],
+      2: ["cc"],
     })
   )
 
@@ -196,6 +197,49 @@ def test_get_reading_scripts():
   assert list(selected_df["id"]) == [0]
   assert list(ignored_df["id"]) == [1]
   assert list(rest_df["id"]) == [2]
+
+
+def test_merge_merged():
+  data = ScriptData(
+    reading_passages=OrderedDict({
+      0: ["a"],
+      1: ["b"],
+      2: ["c"],
+    }),
+    representations=OrderedDict({
+      0: ["aa"],
+      1: ["bb"],
+      2: ["cc"],
+    })
+  )
+
+  selection = Selection(
+    selected=OrderedSet([0]),
+    ignored=OrderedSet([1]),
+    rest=OrderedSet([2]),
+  )
+
+  res_data, res_selection = merge_merged([(data, selection), (data, selection)])
+
+  assert res_data.reading_passages == OrderedDict({
+      0: ["a"],
+      1: ["b"],
+      2: ["c"],
+      3: ["a"],
+      4: ["b"],
+      5: ["c"],
+  })
+  assert res_data.representations == OrderedDict({
+      0: ["aa"],
+      1: ["bb"],
+      2: ["cc"],
+      3: ["aa"],
+      4: ["bb"],
+      5: ["cc"],
+  })
+  assert res_selection.selected == OrderedSet([0, 3])
+  assert res_selection.ignored == OrderedSet([1, 4])
+  assert res_selection.rest == OrderedSet([2, 5])
 
 
 def test_get_df_from_reading_passages():

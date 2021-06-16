@@ -8,6 +8,7 @@ from recording_script_generator.app.preparation import (get_corpus_dir,
                                                         load_corpus)
 from recording_script_generator.core.merge import (ScriptData, Selection,
                                                    get_reading_scripts, merge,
+                                                   merge_merged,
                                                    select_greedy_ngrams_epochs,
                                                    select_rest)
 from recording_script_generator.core.preparation import PreparationData
@@ -156,4 +157,41 @@ def app_select_greedy_ngrams_epochs(base_dir: Path, merge_name: str, in_script_n
   out_script_dir.mkdir(parents=False, exist_ok=False)
   save_selection(out_script_dir, new_selection)
   save_scripts(out_script_dir, data, new_selection)
+  logger.info("Done")
+
+
+def app_merge_merged(base_dir: Path, merge_names: List[Tuple[str, str]], out_merge_name: str, out_script_name: str):
+  logger = getLogger(__name__)
+  logger.info(f"Merging multiple merged data...")
+
+  merged_data: List[Tuple[ScriptData, Selection]] = []
+  out_merge_dir = get_merge_dir(base_dir, out_merge_name)
+  out_script_dir = get_script_dir(out_merge_dir, out_script_name)
+  if out_script_dir.exists():
+    logger.error("Out script dir does already exist!")
+    return
+
+  for merge_name, in_script_name in merge_names:
+    merge_dir = get_merge_dir(base_dir, merge_name)
+    if not merge_dir.exists():
+      logger.error("Merge dir does not exist!")
+      return
+
+    in_script_dir = get_script_dir(merge_dir, in_script_name)
+    if not in_script_dir.exists():
+      logger.error("In script dir does not exist!")
+      return
+
+    data = load_data(merge_dir)
+    selection = load_selection(in_script_dir)
+    merged_data.append((data, selection))
+
+  res_data, res_selection = merge_merged(merged_data)
+
+  out_merge_dir.mkdir(parents=False, exist_ok=False)
+  save_data(out_merge_dir, res_data)
+
+  out_script_dir.mkdir(parents=False, exist_ok=False)
+  save_selection(out_script_dir, res_selection)
+  save_scripts(out_script_dir, res_data, res_selection)
   logger.info("Done")
