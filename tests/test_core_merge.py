@@ -3,8 +3,8 @@ from collections import OrderedDict
 import numpy as np
 from ordered_set import OrderedSet
 from recording_script_generator.core.merge import (
-    ScriptData, Selection, get_df_from_reading_passages, merge,
-    number_prepend_zeros, select_greedy_ngrams_epochs, select_rest)
+    ScriptData, Selection, get_df_from_reading_passages, get_reading_scripts,
+    merge, number_prepend_zeros, select_greedy_ngrams_epochs, select_rest)
 from recording_script_generator.core.preparation import PreparationData
 from text_utils.language import Language
 
@@ -171,18 +171,46 @@ def test_number_prepend_zeros__three():
   assert res == "005"
 
 
+def test_get_reading_scripts():
+  data = ScriptData(
+    reading_passages=OrderedDict({
+      0: ["a"],
+      1: ["b"],
+      2: ["a"],
+    }),
+    representations=OrderedDict({
+      0: ["aa"],
+      1: ["bb"],
+      2: ["ac"],
+    })
+  )
+
+  selection = Selection(
+    selected=OrderedSet([0]),
+    ignored=OrderedSet([1]),
+    rest=OrderedSet([2]),
+  )
+
+  selected_df, ignored_df, rest_df = get_reading_scripts(data, selection)
+
+  assert list(selected_df["id"]) == [0]
+  assert list(ignored_df["id"]) == [1]
+  assert list(rest_df["id"]) == [2]
+
+
 def test_get_df_from_reading_passages():
   reading_passages = OrderedDict({
-    0: ["a"],
-    1: ["b"],
-    9: ["c"],
+    0: (["a"], ["aa"]),
+    1: (["b"], ["bb"]),
+    9: (["c"], ["cc"]),
   })
 
   res = get_df_from_reading_passages(reading_passages)
 
   assert len(res) == 3
-  assert list(res.columns) == ["id", "nr", "utterance"]
+  assert list(res.columns) == ["id", "nr", "utterance", "representation"]
   assert list(res["id"]) == [0, 1, 9]
   assert list(res["nr"]) == ["1", "2", "3"]
   assert list(res["utterance"]) == ["a", "b", "c"]
-  assert list(res.dtypes) == [np.int64, object, object]
+  assert list(res["representation"]) == ["aa", "bb", "cc"]
+  assert list(res.dtypes) == [np.int64, object, object, object]

@@ -32,27 +32,27 @@ def number_prepend_zeros(n: int, max_n: int) -> str:
   return res
 
 
-def get_df_from_reading_passages(reading_passages: OrderedDictType[int, List[str]]) -> DataFrame:
+def get_df_from_reading_passages(reading_passages: OrderedDictType[int, Tuple[List[str], List[str]]]) -> DataFrame:
   df = DataFrame(
     data=[(
       k,
       number_prepend_zeros(i + 1, len(reading_passages) + 1),
-      "".join(v),
-    ) for i, (k, v) in enumerate(reading_passages.items())],
-    columns=["id", "nr", "utterance"],
+      "".join(reading_passage),
+      "".join(representation),
+    ) for i, (k, (reading_passage, representation)) in enumerate(reading_passages.items())],
+    columns=["id", "nr", "utterance", "representation"],
   )
-
-  # df["nr"] = df["nr"].astype('str')
-  # df["utterance"] = df["utterance"].astype('str')
 
   return df
 
 
 def get_reading_scripts(data: ScriptData, selection: Selection) -> Tuple[DataFrame, DataFrame, DataFrame]:
   selected = OrderedDict(
-    {k: v for k, v in data.reading_passages.items() if k in selection.selected})
-  ignored = OrderedDict({k: v for k, v in data.reading_passages.items() if k in selection.ignored})
-  rest = OrderedDict({k: v for k, v in data.reading_passages.items() if k in selection.rest})
+    {k: (v, data.representations[k]) for k, v in data.reading_passages.items() if k in selection.selected})
+  ignored = OrderedDict(
+    {k: (v, data.representations[k]) for k, v in data.reading_passages.items() if k in selection.ignored})
+  rest = OrderedDict(
+    {k: (v, data.representations[k]) for k, v in data.reading_passages.items() if k in selection.rest})
 
   selected_df = get_df_from_reading_passages(selected)
   ignored_df = get_df_from_reading_passages(ignored)

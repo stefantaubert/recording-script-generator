@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from recording_script_generator.app.merge import app_merge, app_select_rest
+from recording_script_generator.app.merge import (
+    app_merge, app_select_greedy_ngrams_epochs, app_select_rest)
 from recording_script_generator.app.preparation import (
     add_corpus_from_text_file, app_convert_to_ipa, app_normalize)
 from recording_script_generator.core.preparation import PreparationTarget
@@ -19,9 +20,18 @@ if __name__ == "__main__":
     overwrite=True,
   )
 
-  app_select_rest(
+  app_select_greedy_ngrams_epochs(
     base_dir=base_dir,
     merge_name="ljs_debug",
     in_script_name="initial",
     out_script_name="all",
+    epochs=5,
+    n_gram=1,
   )
+
+  # app_select_rest(
+  #   base_dir=base_dir,
+  #   merge_name="ljs_debug",
+  #   in_script_name="initial",
+  #   out_script_name="all",
+  # )
