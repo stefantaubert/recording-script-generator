@@ -1,14 +1,16 @@
 from logging import getLogger
 from pathlib import Path
+from shutil import rmtree
 from typing import List, Optional, Tuple
 
 from recording_script_generator.app.preparation import (get_corpus_dir,
                                                         get_step_dir,
                                                         load_corpus)
 from recording_script_generator.core.merge import (ScriptData, Selection,
-                                                   get_reading_scripts, merge)
+                                                   get_reading_scripts, merge,
+                                                   select_rest)
 from recording_script_generator.core.preparation import PreparationData
-from recording_script_generator.utils import save_obj
+from recording_script_generator.utils import load_obj, save_obj
 
 SCRIPTS_DIR_NAME = "scripts"
 DATA_FILENAME = "data.pkl"
@@ -33,6 +35,18 @@ def save_data(merge_dir: Path, data: ScriptData) -> None:
   save_obj(path, data)
 
 
+def load_data(merge_dir: Path) -> ScriptData:
+  path = merge_dir / DATA_FILENAME
+  res = load_obj(path)
+  return res
+
+
+def load_selection(script_dir: Path) -> Selection:
+  path = script_dir / SELECTION_FILENAME
+  res = load_obj(path)
+  return res
+
+
 def save_selection(script_dir: Path, selection: Selection) -> None:
   path = script_dir / SELECTION_FILENAME
   save_obj(path, selection)
@@ -40,17 +54,22 @@ def save_selection(script_dir: Path, selection: Selection) -> None:
 
 def save_scripts(script_dir: Path, data: ScriptData, selection: Selection) -> None:
   selected_df, ignored_df, rest_df = get_reading_scripts(data, selection)
-  selected_df.to_csv(script_dir / SELECTED_FILENAME, sep=SEP, header=True)
-  ignored_df.to_csv(script_dir / IGNORED_FILENAME, sep=SEP, header=True)
-  rest_df.to_csv(script_dir / REST_FILENAME, sep=SEP, header=True)
+  selected_df.to_csv(script_dir / SELECTED_FILENAME, sep=SEP, header=True, index=False)
+  ignored_df.to_csv(script_dir / IGNORED_FILENAME, sep=SEP, header=True, index=False)
+  rest_df.to_csv(script_dir / REST_FILENAME, sep=SEP, header=True, index=False)
 
 
-def app_merge(base_dir: Path, merge_name: str, script_name: str, corpora: List[Tuple[str, str]]) -> None:
+def app_merge(base_dir: Path, merge_name: str, script_name: str, corpora: List[Tuple[str, str]], overwrite: bool) -> None:
   logger = getLogger(__name__)
+  logger.info("Merging...")
   merge_dir = get_merge_dir(base_dir, merge_name)
   if merge_dir.exists():
-    logger.info("Already exists.")
-    return
+    if overwrite:
+      rmtree(merge_dir)
+      logger.info("Removed existing merged data.")
+    else:
+      logger.info("Already exists.")
+      return
 
   corpora_data: List[PreparationData] = []
   for corpus_name, step_name in corpora:
@@ -60,7 +79,7 @@ def app_merge(base_dir: Path, merge_name: str, script_name: str, corpora: List[T
       corpus = load_corpus(step_dir)
       corpora_data.append(corpus)
     else:
-      logger.error(f"Corpus does not exist: {corpus_name} / {step_dir}!")
+      logger.error(f"Corpus does not exist: {corpus_name} / {step_name}!")
       return
 
   data, selection = merge(corpora_data)
@@ -72,4 +91,33 @@ def app_merge(base_dir: Path, merge_name: str, script_name: str, corpora: List[T
   script_dir.mkdir(parents=False, exist_ok=False)
   save_selection(script_dir, selection)
   save_scripts(script_dir, data, selection)
+  logger.info("Done")
+
+
+def app_select_rest(base_dir: Path, merge_name: str, in_script_name: str, out_script_name: str):
+  logger = getLogger(__name__)
+  logger.info("Selecting rest...")
+
+  merge_dir = get_merge_dir(base_dir, merge_name)
+  if not merge_dir.exists():
+    logger.error("Merge dir does not exist!")
+    return
+
+  in_script_dir = get_script_dir(merge_dir, in_script_name)
+  if not in_script_dir.exists():
+    logger.error("In script dir does not exist!")
+    return
+
+  out_script_dir = get_script_dir(merge_dir, out_script_name)
+  if out_script_dir.exists():
+    logger.error("Out script dir does already exist!")
+    return
+
+  selection = load_selection(in_script_dir)
+  new_selection = select_rest(selection)
+
+  out_script_dir.mkdir(parents=False, exist_ok=False)
+  save_selection(out_script_dir, new_selection)
+  data = load_data(merge_dir)
+  save_scripts(out_script_dir, data, new_selection)
   logger.info("Done")

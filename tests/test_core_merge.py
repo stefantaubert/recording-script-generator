@@ -1,9 +1,10 @@
 from collections import OrderedDict
 
+import numpy as np
 from ordered_set import OrderedSet
 from recording_script_generator.core.merge import (
     ScriptData, Selection, get_df_from_reading_passages, merge,
-    number_prepend_zeros, select_greedy_ngrams_epochs)
+    number_prepend_zeros, select_greedy_ngrams_epochs, select_rest)
 from recording_script_generator.core.preparation import PreparationData
 from text_utils.language import Language
 
@@ -136,6 +137,20 @@ def test_select_greedy_ngrams_epochs():
   assert res.rest == OrderedSet([2])
 
 
+def test_select_rest():
+  selection = Selection(
+    selected=OrderedSet([4, 5]),
+    ignored=OrderedSet([6, 7]),
+    rest=OrderedSet([1, 2, 3]),
+  )
+
+  res = select_rest(selection)
+
+  assert res.selected == OrderedSet([4, 5, 1, 2, 3])
+  assert res.ignored == OrderedSet([6, 7])
+  assert res.rest == OrderedSet()
+
+
 def test_number_prepend_zeros__zero():
   res = number_prepend_zeros(0, 0)
   assert res == "0"
@@ -170,3 +185,4 @@ def test_get_df_from_reading_passages():
   assert list(res["id"]) == [0, 1, 9]
   assert list(res["nr"]) == ["1", "2", "3"]
   assert list(res["utterance"]) == ["a", "b", "c"]
+  assert list(res.dtypes) == [np.int64, object, object]

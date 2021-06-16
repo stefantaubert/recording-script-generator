@@ -87,7 +87,9 @@ Example content of script `selection.json`:
 Example content of `selected.csv`:
 
 ```csv
-0;"ab"
+2\t"001"\t"ab"
+4\t"002"\t"cd"
+94\t"003"\t"ef"
 ```
 
 Each line contains one utterance.
@@ -106,6 +108,7 @@ Each line contains one utterance.
 - **merge**(corpora, merge_name, script_name):
   - corpora: `"{corpus_name},{step_name};..."` -> selects the selected utterances
   - all corpora do not need to have the same lang for reading and representation
+- **select_rest**(merge_name, in_script_name, out_script_name)
 - **select_greedy_ngrams_epochs**(merge_name, in_script_name, out_script_name, ngram, epochs, ignore_symbols)
   - selects from those ids that are not `selected` or `ignored`.
 - **select_greedy_ngrams_minutes**(merge_name, in_script_name, out_script_name, ngram, minutes, ignore_symbols, estimated_symbols_per_s)

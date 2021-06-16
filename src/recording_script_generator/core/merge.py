@@ -41,6 +41,10 @@ def get_df_from_reading_passages(reading_passages: OrderedDictType[int, List[str
     ) for i, (k, v) in enumerate(reading_passages.items())],
     columns=["id", "nr", "utterance"],
   )
+
+  # df["nr"] = df["nr"].astype('str')
+  # df["utterance"] = df["utterance"].astype('str')
+
   return df
 
 
@@ -99,5 +103,18 @@ def select_greedy_ngrams_epochs(data: ScriptData, selection: Selection, n_gram: 
   )
 
   logger.info(f"Added {len(new_selected)} utterances to selection.")
+
+  return result
+
+
+def select_rest(selection: Selection) -> Selection:
+  logger = getLogger(__name__)
+  result = Selection(
+    selected=selection.selected | selection.rest,
+    ignored=selection.ignored,
+    rest=OrderedDict(),
+  )
+
+  logger.info(f"Added {len(selection.rest)} utterances to selection.")
 
   return result

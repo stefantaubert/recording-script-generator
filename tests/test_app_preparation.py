@@ -19,6 +19,7 @@ def test_add_corpus_from_text_file(tmp_path: Path):
     text_path=text_path,
     lang=Language.ENG,
     ipa_settings=None,
+    overwrite=False,
   )
 
   assert (base_dir / "corpora" / "corpus1" / "step1" / "data.pkl").exists()
@@ -35,6 +36,7 @@ def test_app_normalize(tmp_path: Path):
     text_path=text_path,
     lang=Language.ENG,
     ipa_settings=None,
+    overwrite=False,
   )
 
   app_normalize(
@@ -60,6 +62,7 @@ def test_app_convert_to_ipa(tmp_path: Path):
     text_path=text_path,
     lang=Language.ENG,
     ipa_settings=None,
+    overwrite=False,
   )
 
   app_convert_to_ipa(

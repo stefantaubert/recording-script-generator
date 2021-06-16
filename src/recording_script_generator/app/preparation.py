@@ -1,5 +1,6 @@
 from logging import getLogger
 from pathlib import Path
+from shutil import rmtree
 from typing import Optional
 
 from recording_script_generator.core.preparation import (PreparationData,
@@ -24,9 +25,11 @@ def get_corpus_dir(base_dir: Path, corpus_name: str) -> Path:
 def get_step_dir(corpus_dir: Path, step_name: str) -> Path:
   return corpus_dir / step_name
 
+
 def load_corpus(step_dir: Path) -> PreparationData:
   res = load_obj(step_dir / DATA_FILE)
   return res
+
 
 def save_corpus(step_dir: Path, corpus: PreparationData) -> None:
   save_obj(
@@ -34,19 +37,21 @@ def save_corpus(step_dir: Path, corpus: PreparationData) -> None:
     obj=corpus,
   )
 
-def add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: str, text_path: Path, lang: Language, ipa_settings: Optional[IPAExtractionSettings]) -> None:
+
+def add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: str, text_path: Path, lang: Language, ipa_settings: Optional[IPAExtractionSettings], overwrite: bool) -> None:
   logger = getLogger(__name__)
+  logger.info("Adding corpus...")
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
-  step_dir = get_step_dir(corpus_dir, step_name)
-  if corpus_dir.exists():
-    logger.info("Already exists.")
-    return
-  if step_dir.exists():
-    logger.info("Already exists.")
-    return
   if not text_path.exists():
     logger.error("File not exists.")
     return
+  if corpus_dir.exists():
+    if overwrite:
+      rmtree(corpus_dir)
+      logger.info("Removed existing corpus.")
+    else:
+      logger.info("Already exists.")
+      return
   lines = read_lines(text_path)
 
   res = add_corpus_from_text(
@@ -56,12 +61,14 @@ def add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: str, 
   )
 
   corpus_dir.mkdir(parents=True, exist_ok=False)
+  step_dir = get_step_dir(corpus_dir, step_name)
   step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(step_dir, res)
 
 
 def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: str, ipa_settings: Optional[IPAExtractionSettings], target: PreparationTarget):
   logger = getLogger(__name__)
+  logger.info("Normalizing...")
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
   in_step_dir = get_step_dir(corpus_dir, in_step_name)
   out_step_dir = get_step_dir(corpus_dir, out_step_name)
@@ -91,6 +98,7 @@ def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, out_step_
 
 def app_convert_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: str, ipa_settings: Optional[IPAExtractionSettings], target: PreparationTarget, mode: Optional[EngToIpaMode], replace_unknown_with: Optional[str] = "_", use_cache: Optional[bool] = True):
   logger = getLogger(__name__)
+  logger.info("Converting to IPA...")
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
   in_step_dir = get_step_dir(corpus_dir, in_step_name)
   out_step_dir = get_step_dir(corpus_dir, out_step_name)
