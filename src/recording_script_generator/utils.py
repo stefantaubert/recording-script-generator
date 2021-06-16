@@ -33,7 +33,7 @@ def save_json(path: str, mapping_dict: Any) -> None:
 
 
 def save_obj(path: Path, obj: Any) -> None:
-  path.parent.mkdir(parents=True, exist_ok=True)
+  assert path.parent.exists()
   with path.open(mode="wb") as f:
     pickle.dump(obj=obj, file=f)
 
@@ -45,5 +45,5 @@ def load_obj(path: Path) -> Any:
 
 
 def save_lines(path: Path, lines: List[str]) -> None:
-  path.parent.mkdir(parents=True, exist_ok=True)
+  assert path.parent.exists()
   path.write_text("\n".join(lines), encoding='utf-8')

@@ -21,7 +21,7 @@ def test_add_corpus_from_text_file(tmp_path: Path):
     ipa_settings=None,
   )
 
-  assert (base_dir / "corpus1" / "step1" / "data.pkl").exists()
+  assert (base_dir / "corpora" / "corpus1" / "step1" / "data.pkl").exists()
 
 
 def test_app_normalize(tmp_path: Path):
@@ -46,7 +46,7 @@ def test_app_normalize(tmp_path: Path):
     ipa_settings=None,
   )
 
-  assert (base_dir / "corpus1" / "step2" / "data.pkl").exists()
+  assert (base_dir / "corpora" / "corpus1" / "step2" / "data.pkl").exists()
 
 
 def test_app_convert_to_ipa(tmp_path: Path):
@@ -72,4 +72,4 @@ def test_app_convert_to_ipa(tmp_path: Path):
     mode=EngToIpaMode.BOTH,
   )
 
-  assert (base_dir / "corpus1" / "step2" / "data.pkl").exists()
+  assert (base_dir / "corpora" / "corpus1" / "step2" / "data.pkl").exists()
