@@ -31,3 +31,4 @@ def test_app_merge(tmp_path: Path):
 
   assert (base_dir / "scripts" / "merge1" / "data.pkl").exists()
   assert (base_dir / "scripts" / "merge1" / "script1" / "selection.pkl").exists()
+  assert (base_dir / "scripts" / "merge1" / "script1" / "rest.csv").exists()

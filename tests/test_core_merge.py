@@ -1,9 +1,9 @@
 from collections import OrderedDict
 
 from ordered_set import OrderedSet
-from recording_script_generator.core.merge import (ScriptData, Selection,
-                                                   merge,
-                                                   select_greedy_ngrams_epochs)
+from recording_script_generator.core.merge import (
+    ScriptData, Selection, get_df_from_reading_passages, merge,
+    number_prepend_zeros, select_greedy_ngrams_epochs)
 from recording_script_generator.core.preparation import PreparationData
 from text_utils.language import Language
 
@@ -134,3 +134,39 @@ def test_select_greedy_ngrams_epochs():
   assert res.selected == OrderedSet([0, 1])
   assert res.ignored == OrderedSet()
   assert res.rest == OrderedSet([2])
+
+
+def test_number_prepend_zeros__zero():
+  res = number_prepend_zeros(0, 0)
+  assert res == "0"
+
+
+def test_number_prepend_zeros__one():
+  res = number_prepend_zeros(5, 6)
+  assert res == "5"
+
+
+def test_number_prepend_zeros__two():
+  res = number_prepend_zeros(5, 10)
+  assert res == "05"
+
+
+def test_number_prepend_zeros__three():
+  res = number_prepend_zeros(5, 100)
+  assert res == "005"
+
+
+def test_get_df_from_reading_passages():
+  reading_passages = OrderedDict({
+    0: ["a"],
+    1: ["b"],
+    9: ["c"],
+  })
+
+  res = get_df_from_reading_passages(reading_passages)
+
+  assert len(res) == 3
+  assert list(res.columns) == ["id", "nr", "utterance"]
+  assert list(res["id"]) == [0, 1, 9]
+  assert list(res["nr"]) == ["1", "2", "3"]
+  assert list(res["utterance"]) == ["a", "b", "c"]
