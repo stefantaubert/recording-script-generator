@@ -1,10 +1,11 @@
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from dataclasses import dataclass
 from logging import getLogger
 from typing import List, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Set, Tuple
 
+from numpy import select
 from ordered_set import OrderedSet
 from pandas import DataFrame
 from recording_script_generator.core.preparation import PreparationData
@@ -152,3 +153,57 @@ def merge_merged(merged_data: List[Tuple[ScriptData, Selection]]) -> Tuple[Scrip
   )
 
   return res_data, res_selection
+
+
+def ignore(data: ScriptData, selection: Selection, ignore_symbol: Optional[str]) -> Selection:
+  logger = getLogger(__name__)
+  rest = OrderedDict({k: v for k, v in data.representations.items() if k in selection.rest})
+
+  ignore = OrderedSet()
+  for k, v in rest.items():
+    if ignore_symbol is not None and ignore_symbol in v:
+      ignore.add(k)
+
+  result = Selection(
+    selected=selection.selected,
+    ignored=selection.ignored | ignore,
+    rest=selection.rest - ignore,
+  )
+
+  logger.info(f"Ignored {len(ignore)} utterances.")
+
+  return result
+
+
+def _log_counter(c: Counter):
+  logger = getLogger(__name__)
+  for char, occ in c.items():
+    logger.info(f"- {char} ({occ}x)")
+
+
+def log_stats(data: ScriptData, selection: Selection, avg_chars_per_s: int) -> None:
+  assert avg_chars_per_s >= 0
+  counter_repr = Counter([x for y in data.representations.values() for x in y])
+  counter_read = Counter([x for y in data.reading_passages.values() for x in y])
+
+  logger = getLogger(__name__)
+  logger.info("Representation symbol occurrences:")
+  _log_counter(counter_repr)
+  logger.info("Reading passages symbol occurrences:")
+  _log_counter(counter_read)
+
+  selected = OrderedDict(
+    {k: v for k, v in data.reading_passages.items() if k in selection.selected})
+  ignored = OrderedDict({k: v for k, v in data.reading_passages.items() if k in selection.ignored})
+  rest = OrderedDict({k: v for k, v in data.reading_passages.items() if k in selection.rest})
+
+  selected_chars = len([x for y in selected.values() for x in y])
+  ignored_chars = len([x for y in ignored.values() for x in y])
+  rest_chars = len([x for y in rest.values() for x in y])
+
+  logger.info(
+    f"Selected: {len(selected)} entries / {selected_chars} chars / ~{selected_chars/avg_chars_per_s/60:.2f} min")
+  logger.info(
+    f"Ignored: {len(ignored)} entries / {ignored_chars} chars / ~{ignored_chars/avg_chars_per_s/60:.2f} min")
+  logger.info(
+    f"Rest: {len(rest)} entries / {rest_chars} chars / ~{rest_chars/avg_chars_per_s/60:.2f} min")

@@ -4,8 +4,8 @@ import numpy as np
 from ordered_set import OrderedSet
 from recording_script_generator.core.merge import (
     ScriptData, Selection, get_df_from_reading_passages, get_reading_scripts,
-    merge, merge_merged, number_prepend_zeros, select_greedy_ngrams_epochs,
-    select_rest)
+    ignore, log_stats, merge, merge_merged, number_prepend_zeros,
+    select_greedy_ngrams_epochs, select_rest)
 from recording_script_generator.core.preparation import PreparationData
 from text_utils.language import Language
 
@@ -137,6 +137,61 @@ def test_select_greedy_ngrams_epochs():
   assert res.ignored == OrderedSet()
   assert res.rest == OrderedSet([2])
 
+
+def test_ignore():
+  data = ScriptData(
+    reading_passages=None,
+    representations=OrderedDict({
+      0: ["a"],
+      1: ["b"],
+      2: ["a"],
+    })
+  )
+
+  selection = Selection(
+    selected=OrderedSet(),
+    ignored=OrderedSet(),
+    rest=OrderedSet(data.representations.keys()),
+  )
+
+  res = ignore(
+    data=data,
+    selection=selection,
+    ignore_symbol="a",
+  )
+
+  assert res.selected == OrderedSet()
+  assert res.ignored == OrderedSet([0, 2])
+  assert res.rest == OrderedSet([1])
+
+
+def test_log_stats():
+  data = ScriptData(
+    reading_passages=OrderedDict({
+      0: ["aa"],
+      1: ["bb"],
+      2: ["aa"],
+    }),
+    representations=OrderedDict({
+      0: ["a"],
+      1: ["b"],
+      2: ["a"],
+    })
+  )
+
+  selection = Selection(
+    selected=OrderedSet(),
+    ignored=OrderedSet(),
+    rest=OrderedSet(data.representations.keys()),
+  )
+
+  log_stats(
+    data=data,
+    selection=selection,
+    avg_chars_per_s=25,
+  )
+
+  assert True
 
 def test_select_rest():
   selection = Selection(

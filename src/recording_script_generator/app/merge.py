@@ -7,7 +7,8 @@ from recording_script_generator.app.preparation import (get_corpus_dir,
                                                         get_step_dir,
                                                         load_corpus)
 from recording_script_generator.core.merge import (ScriptData, Selection,
-                                                   get_reading_scripts, merge,
+                                                   get_reading_scripts, ignore,
+                                                   log_stats, merge,
                                                    merge_merged,
                                                    select_greedy_ngrams_epochs,
                                                    select_rest)
@@ -93,7 +94,7 @@ def app_merge(base_dir: Path, merge_name: str, script_name: str, corpora: List[T
   script_dir.mkdir(parents=False, exist_ok=False)
   save_selection(script_dir, selection)
   save_scripts(script_dir, data, selection)
-  logger.info("Done")
+  logger.info("Done.")
 
 
 def app_select_rest(base_dir: Path, merge_name: str, in_script_name: str, out_script_name: str):
@@ -122,7 +123,7 @@ def app_select_rest(base_dir: Path, merge_name: str, in_script_name: str, out_sc
   out_script_dir.mkdir(parents=False, exist_ok=False)
   save_selection(out_script_dir, new_selection)
   save_scripts(out_script_dir, data, new_selection)
-  logger.info("Done")
+  logger.info("Done.")
 
 
 def app_select_greedy_ngrams_epochs(base_dir: Path, merge_name: str, in_script_name: str, out_script_name: str, n_gram: int, epochs: int):
@@ -157,7 +158,67 @@ def app_select_greedy_ngrams_epochs(base_dir: Path, merge_name: str, in_script_n
   out_script_dir.mkdir(parents=False, exist_ok=False)
   save_selection(out_script_dir, new_selection)
   save_scripts(out_script_dir, data, new_selection)
-  logger.info("Done")
+  logger.info("Done.")
+
+
+def app_ignore(base_dir: Path, merge_name: str, in_script_name: str, out_script_name: str, ignore_symbol: Optional[str]):
+  logger = getLogger(__name__)
+  if ignore_symbol is not None:
+    logger.info(f"Ignoring utterances containing symbol \"{ignore_symbol}\"...")
+  else:
+    logger.info("Nothing to do.")
+    return
+  merge_dir = get_merge_dir(base_dir, merge_name)
+  if not merge_dir.exists():
+    logger.error("Merge dir does not exist!")
+    return
+
+  in_script_dir = get_script_dir(merge_dir, in_script_name)
+  if not in_script_dir.exists():
+    logger.error("In script dir does not exist!")
+    return
+
+  out_script_dir = get_script_dir(merge_dir, out_script_name)
+  if out_script_dir.exists():
+    logger.error("Out script dir does already exist!")
+    return
+
+  data = load_data(merge_dir)
+  selection = load_selection(in_script_dir)
+  new_selection = ignore(
+    data=data,
+    selection=selection,
+    ignore_symbol=ignore_symbol,
+  )
+
+  out_script_dir.mkdir(parents=False, exist_ok=False)
+  save_selection(out_script_dir, new_selection)
+  save_scripts(out_script_dir, data, new_selection)
+  logger.info("Done.")
+
+
+def app_log_stats(base_dir: Path, merge_name: str, script_name: str, avg_chars_per_s: int = 25):
+  logger = getLogger(__name__)
+  logger.info("Stats")
+  merge_dir = get_merge_dir(base_dir, merge_name)
+  if not merge_dir.exists():
+    logger.error("Merge dir does not exist!")
+    return
+
+  in_script_dir = get_script_dir(merge_dir, script_name)
+  if not in_script_dir.exists():
+    logger.error("In script dir does not exist!")
+    return
+
+  data = load_data(merge_dir)
+  selection = load_selection(in_script_dir)
+  log_stats(
+    data=data,
+    selection=selection,
+    avg_chars_per_s=avg_chars_per_s,
+  )
+
+  logger.info("Done.")
 
 
 def app_merge_merged(base_dir: Path, merge_names: List[Tuple[str, str]], out_merge_name: str, out_script_name: str):
@@ -194,4 +255,4 @@ def app_merge_merged(base_dir: Path, merge_names: List[Tuple[str, str]], out_mer
   out_script_dir.mkdir(parents=False, exist_ok=False)
   save_selection(out_script_dir, res_selection)
   save_scripts(out_script_dir, res_data, res_selection)
-  logger.info("Done")
+  logger.info("Done.")
