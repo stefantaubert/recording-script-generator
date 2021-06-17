@@ -28,17 +28,14 @@ def _add_parser_to(subparsers, name: str, init_method: Callable[[ArgumentParser]
   parser = subparsers.add_parser(name, help=f"{name} help")
   invoke_method = init_method(parser)
   parser.set_defaults(invoke_handler=invoke_method)
-  add_base_dir(parser)
+  if set_base_dir:
+    add_base_dir(parser)
   return parser
 
 
 def init_ljs_to_text_file_parser(parser: ArgumentParser):
-  parser.add_argument('--corpus_name', type=str, required=True)
-  parser.add_argument('--step_name', type=str, required=True)
-  parser.add_argument('--text_path', type=Path, required=True)
-  parser.add_argument('--lang', choices=Language, type=Language.__getitem__)
-  parser.add_argument('--ignore_tones', action='store_true')
-  parser.add_argument('--replace_unknown_ipa_by', type=str, default="_")
+  parser.add_argument('--ljs_path', type=Path, required=True)
+  parser.add_argument('--output_file', type=Path, default=Path("/tmp/out.txt"))
   return app_ljs_to_text
 
 
@@ -48,7 +45,7 @@ def init_ljs_to_text_file_parser(parser: ArgumentParser):
 def init_add_corpus_from_text_file_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True)
   parser.add_argument('--step_name', type=str, required=True)
-  parser.add_argument('--text_path', type=Path, required=True)
+  parser.add_argument('--text_path', type=Path, default=Path("/tmp/out.txt"))
   parser.add_argument('--lang', choices=Language, type=Language.__getitem__)
   parser.add_argument('--ignore_tones', action='store_true')
   parser.add_argument('--replace_unknown_ipa_by', type=str, default="_")
