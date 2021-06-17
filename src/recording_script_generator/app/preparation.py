@@ -66,7 +66,7 @@ def add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: str, 
   save_corpus(step_dir, res)
 
 
-def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: str, ignore_tones: Optional[bool], ignore_arcs: Optional[bool], replace_unknown_ipa_by: Optional[str], target: PreparationTarget):
+def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: str, ignore_tones: Optional[bool], ignore_arcs: Optional[bool], replace_unknown_ipa_by: Optional[str], target: PreparationTarget, overwrite: bool):
   logger = getLogger(__name__)
   logger.info("Normalizing...")
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
@@ -78,8 +78,8 @@ def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, out_step_
   if not in_step_dir.exists():
     logger.info("In dir not exists.")
     return
-  if out_step_dir.exists():
-    logger.info("Out dir exists.")
+  if out_step_dir.exists() and not overwrite:
+    logger.info("Already exists.")
     return
   in_data_path = in_step_dir / DATA_FILE
   assert in_data_path.exists()
@@ -91,12 +91,15 @@ def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, out_step_
     ipa_settings=IPAExtractionSettings(ignore_tones, ignore_arcs, replace_unknown_ipa_by),
   )
 
+  if out_step_dir.exists():
+    rmtree(out_step_dir)
+    logger.info("Overwriting existing out dir.")
   out_step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(out_step_dir, res)
   logger.info("Done.")
 
 
-def app_convert_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: str, ignore_tones: Optional[bool], ignore_arcs: Optional[bool], replace_unknown_ipa_by: Optional[str], target: PreparationTarget, mode: Optional[EngToIpaMode], replace_unknown_with: Optional[str] = "_", use_cache: Optional[bool] = True):
+def app_convert_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: str, ignore_tones: Optional[bool], ignore_arcs: Optional[bool], replace_unknown_ipa_by: Optional[str], target: PreparationTarget, mode: Optional[EngToIpaMode], overwrite: bool, replace_unknown_with: Optional[str] = "_", use_cache: Optional[bool] = True):
   logger = getLogger(__name__)
   logger.info("Converting to IPA...")
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
@@ -108,8 +111,8 @@ def app_convert_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, out_
   if not in_step_dir.exists():
     logger.info("In dir not exists.")
     return
-  if out_step_dir.exists():
-    logger.info("Out dir exists.")
+  if out_step_dir.exists() and not overwrite:
+    logger.info("Already exists.")
     return
   in_data_path = in_step_dir / DATA_FILE
   assert in_data_path.exists()
@@ -124,6 +127,9 @@ def app_convert_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, out_
     use_cache=use_cache,
   )
 
+  if out_step_dir.exists():
+    rmtree(out_step_dir)
+    logger.info("Overwriting existing out dir.")
   out_step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(out_step_dir, res)
   logger.info("Done.")

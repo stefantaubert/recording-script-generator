@@ -21,7 +21,9 @@ def test_app_merge(tmp_path: Path):
     step_name="step1",
     text_path=text_path,
     lang=Language.ENG,
-    ipa_settings=None,
+    replace_unknown_ipa_by=None,
+    ignore_arcs=None,
+    ignore_tones=None,
     overwrite=False,
   )
 
@@ -35,6 +37,7 @@ def test_app_merge(tmp_path: Path):
 
   assert (base_dir / "scripts" / "merge1" / "data.pkl").exists()
   assert (base_dir / "scripts" / "merge1" / "script1" / "selection.pkl").exists()
+  assert (base_dir / "scripts" / "merge1" / "script1" / "selected.txt").exists()
   assert (base_dir / "scripts" / "merge1" / "script1" / "selected.csv").exists()
   assert (base_dir / "scripts" / "merge1" / "script1" / "ignored.csv").exists()
   assert (base_dir / "scripts" / "merge1" / "script1" / "rest.csv").exists()
@@ -50,7 +53,9 @@ def test_app_merge_merged(tmp_path: Path):
     step_name="step1",
     text_path=text_path,
     lang=Language.ENG,
-    ipa_settings=None,
+    replace_unknown_ipa_by=None,
+    ignore_arcs=None,
+    ignore_tones=None,
     overwrite=False,
   )
 
@@ -80,6 +85,7 @@ def test_app_merge_merged(tmp_path: Path):
 
   assert (base_dir / "scripts" / "merge3" / "data.pkl").exists()
   assert (base_dir / "scripts" / "merge3" / "script1" / "selection.pkl").exists()
+  assert (base_dir / "scripts" / "merge3" / "script1" / "selected.txt").exists()
   assert (base_dir / "scripts" / "merge3" / "script1" / "selected.csv").exists()
   assert (base_dir / "scripts" / "merge3" / "script1" / "ignored.csv").exists()
   assert (base_dir / "scripts" / "merge3" / "script1" / "rest.csv").exists()
@@ -95,7 +101,9 @@ def test_app_select_rest(tmp_path: Path):
     step_name="step1",
     text_path=text_path,
     lang=Language.ENG,
-    ipa_settings=None,
+    replace_unknown_ipa_by=None,
+    ignore_arcs=None,
+    ignore_tones=None,
     overwrite=False,
   )
 
@@ -116,6 +124,7 @@ def test_app_select_rest(tmp_path: Path):
   )
 
   assert (base_dir / "scripts" / "merge1" / "script2" / "selection.pkl").exists()
+  assert (base_dir / "scripts" / "merge1" / "script2" / "selected.txt").exists()
   assert (base_dir / "scripts" / "merge1" / "script2" / "selected.csv").exists()
   assert (base_dir / "scripts" / "merge1" / "script2" / "ignored.csv").exists()
   assert (base_dir / "scripts" / "merge1" / "script2" / "rest.csv").exists()
@@ -131,7 +140,9 @@ def test_app_ignore(tmp_path: Path):
     step_name="step1",
     text_path=text_path,
     lang=Language.ENG,
-    ipa_settings=None,
+    replace_unknown_ipa_by=None,
+    ignore_arcs=None,
+    ignore_tones=None,
     overwrite=False,
   )
 
@@ -153,6 +164,7 @@ def test_app_ignore(tmp_path: Path):
   )
 
   assert (base_dir / "scripts" / "merge1" / "script2" / "selection.pkl").exists()
+  assert (base_dir / "scripts" / "merge1" / "script2" / "selected.txt").exists()
   assert (base_dir / "scripts" / "merge1" / "script2" / "selected.csv").exists()
   assert (base_dir / "scripts" / "merge1" / "script2" / "ignored.csv").exists()
   assert (base_dir / "scripts" / "merge1" / "script2" / "rest.csv").exists()
@@ -168,7 +180,9 @@ def test_app_log_stats(tmp_path: Path):
     step_name="step1",
     text_path=text_path,
     lang=Language.ENG,
-    ipa_settings=None,
+    replace_unknown_ipa_by=None,
+    ignore_arcs=None,
+    ignore_tones=None,
     overwrite=False,
   )
 
@@ -199,7 +213,9 @@ def test_app_select_greedy_ngrams_epochs(tmp_path: Path):
     step_name="step1",
     text_path=text_path,
     lang=Language.ENG,
-    ipa_settings=None,
+    replace_unknown_ipa_by=None,
+    ignore_arcs=None,
+    ignore_tones=None,
     overwrite=False,
   )
 
@@ -222,6 +238,7 @@ def test_app_select_greedy_ngrams_epochs(tmp_path: Path):
   )
 
   assert (base_dir / "scripts" / "merge1" / "script2" / "selection.pkl").exists()
+  assert (base_dir / "scripts" / "merge1" / "script2" / "selected.txt").exists()
   assert (base_dir / "scripts" / "merge1" / "script2" / "selected.csv").exists()
   assert (base_dir / "scripts" / "merge1" / "script2" / "ignored.csv").exists()
   assert (base_dir / "scripts" / "merge1" / "script2" / "rest.csv").exists()

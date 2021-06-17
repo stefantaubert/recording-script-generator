@@ -3,6 +3,7 @@ from pathlib import Path
 from shutil import rmtree
 from typing import List, Optional, Tuple
 
+from pandas.core.frame import DataFrame
 from recording_script_generator.app.preparation import (get_corpus_dir,
                                                         get_step_dir,
                                                         load_corpus)
@@ -19,6 +20,7 @@ SCRIPTS_DIR_NAME = "scripts"
 DATA_FILENAME = "data.pkl"
 SELECTION_FILENAME = "selection.pkl"
 SELECTED_FILENAME = "selected.csv"
+SELECTED_TXT_FILENAME = "selected.txt"
 IGNORED_FILENAME = "ignored.csv"
 REST_FILENAME = "rest.csv"
 
@@ -55,11 +57,19 @@ def save_selection(script_dir: Path, selection: Selection) -> None:
   save_obj(path, selection)
 
 
+def df_to_txt(df: DataFrame) -> str:
+  result = ""
+  for i, row in df.iterrows():
+    result += f"{row['nr']}: {row['utterance']}\n"
+  return result
+
 def save_scripts(script_dir: Path, data: ScriptData, selection: Selection) -> None:
   selected_df, ignored_df, rest_df = get_reading_scripts(data, selection)
   selected_df.to_csv(script_dir / SELECTED_FILENAME, sep=SEP, header=True, index=False)
   ignored_df.to_csv(script_dir / IGNORED_FILENAME, sep=SEP, header=True, index=False)
   rest_df.to_csv(script_dir / REST_FILENAME, sep=SEP, header=True, index=False)
+  selected_txt = df_to_txt(selected_df)
+  (script_dir / SELECTED_TXT_FILENAME).write_text(selected_txt)
 
 
 def app_merge(base_dir: Path, merge_name: str, script_name: str, corpora: List[Tuple[str, str]], overwrite: bool) -> None:
@@ -156,18 +166,17 @@ def app_select_rest(base_dir: Path, merge_name: str, in_script_name: str, out_sc
     return
 
   out_script_dir = get_script_dir(merge_dir, out_script_name)
-  if out_script_dir.exists():
-    if overwrite:
-      rmtree(out_script_dir)
-      logger.info("Overwriting existing out script dir.")
-    else:
-      logger.error("Out script dir does already exist!")
-      return
+  if out_script_dir.exists() and not overwrite:
+    logger.error("Out script dir does already exist!")
+    return
 
   data = load_data(merge_dir)
   selection = load_selection(in_script_dir)
   new_selection = select_rest(selection)
 
+  if out_script_dir.exists():
+    rmtree(out_script_dir)
+    logger.info("Overwriting existing out script dir.")
   out_script_dir.mkdir(parents=False, exist_ok=False)
   save_selection(out_script_dir, new_selection)
   save_scripts(out_script_dir, data, new_selection)
@@ -189,13 +198,9 @@ def app_select_greedy_ngrams_epochs(base_dir: Path, merge_name: str, in_script_n
     return
 
   out_script_dir = get_script_dir(merge_dir, out_script_name)
-  if out_script_dir.exists():
-    if overwrite:
-      rmtree(out_script_dir)
-      logger.info("Overwriting existing out script dir.")
-    else:
-      logger.error("Out script dir does already exist!")
-      return
+  if out_script_dir.exists() and not overwrite:
+    logger.error("Out script dir does already exist!")
+    return
 
   data = load_data(merge_dir)
   selection = load_selection(in_script_dir)
@@ -207,6 +212,9 @@ def app_select_greedy_ngrams_epochs(base_dir: Path, merge_name: str, in_script_n
     ignore_symbols=None,
   )
 
+  if out_script_dir.exists():
+    rmtree(out_script_dir)
+    logger.info("Overwriting existing out script dir.")
   out_script_dir.mkdir(parents=False, exist_ok=False)
   save_selection(out_script_dir, new_selection)
   save_scripts(out_script_dir, data, new_selection)
@@ -231,13 +239,9 @@ def app_ignore(base_dir: Path, merge_name: str, in_script_name: str, out_script_
     return
 
   out_script_dir = get_script_dir(merge_dir, out_script_name)
-  if out_script_dir.exists():
-    if overwrite:
-      rmtree(out_script_dir)
-      logger.info("Overwriting existing out script dir.")
-    else:
-      logger.error("Out script dir does already exist!")
-      return
+  if out_script_dir.exists() and not overwrite:
+    logger.error("Out script dir does already exist!")
+    return
 
   data = load_data(merge_dir)
   selection = load_selection(in_script_dir)
@@ -247,6 +251,9 @@ def app_ignore(base_dir: Path, merge_name: str, in_script_name: str, out_script_
     ignore_symbol=ignore_symbol,
   )
 
+  if out_script_dir.exists():
+    rmtree(out_script_dir)
+    logger.info("Overwriting existing out script dir.")
   out_script_dir.mkdir(parents=False, exist_ok=False)
   save_selection(out_script_dir, new_selection)
   save_scripts(out_script_dir, data, new_selection)

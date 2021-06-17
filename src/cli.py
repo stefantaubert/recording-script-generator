@@ -122,8 +122,8 @@ def init_ignore_parser(parser: ArgumentParser):
 def init_log_stats_parser(parser: ArgumentParser):
   parser.add_argument('--merge_name', type=str, required=True)
   parser.add_argument('--script_name', type=str, required=True)
-  parser.add_argument('--avg_chars_per_s', type=int, default=25)
-  parser.set_defaults(overwrite=True)
+  parser.add_argument('--avg_chars_per_s', type=int, default=15)
+  parser.set_defaults()
   return app_log_stats
 
 
@@ -146,6 +146,9 @@ def _init_parser():
   subparsers = result.add_subparsers(help='sub-command help')
 
   _add_parser_to(subparsers, "extract-text-ljs", init_ljs_to_text_file_parser, set_base_dir=False)
+  _add_parser_to(subparsers, "corpus-add", init_add_corpus_from_text_file_parser)
+  _add_parser_to(subparsers, "corpus-normalize", init_normalize_parser)
+  _add_parser_to(subparsers, "corpus-to-ipa", init_convert_to_ipa_parser)
   _add_parser_to(subparsers, "script-merge", init_merge_parser)
   _add_parser_to(subparsers, "script-select-rest", init_select_rest_parser)
   _add_parser_to(subparsers, "script-merge-merged", init_merge_merged_parser)
@@ -153,9 +156,6 @@ def _init_parser():
                  init_select_greedy_ngrams_epochs_parser)
   _add_parser_to(subparsers, "script-ignore", init_ignore_parser)
   _add_parser_to(subparsers, "script-print-stats", init_log_stats_parser)
-  _add_parser_to(subparsers, "corpus-add", init_add_corpus_from_text_file_parser)
-  _add_parser_to(subparsers, "corpus-normalize", init_normalize_parser)
-  _add_parser_to(subparsers, "corpus-to-ipa", init_convert_to_ipa_parser)
 
   return result
 

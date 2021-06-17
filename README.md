@@ -121,3 +121,58 @@ Each line contains one utterance.
   - merges merged corpora
   - in_merge_names: `"{merge_name};..."`
 
+
+Examples:
+
+```sh
+pipenv run python -m cli extract-text-ljs \
+  --output_file="/tmp/out.txt" \
+  --ljs_path="/tmp/LJSpeech-1.1"
+
+pipenv run python -m cli corpus-add \
+  --corpus_name="ljs" \
+  --step_name="eng" \
+  --text_path="/tmp/out.txt" \
+  --lang=ENG
+
+pipenv run python -m cli corpus-normalize \
+  --corpus_name="ljs" \
+  --in_step_name="eng" \
+  --out_step_name="eng_norm" \
+  --target=BOTH
+
+pipenv run python -m cli corpus-to-ipa \
+  --corpus_name="ljs" \
+  --in_step_name="eng_norm" \
+  --out_step_name="eng_norm+ipa" \
+  --target=REPRESENTATIONS \
+  --mode=BOTH
+
+pipenv run python -m cli script-merge \
+  --merge_name="ljs" \
+  --script_name="default" \
+  --corpora="ljs,eng_norm+ipa"
+
+pipenv run python -m cli script-print-stats \
+  --merge_name="ljs" \
+  --script_name="default"
+
+pipenv run python -m cli script-ignore \
+  --merge_name="ljs" \
+  --in_script_name="default" \
+  --out_script_name="filtered" \
+  --ignore_symbol="("
+
+pipenv run python -m cli script-merge-merged \
+  --merge_names="ljs,filtered" \
+  --out_merge_name="nnlv_pilot" \
+  --out_script_name="all"
+
+pipenv run python -m cli script-select-greedy-ngrams-epochs \
+  --merge_name="nnlv_pilot" \
+  --in_script_name="all" \
+  --out_script_name="greedy" \
+  --n_gram=1 \
+  --epochs=5
+
+```

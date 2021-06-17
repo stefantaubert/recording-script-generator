@@ -56,7 +56,7 @@ def add_corpus_from_text(utterances: List[str], lang: Language, ipa_settings: Op
 def _normalize_target(target: List[List[str]], lang: Language, ipa_settings: Optional[IPAExtractionSettings]) -> List[List[str]]:
   logger = getLogger(__name__)
   res: List[List[str]] = []
-  for symbols in target:
+  for symbols in tqdm(target):
     text = ''.join(symbols)
     normalized_text = text_normalize(text, lang, logger)
     symbols = text_to_symbols(normalized_text, lang, ipa_settings, logger)
@@ -65,10 +65,13 @@ def _normalize_target(target: List[List[str]], lang: Language, ipa_settings: Opt
 
 
 def normalize(data: PreparationData, target: PreparationTarget, ipa_settings: Optional[IPAExtractionSettings]):
+  logger = getLogger(__name__)
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
+    logger.info("Normalizing reading passages...")
     res = _normalize_target(data.reading_passages, data.reading_passages_lang, ipa_settings)
     data.reading_passages = res
   if target == PreparationTarget.BOTH or PreparationTarget.REPRESENTATIONS:
+    logger.info("Normalizing representations...")
     res = _normalize_target(data.representations, data.representations_lang, ipa_settings)
     data.representations = res
   return data
@@ -96,12 +99,15 @@ def _convert_to_ipa_target(target: List[List[str]], lang: Language, ipa_settings
 
 
 def convert_to_ipa(data: PreparationData, target: PreparationTarget, ipa_settings: Optional[IPAExtractionSettings], mode: Optional[EngToIpaMode], replace_unknown_with: Optional[str], use_cache: Optional[bool]):
+  logger = getLogger(__name__)
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
+    logger.info("Converting reading passages to IPA...")
     res = _convert_to_ipa_target(data.reading_passages, data.reading_passages_lang,
                                  ipa_settings, mode, replace_unknown_with, use_cache)
     data.reading_passages = res
     data.reading_passages_lang = Language.IPA
   if target == PreparationTarget.BOTH or PreparationTarget.REPRESENTATIONS:
+    logger.info("Converting representations to IPA...")
     res = _convert_to_ipa_target(data.representations, data.representations_lang,
                                  ipa_settings, mode, replace_unknown_with, use_cache)
     data.representations = res

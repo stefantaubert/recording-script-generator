@@ -177,7 +177,7 @@ def ignore(data: ScriptData, selection: Selection, ignore_symbol: Optional[str])
 
 def _log_counter(c: Counter):
   logger = getLogger(__name__)
-  for char, occ in c.items():
+  for char, occ in c.most_common():
     logger.info(f"- {char} ({occ}x)")
 
 
@@ -193,17 +193,26 @@ def log_stats(data: ScriptData, selection: Selection, avg_chars_per_s: int) -> N
   _log_counter(counter_read)
 
   selected = OrderedDict(
-    {k: v for k, v in data.reading_passages.items() if k in selection.selected})
-  ignored = OrderedDict({k: v for k, v in data.reading_passages.items() if k in selection.ignored})
-  rest = OrderedDict({k: v for k, v in data.reading_passages.items() if k in selection.rest})
+    {k: (v, data.representations[k]) for k, v in data.reading_passages.items() if k in selection.selected})
+  ignored = OrderedDict(
+    {k: (v, data.representations[k]) for k, v in data.reading_passages.items() if k in selection.ignored})
+  rest = OrderedDict(
+    {k: (v, data.representations[k]) for k, v in data.reading_passages.items() if k in selection.rest})
 
-  selected_chars = len([x for y in selected.values() for x in y])
-  ignored_chars = len([x for y in ignored.values() for x in y])
-  rest_chars = len([x for y in rest.values() for x in y])
+  selected_read_chars_len = len([x for (read, rep) in selected.values() for x in read])
+  ignored_read_chars_len = len([x for (read, rep) in ignored.values() for x in read])
+  rest_read_chars_len = len([x for (read, rep) in rest.values() for x in read])
 
   logger.info(
-    f"Selected: {len(selected)} entries / {selected_chars} chars / ~{selected_chars/avg_chars_per_s/60:.2f} min")
+    f"Selected: {len(selected)} entries / {selected_read_chars_len} chars / ~{selected_read_chars_len/avg_chars_per_s/60:.2f} min / ~{selected_read_chars_len/avg_chars_per_s/60/60:.2f} h")
   logger.info(
-    f"Ignored: {len(ignored)} entries / {ignored_chars} chars / ~{ignored_chars/avg_chars_per_s/60:.2f} min")
+    f"Ignored: {len(ignored)} entries / {ignored_read_chars_len} chars / ~{ignored_read_chars_len/avg_chars_per_s/60:.2f} min / ~{ignored_read_chars_len/avg_chars_per_s/60/60:.2f} h")
   logger.info(
-    f"Rest: {len(rest)} entries / {rest_chars} chars / ~{rest_chars/avg_chars_per_s/60:.2f} min")
+    f"Rest: {len(rest)} entries / {rest_read_chars_len} chars / ~{rest_read_chars_len/avg_chars_per_s/60:.2f} min / ~{rest_read_chars_len/avg_chars_per_s/60/60:.2f} h")
+
+  selected_chars = {x for (read, rep) in selected.values() for x in rep}
+  ignored_chars = {x for (read, rep) in ignored.values() for x in rep}
+  rest_chars = {x for (read, rep) in rest.values() for x in rep}
+  logger.info(f"Selected chars ({len(selected_chars)}):\t{' '.join(list(selected_chars))}")
+  logger.info(f"Ignored chars ({len(ignored_chars)}):\t{' '.join(list(ignored_chars))}")
+  logger.info(f"Rest chars ({len(rest_chars)}):\t{' '.join(list(rest_chars))}")

@@ -13,7 +13,9 @@ if __name__ == "__main__":
   add_corpus_from_text_file(
     base_dir=base_dir,
     corpus_name="ljs_debug",
-    ipa_settings=None,
+    ignore_arcs=None,
+    ignore_tones=None,
+    replace_unknown_ipa_by=None,
     lang=Language.ENG,
     step_name="initial",
     text_path=Path("/tmp/ljs.txt"),
@@ -25,8 +27,11 @@ if __name__ == "__main__":
     corpus_name="ljs_debug",
     in_step_name="initial",
     out_step_name="en_norm",
-    ipa_settings=None,
+    ignore_arcs=None,
+    ignore_tones=None,
+    replace_unknown_ipa_by=None,
     target=PreparationTarget.BOTH,
+    overwrite=False,
   )
 
   app_convert_to_ipa(
@@ -34,9 +39,12 @@ if __name__ == "__main__":
     corpus_name="ljs_debug",
     in_step_name="initial",
     out_step_name="en_norm+ipa_norm",
-    ipa_settings=IPAExtractionSettings(True, True, "_"),
+    ignore_arcs=True,
+    ignore_tones=True,
+    replace_unknown_ipa_by="_",
     target=PreparationTarget.REPRESENTATIONS,
     mode=EngToIpaMode.BOTH,
     replace_unknown_with="_",
     use_cache=True,
+    overwrite=False,
   )

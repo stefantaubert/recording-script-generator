@@ -52,6 +52,7 @@ def test_app_normalize(tmp_path: Path):
     replace_unknown_ipa_by=None,
     ignore_arcs=None,
     ignore_tones=None,
+    overwrite=False,
   )
 
   assert (base_dir / "corpora" / "corpus1" / "step2" / "data.pkl").exists()
@@ -83,6 +84,7 @@ def test_app_convert_to_ipa(tmp_path: Path):
     ignore_tones=True,
     replace_unknown_ipa_by="_",
     mode=EngToIpaMode.BOTH,
+    overwrite=False,
   )
 
   assert (base_dir / "corpora" / "corpus1" / "step2" / "data.pkl").exists()
