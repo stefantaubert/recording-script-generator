@@ -27,6 +27,7 @@ if __name__ == "__main__":
     out_script_name="all",
     epochs=5,
     n_gram=1,
+    overwrite=False,
   )
 
   app_log_stats(

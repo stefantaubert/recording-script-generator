@@ -97,7 +97,51 @@ def app_merge(base_dir: Path, merge_name: str, script_name: str, corpora: List[T
   logger.info("Done.")
 
 
-def app_select_rest(base_dir: Path, merge_name: str, in_script_name: str, out_script_name: str):
+def app_merge_merged(base_dir: Path, merge_names: List[Tuple[str, str]], out_merge_name: str, out_script_name: str, overwrite: bool):
+  logger = getLogger(__name__)
+  logger.info(f"Merging multiple merged data...")
+
+  merged_data: List[Tuple[ScriptData, Selection]] = []
+  out_merge_dir = get_merge_dir(base_dir, out_merge_name)
+
+  if out_merge_dir.exists():
+    if overwrite:
+      rmtree(out_merge_dir)
+      logger.info("Removed existing merged data.")
+    else:
+      logger.info("Already exists.")
+      return
+
+  out_script_dir = get_script_dir(out_merge_dir, out_script_name)
+  assert not out_script_dir.exists()
+
+  for merge_name, in_script_name in merge_names:
+    merge_dir = get_merge_dir(base_dir, merge_name)
+    if not merge_dir.exists():
+      logger.error("In merge dir does not exist!")
+      return
+
+    in_script_dir = get_script_dir(merge_dir, in_script_name)
+    if not in_script_dir.exists():
+      logger.error("In script dir does not exist!")
+      return
+
+    data = load_data(merge_dir)
+    selection = load_selection(in_script_dir)
+    merged_data.append((data, selection))
+
+  res_data, res_selection = merge_merged(merged_data)
+
+  out_merge_dir.mkdir(parents=False, exist_ok=False)
+  save_data(out_merge_dir, res_data)
+
+  out_script_dir.mkdir(parents=False, exist_ok=False)
+  save_selection(out_script_dir, res_selection)
+  save_scripts(out_script_dir, res_data, res_selection)
+  logger.info("Done.")
+
+
+def app_select_rest(base_dir: Path, merge_name: str, in_script_name: str, out_script_name: str, overwrite: bool):
   logger = getLogger(__name__)
   logger.info("Selecting rest...")
 
@@ -113,8 +157,12 @@ def app_select_rest(base_dir: Path, merge_name: str, in_script_name: str, out_sc
 
   out_script_dir = get_script_dir(merge_dir, out_script_name)
   if out_script_dir.exists():
-    logger.error("Out script dir does already exist!")
-    return
+    if overwrite:
+      rmtree(out_script_dir)
+      logger.info("Overwriting existing out script dir.")
+    else:
+      logger.error("Out script dir does already exist!")
+      return
 
   data = load_data(merge_dir)
   selection = load_selection(in_script_dir)
@@ -126,7 +174,7 @@ def app_select_rest(base_dir: Path, merge_name: str, in_script_name: str, out_sc
   logger.info("Done.")
 
 
-def app_select_greedy_ngrams_epochs(base_dir: Path, merge_name: str, in_script_name: str, out_script_name: str, n_gram: int, epochs: int):
+def app_select_greedy_ngrams_epochs(base_dir: Path, merge_name: str, in_script_name: str, out_script_name: str, n_gram: int, epochs: int, overwrite: bool):
   logger = getLogger(__name__)
   logger.info(f"Selecting greedy {n_gram}-gram epochs {epochs}x...")
 
@@ -142,8 +190,12 @@ def app_select_greedy_ngrams_epochs(base_dir: Path, merge_name: str, in_script_n
 
   out_script_dir = get_script_dir(merge_dir, out_script_name)
   if out_script_dir.exists():
-    logger.error("Out script dir does already exist!")
-    return
+    if overwrite:
+      rmtree(out_script_dir)
+      logger.info("Overwriting existing out script dir.")
+    else:
+      logger.error("Out script dir does already exist!")
+      return
 
   data = load_data(merge_dir)
   selection = load_selection(in_script_dir)
@@ -161,7 +213,7 @@ def app_select_greedy_ngrams_epochs(base_dir: Path, merge_name: str, in_script_n
   logger.info("Done.")
 
 
-def app_ignore(base_dir: Path, merge_name: str, in_script_name: str, out_script_name: str, ignore_symbol: Optional[str]):
+def app_ignore(base_dir: Path, merge_name: str, in_script_name: str, out_script_name: str, ignore_symbol: Optional[str], overwrite: bool):
   logger = getLogger(__name__)
   if ignore_symbol is not None:
     logger.info(f"Ignoring utterances containing symbol \"{ignore_symbol}\"...")
@@ -180,8 +232,12 @@ def app_ignore(base_dir: Path, merge_name: str, in_script_name: str, out_script_
 
   out_script_dir = get_script_dir(merge_dir, out_script_name)
   if out_script_dir.exists():
-    logger.error("Out script dir does already exist!")
-    return
+    if overwrite:
+      rmtree(out_script_dir)
+      logger.info("Overwriting existing out script dir.")
+    else:
+      logger.error("Out script dir does already exist!")
+      return
 
   data = load_data(merge_dir)
   selection = load_selection(in_script_dir)
@@ -218,41 +274,4 @@ def app_log_stats(base_dir: Path, merge_name: str, script_name: str, avg_chars_p
     avg_chars_per_s=avg_chars_per_s,
   )
 
-  logger.info("Done.")
-
-
-def app_merge_merged(base_dir: Path, merge_names: List[Tuple[str, str]], out_merge_name: str, out_script_name: str):
-  logger = getLogger(__name__)
-  logger.info(f"Merging multiple merged data...")
-
-  merged_data: List[Tuple[ScriptData, Selection]] = []
-  out_merge_dir = get_merge_dir(base_dir, out_merge_name)
-  out_script_dir = get_script_dir(out_merge_dir, out_script_name)
-  if out_script_dir.exists():
-    logger.error("Out script dir does already exist!")
-    return
-
-  for merge_name, in_script_name in merge_names:
-    merge_dir = get_merge_dir(base_dir, merge_name)
-    if not merge_dir.exists():
-      logger.error("Merge dir does not exist!")
-      return
-
-    in_script_dir = get_script_dir(merge_dir, in_script_name)
-    if not in_script_dir.exists():
-      logger.error("In script dir does not exist!")
-      return
-
-    data = load_data(merge_dir)
-    selection = load_selection(in_script_dir)
-    merged_data.append((data, selection))
-
-  res_data, res_selection = merge_merged(merged_data)
-
-  out_merge_dir.mkdir(parents=False, exist_ok=False)
-  save_data(out_merge_dir, res_data)
-
-  out_script_dir.mkdir(parents=False, exist_ok=False)
-  save_selection(out_script_dir, res_selection)
-  save_scripts(out_script_dir, res_data, res_selection)
   logger.info("Done.")

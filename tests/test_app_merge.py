@@ -75,6 +75,7 @@ def test_app_merge_merged(tmp_path: Path):
     merge_names=[("merge1", "script1"), ("merge2", "script1")],
     out_merge_name="merge3",
     out_script_name="script1",
+    overwrite=False,
   )
 
   assert (base_dir / "scripts" / "merge3" / "data.pkl").exists()
@@ -111,6 +112,7 @@ def test_app_select_rest(tmp_path: Path):
     merge_name="merge1",
     in_script_name="script1",
     out_script_name="script2",
+    overwrite=False,
   )
 
   assert (base_dir / "scripts" / "merge1" / "script2" / "selection.pkl").exists()
@@ -147,6 +149,7 @@ def test_app_ignore(tmp_path: Path):
     in_script_name="script1",
     out_script_name="script2",
     ignore_symbol="2",
+    overwrite=False,
   )
 
   assert (base_dir / "scripts" / "merge1" / "script2" / "selection.pkl").exists()
@@ -215,6 +218,7 @@ def test_app_select_greedy_ngrams_epochs(tmp_path: Path):
     out_script_name="script2",
     n_gram=1,
     epochs=1,
+    overwrite=False,
   )
 
   assert (base_dir / "scripts" / "merge1" / "script2" / "selection.pkl").exists()
