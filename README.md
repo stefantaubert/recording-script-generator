@@ -120,3 +120,4 @@ Each line contains one utterance.
 - **merge_merged**(in_merge_names, out_merge_name)
   - merges merged corpora
   - in_merge_names: `"{merge_name};..."`
+

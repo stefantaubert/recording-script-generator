@@ -18,7 +18,9 @@ def test_add_corpus_from_text_file(tmp_path: Path):
     step_name="step1",
     text_path=text_path,
     lang=Language.ENG,
-    ipa_settings=None,
+    replace_unknown_ipa_by=None,
+    ignore_arcs=None,
+    ignore_tones=None,
     overwrite=False,
   )
 
@@ -35,7 +37,9 @@ def test_app_normalize(tmp_path: Path):
     step_name="step1",
     text_path=text_path,
     lang=Language.ENG,
-    ipa_settings=None,
+    replace_unknown_ipa_by=None,
+    ignore_arcs=None,
+    ignore_tones=None,
     overwrite=False,
   )
 
@@ -45,7 +49,9 @@ def test_app_normalize(tmp_path: Path):
     in_step_name="step1",
     out_step_name="step2",
     target=PreparationTarget.BOTH,
-    ipa_settings=None,
+    replace_unknown_ipa_by=None,
+    ignore_arcs=None,
+    ignore_tones=None,
   )
 
   assert (base_dir / "corpora" / "corpus1" / "step2" / "data.pkl").exists()
@@ -61,7 +67,9 @@ def test_app_convert_to_ipa(tmp_path: Path):
     step_name="step1",
     text_path=text_path,
     lang=Language.ENG,
-    ipa_settings=None,
+    replace_unknown_ipa_by=None,
+    ignore_arcs=None,
+    ignore_tones=None,
     overwrite=False,
   )
 
@@ -71,7 +79,9 @@ def test_app_convert_to_ipa(tmp_path: Path):
     in_step_name="step1",
     out_step_name="step2",
     target=PreparationTarget.BOTH,
-    ipa_settings=IPAExtractionSettings(True, True, "_"),
+    ignore_arcs=True,
+    ignore_tones=True,
+    replace_unknown_ipa_by="_",
     mode=EngToIpaMode.BOTH,
   )
 

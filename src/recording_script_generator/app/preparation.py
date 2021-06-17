@@ -38,7 +38,7 @@ def save_corpus(step_dir: Path, corpus: PreparationData) -> None:
   )
 
 
-def add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: str, text_path: Path, lang: Language, ipa_settings: Optional[IPAExtractionSettings], overwrite: bool) -> None:
+def add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: str, text_path: Path, lang: Language, ignore_tones: Optional[bool], ignore_arcs: Optional[bool], replace_unknown_ipa_by: Optional[str], overwrite: bool) -> None:
   logger = getLogger(__name__)
   logger.info("Adding corpus...")
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
@@ -57,7 +57,7 @@ def add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: str, 
   res = add_corpus_from_text(
     utterances=lines,
     lang=lang,
-    ipa_settings=ipa_settings,
+    ipa_settings=IPAExtractionSettings(ignore_tones, ignore_arcs, replace_unknown_ipa_by),
   )
 
   corpus_dir.mkdir(parents=True, exist_ok=False)
@@ -66,7 +66,7 @@ def add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: str, 
   save_corpus(step_dir, res)
 
 
-def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: str, ipa_settings: Optional[IPAExtractionSettings], target: PreparationTarget):
+def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: str, ignore_tones: Optional[bool], ignore_arcs: Optional[bool], replace_unknown_ipa_by: Optional[str], target: PreparationTarget):
   logger = getLogger(__name__)
   logger.info("Normalizing...")
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
@@ -88,7 +88,7 @@ def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, out_step_
   res = normalize(
     data=obj,
     target=target,
-    ipa_settings=ipa_settings,
+    ipa_settings=IPAExtractionSettings(ignore_tones, ignore_arcs, replace_unknown_ipa_by),
   )
 
   out_step_dir.mkdir(parents=False, exist_ok=False)
@@ -96,7 +96,7 @@ def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, out_step_
   logger.info("Done.")
 
 
-def app_convert_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: str, ipa_settings: Optional[IPAExtractionSettings], target: PreparationTarget, mode: Optional[EngToIpaMode], replace_unknown_with: Optional[str] = "_", use_cache: Optional[bool] = True):
+def app_convert_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: str, ignore_tones: Optional[bool], ignore_arcs: Optional[bool], replace_unknown_ipa_by: Optional[str], target: PreparationTarget, mode: Optional[EngToIpaMode], replace_unknown_with: Optional[str] = "_", use_cache: Optional[bool] = True):
   logger = getLogger(__name__)
   logger.info("Converting to IPA...")
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
@@ -118,7 +118,7 @@ def app_convert_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, out_
   res = convert_to_ipa(
     data=obj,
     target=target,
-    ipa_settings=ipa_settings,
+    ipa_settings=IPAExtractionSettings(ignore_tones, ignore_arcs, replace_unknown_ipa_by),
     mode=mode,
     replace_unknown_with=replace_unknown_with,
     use_cache=use_cache,
