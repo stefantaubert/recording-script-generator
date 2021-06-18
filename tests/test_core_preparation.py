@@ -72,6 +72,7 @@ def test_convert_to_ipa():
     ),
     mode=EngToIpaMode.BOTH,
     replace_unknown_with="_",
+    consider_ipa_annotations=False,
     use_cache=True,
   )
 

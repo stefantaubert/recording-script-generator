@@ -99,7 +99,7 @@ def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, out_step_
   logger.info("Done.")
 
 
-def app_convert_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: str, ignore_tones: Optional[bool], ignore_arcs: Optional[bool], replace_unknown_ipa_by: Optional[str], target: PreparationTarget, mode: Optional[EngToIpaMode], overwrite: bool, replace_unknown_with: Optional[str] = "_", use_cache: Optional[bool] = True):
+def app_convert_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: str, ignore_tones: Optional[bool], ignore_arcs: Optional[bool], replace_unknown_ipa_by: Optional[str], target: PreparationTarget, mode: Optional[EngToIpaMode], overwrite: bool, replace_unknown_with: Optional[str] = "_", consider_ipa_annotations: bool = False, use_cache: Optional[bool] = True):
   logger = getLogger(__name__)
   logger.info("Converting to IPA...")
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
@@ -124,6 +124,7 @@ def app_convert_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, out_
     ipa_settings=IPAExtractionSettings(ignore_tones, ignore_arcs, replace_unknown_ipa_by),
     mode=mode,
     replace_unknown_with=replace_unknown_with,
+    consider_ipa_annotations=consider_ipa_annotations,
     use_cache=use_cache,
   )
 

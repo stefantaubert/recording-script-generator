@@ -2,7 +2,7 @@ from logging import getLogger
 from typing import List
 
 from speech_dataset_parser.data import PreDataList
-from text_utils import EngToIpaMode, Language, text_to_ipa, text_to_sentences
+from text_utils import Language, text_to_sentences
 
 
 def ljs_to_text(ljs_data: PreDataList) -> List[str]:

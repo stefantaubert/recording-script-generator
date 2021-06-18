@@ -77,7 +77,7 @@ def normalize(data: PreparationData, target: PreparationTarget, ipa_settings: Op
   return data
 
 
-def _convert_to_ipa_target(target: List[List[str]], lang: Language, ipa_settings: Optional[IPAExtractionSettings], mode: Optional[EngToIpaMode], replace_unknown_with: Optional[str], use_cache: Optional[bool]) -> List[List[str]]:
+def _convert_to_ipa_target(target: List[List[str]], lang: Language, ipa_settings: Optional[IPAExtractionSettings], mode: Optional[EngToIpaMode], replace_unknown_with: Optional[str], consider_ipa_annotations: bool, use_cache: Optional[bool]) -> List[List[str]]:
   logger = getLogger(__name__)
   if lang == Language.IPA:
     logger.info("Text is already IPA.")
@@ -91,6 +91,7 @@ def _convert_to_ipa_target(target: List[List[str]], lang: Language, ipa_settings
       mode=mode,
       replace_unknown_with=replace_unknown_with,
       use_cache=use_cache,
+      consider_ipa_annotations=consider_ipa_annotations,
       logger=logger
     )
     symbols = text_to_symbols(ipa_text, Language.IPA, ipa_settings, logger)
@@ -98,18 +99,18 @@ def _convert_to_ipa_target(target: List[List[str]], lang: Language, ipa_settings
   return res
 
 
-def convert_to_ipa(data: PreparationData, target: PreparationTarget, ipa_settings: Optional[IPAExtractionSettings], mode: Optional[EngToIpaMode], replace_unknown_with: Optional[str], use_cache: Optional[bool]):
+def convert_to_ipa(data: PreparationData, target: PreparationTarget, ipa_settings: Optional[IPAExtractionSettings], mode: Optional[EngToIpaMode], replace_unknown_with: Optional[str], consider_ipa_annotations: bool, use_cache: Optional[bool]):
   logger = getLogger(__name__)
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
     logger.info("Converting reading passages to IPA...")
     res = _convert_to_ipa_target(data.reading_passages, data.reading_passages_lang,
-                                 ipa_settings, mode, replace_unknown_with, use_cache)
+                                 ipa_settings, mode, replace_unknown_with, consider_ipa_annotations, use_cache)
     data.reading_passages = res
     data.reading_passages_lang = Language.IPA
   if target == PreparationTarget.BOTH or PreparationTarget.REPRESENTATIONS:
     logger.info("Converting representations to IPA...")
     res = _convert_to_ipa_target(data.representations, data.representations_lang,
-                                 ipa_settings, mode, replace_unknown_with, use_cache)
+                                 ipa_settings, mode, replace_unknown_with, consider_ipa_annotations, use_cache)
     data.representations = res
     data.representations_lang = Language.IPA
   return data
