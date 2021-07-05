@@ -204,15 +204,15 @@ def log_stats(data: ScriptData, selection: Selection, avg_chars_per_s: int) -> N
   rest_read_chars_len = len([x for (read, rep) in rest.values() for x in read])
 
   logger.info(
-    f"Selected: {len(selected)} entries / {selected_read_chars_len} chars / ~{selected_read_chars_len/avg_chars_per_s/60:.2f} min / ~{selected_read_chars_len/avg_chars_per_s/60/60:.2f} h")
+    f"Selected: {len(selected)} entries / {selected_read_chars_len} chars / ca. {selected_read_chars_len/avg_chars_per_s/60:.2f}min / ca. {selected_read_chars_len/avg_chars_per_s/60/60:.2f}h")
   logger.info(
-    f"Ignored: {len(ignored)} entries / {ignored_read_chars_len} chars / ~{ignored_read_chars_len/avg_chars_per_s/60:.2f} min / ~{ignored_read_chars_len/avg_chars_per_s/60/60:.2f} h")
+    f"Ignored: {len(ignored)} entries / {ignored_read_chars_len} chars / ca. {ignored_read_chars_len/avg_chars_per_s/60:.2f}min / ca. {ignored_read_chars_len/avg_chars_per_s/60/60:.2f}h")
   logger.info(
-    f"Rest: {len(rest)} entries / {rest_read_chars_len} chars / ~{rest_read_chars_len/avg_chars_per_s/60:.2f} min / ~{rest_read_chars_len/avg_chars_per_s/60/60:.2f} h")
+    f"Rest: {len(rest)} entries / {rest_read_chars_len} chars / ca. {rest_read_chars_len/avg_chars_per_s/60:.2f}min / ca. {rest_read_chars_len/avg_chars_per_s/60/60:.2f}h")
 
   selected_chars = {x for (read, rep) in selected.values() for x in rep}
   ignored_chars = {x for (read, rep) in ignored.values() for x in rep}
   rest_chars = {x for (read, rep) in rest.values() for x in rep}
-  logger.info(f"Selected chars ({len(selected_chars)}):\t{' '.join(list(selected_chars))}")
-  logger.info(f"Ignored chars ({len(ignored_chars)}):\t{' '.join(list(ignored_chars))}")
-  logger.info(f"Rest chars ({len(rest_chars)}):\t{' '.join(list(rest_chars))}")
+  logger.info(f"Selected chars ({len(selected_chars)}):\t{' '.join(sorted(selected_chars))}")
+  logger.info(f"Ignored chars ({len(ignored_chars)}):\t{' '.join(sorted(ignored_chars))}")
+  logger.info(f"Rest chars ({len(rest_chars)}):\t{' '.join(sorted(rest_chars))}")

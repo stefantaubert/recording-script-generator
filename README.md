@@ -6,11 +6,11 @@ File structure:
 corpora
 ├── ljs
 │  ├── original
-|  │  ├── data.json
+|  │  ├── data.pkl
 │  ├── normalized
-|  │  ├── data.json
+|  │  ├── data.pkl
 │  ├── normalized+normalized_ipa
-|  │  ├── data.json
+|  │  ├── data.pkl
 │  ├── ...
 ├── ...
 scripts
@@ -96,7 +96,6 @@ Each line contains one utterance.
 
 **Methods**
 
-- **ljs_to_text**(corpus_name, step_name, out_path)
 - **add_corpus_from_text**(corpus_name, text_path, lang)
 - **normalize**(corpus_name, in_step_name, out_step_name, mode=reading_passage/representation/both, overwrite)
 - **convert_to_ipa**(corpus_name, in_step_name, out_step_name, mode=reading_passage/representation/both, options=IPAOptions, overwrite)
@@ -125,14 +124,11 @@ Each line contains one utterance.
 Examples:
 
 ```sh
-pipenv run python -m cli extract-text-ljs \
-  --output_file="/tmp/out.txt" \
-  --ljs_path="/tmp/LJSpeech-1.1"
-
+export base_dir="out"
 pipenv run python -m cli corpus-add \
   --corpus_name="ljs" \
   --step_name="eng" \
-  --text_path="/tmp/out.txt" \
+  --text_path="corpora/ljs.txt" \
   --lang=ENG
 
 pipenv run python -m cli corpus-normalize \
@@ -174,5 +170,9 @@ pipenv run python -m cli script-select-greedy-ngrams-epochs \
   --out_script_name="greedy" \
   --n_gram=1 \
   --epochs=5
-
 ```
+
+Used corpora:
+
+- LJSpeech data
+- Charles Darwin: On the Origin of Species, 6th Edition (1872)

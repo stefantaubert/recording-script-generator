@@ -10,7 +10,6 @@ from recording_script_generator.app.merge import (
     app_select_greedy_ngrams_epochs)
 from recording_script_generator.app.preparation import (
     add_corpus_from_text_file, app_convert_to_ipa, app_normalize)
-from recording_script_generator.app.text_extraction import app_ljs_to_text
 from recording_script_generator.core.merge import select_rest
 from recording_script_generator.core.preparation import PreparationTarget
 from recording_script_generator.utils import parse_tuple_list
@@ -31,13 +30,6 @@ def _add_parser_to(subparsers, name: str, init_method: Callable[[ArgumentParser]
   if set_base_dir:
     add_base_dir(parser)
   return parser
-
-
-def init_ljs_to_text_file_parser(parser: ArgumentParser):
-  parser.add_argument('--ljs_path', type=Path, required=True)
-  parser.add_argument('--output_file', type=Path, default=Path("/tmp/out.txt"))
-  return app_ljs_to_text
-
 
 # region corpus
 
@@ -145,7 +137,6 @@ def _init_parser():
   result = ArgumentParser()
   subparsers = result.add_subparsers(help='sub-command help')
 
-  _add_parser_to(subparsers, "extract-text-ljs", init_ljs_to_text_file_parser, set_base_dir=False)
   _add_parser_to(subparsers, "corpus-add", init_add_corpus_from_text_file_parser)
   _add_parser_to(subparsers, "corpus-normalize", init_normalize_parser)
   _add_parser_to(subparsers, "corpus-to-ipa", init_convert_to_ipa_parser)

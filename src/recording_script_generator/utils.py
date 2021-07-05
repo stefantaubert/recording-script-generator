@@ -20,6 +20,13 @@ def read_lines(path: str) -> List[str]:
   return res
 
 
+def read_text(path: Path) -> str:
+  assert path.is_file()
+  with path.open("r", encoding='utf-8') as f:
+    text = f.read()
+  return text
+
+
 def parse_json(path: str) -> Any:
   assert os.path.isfile(path)
   with open(path, 'r', encoding='utf-8') as f:
@@ -47,7 +54,6 @@ def load_obj(path: Path) -> Any:
 def save_lines(path: Path, lines: List[str]) -> None:
   assert path.parent.exists()
   path.write_text("\n".join(lines), encoding='utf-8')
-
 
 
 def parse_tuple_list(tuple_list: Optional[str] = None) -> Optional[List[Tuple]]:

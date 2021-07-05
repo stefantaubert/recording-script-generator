@@ -8,7 +8,7 @@ from text_utils.language import Language
 from text_utils.text import EngToIpaMode
 
 if __name__ == "__main__":
-  base_dir = Path("/home/mi/data/recording-script-generator")
+  base_dir = Path("out")
 
   add_corpus_from_text_file(
     base_dir=base_dir,
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     replace_unknown_ipa_by=None,
     lang=Language.ENG,
     step_name="initial",
-    text_path=Path("/tmp/ljs.txt"),
+    text_path=Path("corpora/ljs.txt"),
     overwrite=True,
   )
 

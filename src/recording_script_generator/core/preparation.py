@@ -4,6 +4,8 @@ from logging import getLogger
 from typing import List, Optional, Tuple
 
 from ordered_set import OrderedSet
+from recording_script_generator.core.text_extraction import (
+    file_to_text, remove_non_sentences)
 from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings
 from text_utils.text import (EngToIpaMode, text_normalize, text_to_ipa,
@@ -25,15 +27,21 @@ class PreparationData:
   representations: List[List[str]]
 
 
-def add_corpus_from_text(utterances: List[str], lang: Language, ipa_settings: Optional[IPAExtractionSettings]) -> PreparationData:
+def add_corpus_from_text(text: str, lang: Language, ipa_settings: Optional[IPAExtractionSettings]) -> PreparationData:
   logger = getLogger(__name__)
   reading_passages: List[List[str]] = []
+  utterances = file_to_text(text, lang=lang)
   unique_entries = OrderedSet(utterances)
   if len(unique_entries) < len(utterances):
     ignored_count = len(utterances) - len(unique_entries)
     logger.info(f"Ignored doubling entries ({ignored_count}/{len(utterances)}).")
   else:
     logger.info("No doubling entries found.")
+
+  if lang == Language.ENG:
+    logger.info("Removing undesired English utterances...")
+    unique_entries = remove_non_sentences(list(unique_entries))
+    logger.info("Done.")
   for utt in unique_entries:
     symbols = text_to_symbols(
       text=utt,

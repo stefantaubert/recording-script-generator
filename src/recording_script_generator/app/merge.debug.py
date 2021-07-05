@@ -10,11 +10,11 @@ from text_utils.language import Language
 from text_utils.text import EngToIpaMode
 
 if __name__ == "__main__":
-  base_dir = Path("/home/mi/data/recording-script-generator")
+  base_dir = Path("out")
 
   app_merge(
     base_dir=base_dir,
-    corpora=[("ljs_debug", "en_norm+ipa_norm")],
+    corpora=[("ljs_debug", "en_norm")],
     merge_name="ljs_debug",
     script_name="initial",
     overwrite=True,

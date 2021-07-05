@@ -9,7 +9,7 @@ from recording_script_generator.core.preparation import (PreparationData,
                                                          convert_to_ipa,
                                                          normalize)
 from recording_script_generator.utils import (get_subdir, load_obj, read_lines,
-                                              save_json, save_obj)
+                                              read_text, save_json, save_obj)
 from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings
 from text_utils.text import EngToIpaMode
@@ -52,10 +52,11 @@ def add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: str, 
     else:
       logger.info("Already exists.")
       return
-  lines = read_lines(text_path)
+
+  text = read_text(text_path)
 
   res = add_corpus_from_text(
-    utterances=lines,
+    text=text,
     lang=lang,
     ipa_settings=IPAExtractionSettings(ignore_tones, ignore_arcs, replace_unknown_ipa_by),
   )
