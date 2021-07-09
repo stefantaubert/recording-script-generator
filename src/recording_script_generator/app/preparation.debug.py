@@ -12,6 +12,18 @@ if __name__ == "__main__":
 
   add_corpus_from_text_file(
     base_dir=base_dir,
+    corpus_name="darwin",
+    ignore_arcs=None,
+    ignore_tones=None,
+    replace_unknown_ipa_by=None,
+    lang=Language.ENG,
+    step_name="initial",
+    text_path=Path("corpora/darwin.txt"),
+    overwrite=True,
+  )
+
+  add_corpus_from_text_file(
+    base_dir=base_dir,
     corpus_name="ljs_debug",
     ignore_arcs=None,
     ignore_tones=None,

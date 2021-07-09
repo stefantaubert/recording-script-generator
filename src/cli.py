@@ -7,7 +7,7 @@ from text_utils import EngToIpaMode, Language
 
 from recording_script_generator.app.merge import (
     app_ignore, app_log_stats, app_merge, app_merge_merged,
-    app_select_greedy_ngrams_epochs)
+    app_select_greedy_ngrams_epochs, app_select_kld_ngrams_epochs)
 from recording_script_generator.app.preparation import (
     add_corpus_from_text_file, app_convert_to_ipa, app_normalize)
 from recording_script_generator.core.merge import select_rest
@@ -102,6 +102,16 @@ def init_select_greedy_ngrams_epochs_parser(parser: ArgumentParser):
   return app_select_greedy_ngrams_epochs
 
 
+def init_select_kld_ngrams_epochs_parser(parser: ArgumentParser):
+  parser.add_argument('--merge_name', type=str, required=True)
+  parser.add_argument('--in_script_name', type=str, required=True)
+  parser.add_argument('--out_script_name', type=str, required=True)
+  parser.add_argument('--n_gram', type=int, required=True)
+  parser.add_argument('--epochs', type=int, required=True)
+  parser.set_defaults(overwrite=True)
+  return app_select_kld_ngrams_epochs
+
+
 def init_ignore_parser(parser: ArgumentParser):
   parser.add_argument('--merge_name', type=str, required=True)
   parser.add_argument('--in_script_name', type=str, required=True)
@@ -145,6 +155,8 @@ def _init_parser():
   _add_parser_to(subparsers, "script-merge-merged", init_merge_merged_parser)
   _add_parser_to(subparsers, "script-select-greedy-ngrams-epochs",
                  init_select_greedy_ngrams_epochs_parser)
+  _add_parser_to(subparsers, "script-select-kld-ngrams-epochs",
+                 init_select_kld_ngrams_epochs_parser)
   _add_parser_to(subparsers, "script-ignore", init_ignore_parser)
   _add_parser_to(subparsers, "script-print-stats", init_log_stats_parser)
 

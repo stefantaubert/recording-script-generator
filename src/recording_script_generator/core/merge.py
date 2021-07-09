@@ -107,6 +107,26 @@ def select_greedy_ngrams_epochs(data: ScriptData, selection: Selection, n_gram: 
 
   return result
 
+def select_kld_ngrams_epochs(data: ScriptData, selection: Selection, n_gram: int, epochs: int, ignore_symbols: Optional[Set[str]]) -> Selection:
+  logger = getLogger(__name__)
+  rest = OrderedDict({k: v for k, v in data.representations.items() if k in selection.rest})
+  new_selected = greedy_ngrams_epochs(
+    data=rest,
+    n_gram=n_gram,
+    ignore_symbols=ignore_symbols,
+    epochs=epochs,
+  )
+
+  result = Selection(
+    selected=selection.selected | new_selected,
+    ignored=selection.ignored,
+    rest=selection.rest - new_selected,
+  )
+
+  logger.info(f"Added {len(new_selected)} utterances to selection.")
+
+  return result
+
 
 def select_rest(selection: Selection) -> Selection:
   logger = getLogger(__name__)

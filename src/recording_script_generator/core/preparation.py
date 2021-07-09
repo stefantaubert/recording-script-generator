@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple
 
 from ordered_set import OrderedSet
 from recording_script_generator.core.text_extraction import (
-    file_to_text, remove_non_sentences)
+    file_to_text, remove_undesired_en_sentences)
 from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings
 from text_utils.text import (EngToIpaMode, text_normalize, text_to_ipa,
@@ -40,7 +40,7 @@ def add_corpus_from_text(text: str, lang: Language, ipa_settings: Optional[IPAEx
 
   if lang == Language.ENG:
     logger.info("Removing undesired English utterances...")
-    unique_entries = remove_non_sentences(list(unique_entries))
+    unique_entries = remove_undesired_en_sentences(list(unique_entries))
     logger.info("Done.")
   for utt in unique_entries:
     symbols = text_to_symbols(

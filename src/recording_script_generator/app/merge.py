@@ -12,6 +12,7 @@ from recording_script_generator.core.merge import (ScriptData, Selection,
                                                    log_stats, merge,
                                                    merge_merged,
                                                    select_greedy_ngrams_epochs,
+                                                   select_kld_ngrams_epochs,
                                                    select_rest)
 from recording_script_generator.core.preparation import PreparationData
 from recording_script_generator.utils import load_obj, save_obj
@@ -62,6 +63,7 @@ def df_to_txt(df: DataFrame) -> str:
   for i, row in df.iterrows():
     result += f"{row['nr']}: {row['utterance']}\n"
   return result
+
 
 def save_scripts(script_dir: Path, data: ScriptData, selection: Selection) -> None:
   selected_df, ignored_df, rest_df = get_reading_scripts(data, selection)
@@ -205,6 +207,44 @@ def app_select_greedy_ngrams_epochs(base_dir: Path, merge_name: str, in_script_n
   data = load_data(merge_dir)
   selection = load_selection(in_script_dir)
   new_selection = select_greedy_ngrams_epochs(
+    data=data,
+    selection=selection,
+    n_gram=n_gram,
+    epochs=epochs,
+    ignore_symbols=None,
+  )
+
+  if out_script_dir.exists():
+    rmtree(out_script_dir)
+    logger.info("Overwriting existing out script dir.")
+  out_script_dir.mkdir(parents=False, exist_ok=False)
+  save_selection(out_script_dir, new_selection)
+  save_scripts(out_script_dir, data, new_selection)
+  logger.info("Done.")
+
+
+def app_select_kld_ngrams_epochs(base_dir: Path, merge_name: str, in_script_name: str, out_script_name: str, n_gram: int, epochs: int, overwrite: bool):
+  logger = getLogger(__name__)
+  logger.info(f"Selecting greedy {n_gram}-gram epochs {epochs}x...")
+
+  merge_dir = get_merge_dir(base_dir, merge_name)
+  if not merge_dir.exists():
+    logger.error("Merge dir does not exist!")
+    return
+
+  in_script_dir = get_script_dir(merge_dir, in_script_name)
+  if not in_script_dir.exists():
+    logger.error("In script dir does not exist!")
+    return
+
+  out_script_dir = get_script_dir(merge_dir, out_script_name)
+  if out_script_dir.exists() and not overwrite:
+    logger.error("Out script dir does already exist!")
+    return
+
+  data = load_data(merge_dir)
+  selection = load_selection(in_script_dir)
+  new_selection = select_kld_ngrams_epochs(
     data=data,
     selection=selection,
     n_gram=n_gram,
