@@ -2,7 +2,7 @@ import json
 import os
 import pickle
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 
 def get_subdir(training_dir_path: str, subdir: str, create: bool = True) -> str:
