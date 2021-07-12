@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple
 
 from ordered_set import OrderedSet
 from recording_script_generator.core.text_extraction import (
-    file_to_text, remove_undesired_en_sentences)
+    file_to_utterances, remove_undesired_en_sentences)
 from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings
 from text_utils.text import (EngToIpaMode, text_normalize, text_to_ipa,
@@ -30,7 +30,7 @@ class PreparationData:
 def add_corpus_from_text(text: str, lang: Language, ipa_settings: Optional[IPAExtractionSettings]) -> PreparationData:
   logger = getLogger(__name__)
   reading_passages: List[List[str]] = []
-  utterances = file_to_text(text, lang=lang)
+  utterances = file_to_utterances(text, lang=lang)
   unique_entries = OrderedSet(utterances)
   if len(unique_entries) < len(utterances):
     ignored_count = len(utterances) - len(unique_entries)

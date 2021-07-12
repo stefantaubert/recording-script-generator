@@ -4,18 +4,14 @@ import tempfile
 from collections import Counter
 from logging import getLogger
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import List, Set
 
 import enchant
-from nltk.corpus import brown
 from nltk.probability import FreqDist
 from text_utils import Language, text_to_sentences
-from text_utils.adjustments import collapse_whitespace
-from text_utils.text import sentence_to_words
-from tqdm import tqdm
 
 
-def file_to_text(content: str, lang: Language) -> List[str]:
+def file_to_utterances(content: str, lang: Language) -> List[str]:
   content_lines = content.split("\n")
   res = []
   for line in content_lines:
@@ -140,73 +136,3 @@ def get_minimum_frequency(words: List[str], word_frequencies: Counter) -> int:
       #print(word, freq)
       pass
   return result
-
-
-UNDESIRED = {"/", "\\", "—", ":", "@", ";", "\"",
-             "(", ")", "[", "]", "{", "}", "--", "quote", "oswald"}
-
-
-def remove_undesired_en_sentences(sentences: List[str]) -> List[str]:
-  if len(sentences) == 0:
-    return []
-
-  logger = getLogger(__name__)
-  min_words_per_sentence = 3
-
-  d = enchant.Dict("en_US")
-  selected_sentence_nrs = []
-  ignored = []
-  sentence: str
-  words_wo_punctuation: Dict[int, List[str]] = {}
-
-  sentences = [collapse_whitespace(sentence.strip()) for sentence in sentences]
-
-  for sentence_nr, sentence in enumerate(tqdm(sentences)):
-    words = sentence.split(" ")
-    words_non_punctuation = strip_punctuation_words(words)
-    words_wo_punctuation[sentence_nr] = words_non_punctuation
-
-    if not is_sentence(sentence):
-      continue
-
-    if contains_undesired_text(sentence, undesired=UNDESIRED, ignore_case=True):
-      continue
-
-    if contains_proper_names(sentence):
-      #logger.info(f"Ignored {sentence} due to prober names!")
-      continue
-
-    if words_contain_acronyms(words_non_punctuation):
-      continue
-
-    if len(words) < min_words_per_sentence:
-      continue
-
-    non_dict_words_amount = get_non_dict_words_amount(words_non_punctuation, d)
-    if non_dict_words_amount > 0:
-      #logger.info(f"Ignored \"{sentence}\" because of {non_dict_words_amount} non-dictionary word(s).")
-      continue
-
-    selected_sentence_nrs.append(sentence_nr)
-
-  words_counter = Counter(word.lower() for words in words_wo_punctuation.values()
-                          for word in words)
-
-  for sentence_nr in selected_sentence_nrs:
-    words_wo_punc = words_wo_punctuation[sentence_nr]
-    min_freq = get_minimum_frequency(words_wo_punc, words_counter)
-    if min_freq <= 1:
-      # selected_sentence_nrs.remove(sentence_nr)
-      pass
-
-  selected = [sentence for sentence_nr, sentence in enumerate(
-    sentences) if sentence_nr in selected_sentence_nrs]
-  ignored = [sentence for sentence_nr, sentence in enumerate(
-    sentences) if sentence_nr not in selected_sentence_nrs]
-  selected_percent = len(selected) / len(sentences)
-  logger.info(
-    f"Selected {selected_percent*100:.2f}% ({len(selected)}) of all {len(sentences)} sentences.")
-
-  assert len(selected) + len(ignored) == len(sentences)
-
-  return selected

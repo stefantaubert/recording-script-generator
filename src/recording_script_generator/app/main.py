@@ -2,7 +2,7 @@ from functools import partial
 from logging import getLogger
 from pathlib import Path
 from shutil import rmtree
-from typing import Callable, Optional, Set
+from typing import Callable, List, Optional, Set, Tuple
 
 from pandas import DataFrame
 from recording_script_generator.core.helper import (df_to_txt,
@@ -10,12 +10,13 @@ from recording_script_generator.core.helper import (df_to_txt,
                                                     log_stats)
 from recording_script_generator.core.main import (
     PreparationData, PreparationTarget, add_corpus_from_text, convert_to_ipa,
-    normalize, remove_duplicate_utterances,
+    merge, normalize, remove_duplicate_utterances,
     remove_utterances_with_proper_names_and_acronyms,
     remove_utterances_with_too_seldom_words,
     remove_utterances_with_undesired_sentence_lengths,
     remove_utterances_with_undesired_text,
-    remove_utterances_with_unknown_words, select_all_utterances)
+    remove_utterances_with_unknown_words, select_all_utterances,
+    select_greedy_ngrams_epochs, select_kld_ngrams_iterations)
 from recording_script_generator.utils import (get_subdir, load_obj, read_lines,
                                               read_text, save_json, save_obj)
 from text_utils import Language
@@ -28,7 +29,7 @@ SELECTED_TXT_FILENAME = "selected.txt"
 REST_FILENAME = "rest.csv"
 REST_TXT_FILENAME = "rest.txt"
 SEP = "\t"
-AVG_CHARS_PER_S: int = 25
+AVG_CHARS_PER_S = 25
 
 
 def get_corpus_dir(base_dir: Path, corpus_name: str) -> Path:
@@ -62,18 +63,25 @@ def save_scripts(step_dir: Path, data: PreparationData) -> None:
   (step_dir / REST_TXT_FILENAME).write_text(rest_txt)
 
 
-def add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: str, text_path: Path, lang: Language, ignore_tones: Optional[bool] = False, ignore_arcs: Optional[bool] = True, replace_unknown_ipa_by: Optional[str] = "_", overwrite: bool = False) -> None:
-  logger = getLogger(__name__)
-  logger.info("Adding corpus...")
-  corpus_dir = get_corpus_dir(base_dir, corpus_name)
+def app_add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: str, text_path: Path, lang: Language, ignore_tones: Optional[bool] = False, ignore_arcs: Optional[bool] = True, replace_unknown_ipa_by: Optional[str] = "_", overwrite: bool = False) -> None:
   if not text_path.exists():
-    logger.error("File not exists.")
-    return
-  if corpus_dir.exists() and not overwrite:
-    logger.info("Corpus already exists.")
+    logger = getLogger(__name__)
+    logger.error("File does not exist.")
     return
 
   text = read_text(text_path)
+  app_add_corpus_from_text(base_dir, corpus_name, step_name, text, lang,
+                           ignore_tones, ignore_arcs, replace_unknown_ipa_by, overwrite)
+
+
+def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, text: str, lang: Language, ignore_tones: Optional[bool] = False, ignore_arcs: Optional[bool] = True, replace_unknown_ipa_by: Optional[str] = "_", overwrite: bool = False) -> None:
+  logger = getLogger(__name__)
+  logger.info("Adding corpus...")
+  corpus_dir = get_corpus_dir(base_dir, corpus_name)
+
+  if corpus_dir.exists() and not overwrite:
+    logger.info("Corpus already exists.")
+    return
 
   result = add_corpus_from_text(
     text=text,
@@ -92,6 +100,42 @@ def add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: str, 
   save_corpus(step_dir, result)
   save_scripts(step_dir, result)
   log_stats(result, AVG_CHARS_PER_S)
+
+
+def app_merge_merged(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_corpus_name: str, out_step_name: str, overwrite: bool = False):
+  logger = getLogger(__name__)
+  logger.info(f"Merging multiple corpora...")
+
+  out_corpus_dir = get_corpus_dir(base_dir, out_corpus_name)
+  if out_corpus_dir.exists() and not overwrite:
+    logger.info("Corpus already exists.")
+    return
+
+  data_to_merge = []
+  for corpus_name, in_step_name in corpora_step_names:
+    in_corpus_dir = get_corpus_dir(base_dir, corpus_name)
+    in_step_dir = get_step_dir(in_corpus_dir, in_step_name)
+
+    if not in_step_dir.exists():
+      logger.error("In step dir does not exist!")
+      return
+
+    data = load_corpus(in_step_dir)
+    data_to_merge.append(data)
+
+  merged_data = merge(data_to_merge)
+
+  if out_corpus_dir.exists():
+    assert overwrite
+    rmtree(out_corpus_dir)
+    logger.info("Removed existing corpus.")
+
+  out_corpus_dir.mkdir(parents=True, exist_ok=False)
+  out_step_dir = get_step_dir(out_corpus_dir, out_step_name)
+  out_step_dir.mkdir(parents=False, exist_ok=False)
+  save_corpus(out_step_dir, merged_data)
+  save_scripts(out_step_dir, merged_data)
+  log_stats(merged_data, AVG_CHARS_PER_S)
 
 
 def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str], overwrite: bool, method: Callable[[PreparationData], None]):
@@ -225,6 +269,32 @@ def app_remove_utterances_with_too_seldom_words(base_dir: Path, corpus_name: str
   method = partial(
     remove_utterances_with_too_seldom_words,
     min_occurrence_count=min_occurrence_count,
+  )
+
+  _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+
+
+def app_select_kld_ngrams_iterations(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, iterations: int, ignore_symbols: Optional[Set[str]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+  logger = getLogger(__name__)
+  logger.info("Selecting utterances with KLD...")
+  method = partial(
+    select_kld_ngrams_iterations,
+    n_gram=n_gram,
+    iterations=iterations,
+    ignore_symbols=ignore_symbols,
+  )
+
+  _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+
+
+def app_select_greedy_ngrams_epochs(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, epochs: int, ignore_symbols: Optional[Set[str]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+  logger = getLogger(__name__)
+  logger.info("Selecting utterances with Greedy...")
+  method = partial(
+    select_greedy_ngrams_epochs,
+    n_gram=n_gram,
+    epochs=epochs,
+    ignore_symbols=ignore_symbols,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)

@@ -25,7 +25,7 @@ def get_df_from_reading_passages(reading_passages: OrderedDictType[int, Tuple[Re
       "".join(reading_passage),
       "".join(representation),
     ) for i, (k, (reading_passage, representation)) in enumerate(reading_passages.items())],
-    columns=["id", "nr", "utterance", "representation"],
+    columns=["Id", "Nr", "Utterance", "Representation"],
   )
 
   return df
@@ -46,7 +46,7 @@ def get_reading_scripts(data: PreparationData) -> Tuple[DataFrame, DataFrame]:
 def df_to_txt(df: DataFrame) -> str:
   result = ""
   for _, row in df.iterrows():
-    result += f"{row['nr']}: {row['utterance']}\n"
+    result += f"{row['Nr']}: {row['Utterance']}\n"
   return result
 
 

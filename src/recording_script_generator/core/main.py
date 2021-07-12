@@ -2,21 +2,16 @@ from collections import Counter, OrderedDict
 from dataclasses import dataclass
 from enum import IntEnum
 from logging import getLogger
-from typing import Dict, List, Optional
-from typing import OrderedDict as OrderedDictType
-from typing import Set, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple
 
 import enchant
-from numpy import select
 from ordered_set import OrderedSet
-from pandas import DataFrame
-from readability import Readability
+from text_selection.greedy_export import greedy_ngrams_epochs
 from recording_script_generator.core.text_extraction import (
-    contains_proper_names, contains_undesired_text, file_to_text,
+    contains_proper_names, contains_undesired_text, file_to_utterances,
     get_minimum_frequency, get_non_dict_words_amount, is_sentence,
-    remove_undesired_en_sentences, strip_punctuation_words,
-    words_contain_acronyms)
-from text_selection import greedy_ngrams_epochs
+    strip_punctuation_words, words_contain_acronyms)
+from text_selection import greedy_kld_uniform_ngrams_iterations
 from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings
 from text_utils.text import (EngToIpaMode, text_normalize, text_to_ipa,
@@ -54,7 +49,7 @@ class PreparationData:
 def add_corpus_from_text(text: str, lang: Language, ipa_settings: Optional[IPAExtractionSettings]) -> PreparationData:
   logger = getLogger(__name__)
   reading_passages: Dict[SentenceId, ReadingPassage] = {}
-  utterances = file_to_text(text, lang=lang)
+  utterances = file_to_utterances(text, lang=lang)
 
   for utterance_id, utterance in enumerate(utterances):
     if not is_sentence(utterance, lang):
@@ -86,53 +81,52 @@ def add_corpus_from_text(text: str, lang: Language, ipa_settings: Optional[IPAEx
 
 def normalize(data: PreparationData, target: PreparationTarget, ipa_settings: Optional[IPAExtractionSettings]) -> None:
   logger = getLogger(__name__)
+  targets = []
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
     logger.info("Normalizing reading passages...")
-    target = data.reading_passages
-    lang = data.reading_passages_lang
+    targets.append((data.reading_passages, data.reading_passages_lang))
   if target == PreparationTarget.BOTH or PreparationTarget.REPRESENTATIONS:
     logger.info("Normalizing representations...")
-    target = data.representations
-    lang = data.representations_lang
+    targets.append((data.representations, data.representations_lang))
 
-  for utterance_id, symbols in tqdm(target.items()):
-    text = ''.join(symbols)
-    normalized_text = text_normalize(text, lang, logger)
-    symbols = text_to_symbols(normalized_text, lang, ipa_settings, logger)
-    target[utterance_id] = symbols
-  logger.info("Done.")
+  for target_data, target_lang in targets:
+    for utterance_id, symbols in tqdm(target_data.items()):
+      text = ''.join(symbols)
+      normalized_text = text_normalize(text, target_lang, logger)
+      symbols = text_to_symbols(normalized_text, target_lang, ipa_settings, logger)
+      target_data[utterance_id] = symbols
 
 
 def convert_to_ipa(data: PreparationData, target: PreparationTarget, ipa_settings: Optional[IPAExtractionSettings], mode: Optional[EngToIpaMode], replace_unknown_with: Optional[str], consider_ipa_annotations: bool, use_cache: Optional[bool]) -> None:
   logger = getLogger(__name__)
+  targets = []
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
     logger.info("Converting reading passages to IPA...")
-    target = data.reading_passages
-    lang = data.reading_passages_lang
+    targets.append((data.reading_passages, data.reading_passages_lang))
     data.reading_passages_lang = Language.IPA
   if target == PreparationTarget.BOTH or PreparationTarget.REPRESENTATIONS:
     logger.info("Converting representations to IPA...")
-    target = data.representations
-    lang = data.representations_lang
+    targets.append((data.representations, data.representations_lang))
     data.representations_lang = Language.IPA
 
-  if lang == Language.IPA:
-    logger.info("Text is already IPA.")
-    return
+  for target_data, target_lang in targets:
+    if target_lang == Language.IPA:
+      logger.info("Text is already IPA.")
+      return
 
-  for utterance_id, symbols in tqdm(target.items()):
-    text = ''.join(symbols)
-    ipa_text = text_to_ipa(
-      text=text,
-      lang=lang,
-      mode=mode,
-      replace_unknown_with=replace_unknown_with,
-      use_cache=use_cache,
-      consider_ipa_annotations=consider_ipa_annotations,
-      logger=logger
-    )
-    new_symbols = text_to_symbols(ipa_text, Language.IPA, ipa_settings, logger)
-    target[utterance_id] = new_symbols
+    for utterance_id, symbols in tqdm(target_data.items()):
+      text = ''.join(symbols)
+      ipa_text = text_to_ipa(
+        text=text,
+        lang=target_lang,
+        mode=mode,
+        replace_unknown_with=replace_unknown_with,
+        use_cache=use_cache,
+        consider_ipa_annotations=consider_ipa_annotations,
+        logger=logger
+      )
+      new_symbols = text_to_symbols(ipa_text, Language.IPA, ipa_settings, logger)
+      target_data[utterance_id] = new_symbols
 
 
 def select_all_utterances(data: PreparationData):
@@ -250,3 +244,63 @@ def remove_utterances_with_too_seldom_words(data: PreparationData, min_occurrenc
       remove.add(utterance_id)
 
   _remove_utterances_with_logging(remove, data)
+
+
+def merge(data: List[PreparationData]) -> PreparationData:
+  assert len(data) > 0
+
+  merged_data = PreparationData(
+    reading_passages=dict(),
+    reading_passages_lang=data[0].reading_passages_lang,
+    representations=dict(),
+    representations_lang=data[0].representations_lang,
+    selected=OrderedSet(),
+  )
+
+  id_counter = 0
+  for data_to_merge in data:
+    assert data_to_merge.reading_passages_lang == merged_data.reading_passages_lang
+    assert data_to_merge.representations_lang == merged_data.representations_lang
+    sentence_id_mapping = dict()
+    for sentence_id, reading_passage_symbols in data_to_merge.reading_passages.items():
+      representation_symbols = data_to_merge.representations[sentence_id]
+      merged_data.reading_passages[id_counter] = reading_passage_symbols
+      merged_data.representations[id_counter] = representation_symbols
+      sentence_id_mapping[sentence_id] = id_counter
+      id_counter += 1
+
+    for selected_sentence_id in data_to_merge.selected:
+      new_sentence_id = sentence_id_mapping[selected_sentence_id]
+      merged_data.selected.add(new_sentence_id)
+
+  return merged_data
+
+
+def select_kld_ngrams_iterations(data: PreparationData, n_gram: int, iterations: int, ignore_symbols: Optional[Set[str]]):
+  logger = getLogger(__name__)
+  rest = OrderedDict({k: v for k, v in data.representations.items() if k not in data.selected})
+  new_selected = greedy_kld_uniform_ngrams_iterations(
+    data=rest,
+    n_gram=n_gram,
+    ignore_symbols=ignore_symbols,
+    iterations=iterations,
+  )
+
+  data.selected |= new_selected
+
+  logger.info(f"Added {len(new_selected)} utterances to selection.")
+
+
+def select_greedy_ngrams_epochs(data: PreparationData, n_gram: int, epochs: int, ignore_symbols: Optional[Set[str]]):
+  logger = getLogger(__name__)
+  rest = OrderedDict({k: v for k, v in data.representations.items() if k not in data.selected})
+  new_selected = greedy_ngrams_epochs(
+    data=rest,
+    n_gram=n_gram,
+    ignore_symbols=ignore_symbols,
+    epochs=epochs,
+  )
+
+  data.selected |= new_selected
+
+  logger.info(f"Added {len(new_selected)} utterances to selection.")
