@@ -46,9 +46,12 @@ def starts_with_big_letter(sentence: str) -> bool:
   return res
 
 
-def is_sentence(sentence: str) -> bool:
-  return starts_with_big_letter(sentence) and ends_with_punctuation(sentence)
-
+def is_sentence(sentence: str, lang: Language) -> bool:
+  if lang == Language.ENG or lang == Language.GER:
+    return starts_with_big_letter(sentence) and ends_with_punctuation(sentence)
+  if lang == Language.IPA:
+    return ends_with_punctuation(sentence)
+  return sentence != ""
 
 # def contains_direct_speech(sentence: str) -> bool:
 #   return len(set(sentence).intersection({"\""})) > 0
