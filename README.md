@@ -15,9 +15,10 @@ corpora
 ├── ...
 scripts
 ├── ljs_ipa
-|  ├── data.json
+|  ├── data.pkl
 │  ├── default_script
-|  │  ├── selection.json
+|  │  ├── selection.pkl
+|  │  ├── selected.txt
 |  │  ├── selected.csv
 |  │  ├── ignored.csv
 |  │  └── rest.csv
@@ -26,6 +27,19 @@ scripts
 |  │  ├── selected.csv
 |  │  ├── ignored.csv
 |  │  └── rest.csv
+│  ├── ...
+├── ...
+```
+
+```txt
+corpora
+├── ljs
+│  ├── original
+|  │  ├── data.pkl
+|  │  ├── selected.txt
+|  │  ├── selected.csv
+|  │  ├── rest.csv
+|  │  ├── rest.txt
 │  ├── ...
 ├── ...
 ```
@@ -120,6 +134,15 @@ Each line contains one utterance.
   - merges merged corpora
   - in_merge_names: `"{merge_name};..."`
 
+
+## Installation
+
+```
+pipenv install --skip-lock
+pipenv run python -m nltk.downloader punkt
+pipenv run python -m nltk.downloader brown
+pipenv run python -m nltk.downloader wordnet
+```
 
 Examples:
 

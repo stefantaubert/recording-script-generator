@@ -1,3 +1,4 @@
+from readability import Readability
 from collections import Counter, OrderedDict
 from dataclasses import dataclass
 from logging import getLogger
@@ -11,18 +12,22 @@ from pandas import DataFrame
 from recording_script_generator.core.preparation import PreparationData
 from text_selection import greedy_ngrams_epochs
 
+SentenceId = int
+ReadingPassage = List[str]
+Representation = List[str]
+
 
 @dataclass
 class ScriptData:
-  reading_passages: OrderedDictType[int, List[str]]
-  representations: OrderedDictType[int, List[str]]
+  reading_passages: OrderedDictType[SentenceId, ReadingPassage]
+  representations: OrderedDictType[SentenceId, Representation]
 
 
 @dataclass
 class Selection:
-  selected: OrderedSet[int]
-  ignored: OrderedSet[int]
-  rest: OrderedSet[int]
+  selected: OrderedSet[SentenceId]
+  ignored: OrderedSet[SentenceId]
+  rest: OrderedSet[SentenceId]
 
 
 def number_prepend_zeros(n: int, max_n: int) -> str:
@@ -33,7 +38,7 @@ def number_prepend_zeros(n: int, max_n: int) -> str:
   return res
 
 
-def get_df_from_reading_passages(reading_passages: OrderedDictType[int, Tuple[List[str], List[str]]]) -> DataFrame:
+def get_df_from_reading_passages(reading_passages: OrderedDictType[int, Tuple[ReadingPassage, Representation]]) -> DataFrame:
   df = DataFrame(
     data=[(
       k,
@@ -87,6 +92,32 @@ def merge(data: List[PreparationData]) -> Tuple[ScriptData, Selection]:
   return res, selection
 
 
+# def select_readable_sents(data: ScriptData, selection: Selection) -> Selection:
+
+#   r = Readability("")
+#   logger = getLogger(__name__)
+#   rest = OrderedDict({k: v for k, v in data.representations.items() if k in selection.rest})
+#   for sent_id, sent_symbols in rest.items():
+#     sent_symbols
+#   new_selected = greedy_ngrams_epochs(
+#     data=rest,
+#     n_gram=n_gram,
+#     ignore_symbols=ignore_symbols,
+#     epochs=epochs,
+#   )
+
+#   result = Selection(
+#     selected=selection.selected | new_selected,
+#     ignored=selection.ignored,
+#     rest=selection.rest - new_selected,
+#   )
+
+#   logger.info(f"Added {len(new_selected)} utterances to selection.")
+
+#   return result
+
+
+
 def select_greedy_ngrams_epochs(data: ScriptData, selection: Selection, n_gram: int, epochs: int, ignore_symbols: Optional[Set[str]]) -> Selection:
   logger = getLogger(__name__)
   rest = OrderedDict({k: v for k, v in data.representations.items() if k in selection.rest})
@@ -106,6 +137,7 @@ def select_greedy_ngrams_epochs(data: ScriptData, selection: Selection, n_gram: 
   logger.info(f"Added {len(new_selected)} utterances to selection.")
 
   return result
+
 
 def select_kld_ngrams_epochs(data: ScriptData, selection: Selection, n_gram: int, epochs: int, ignore_symbols: Optional[Set[str]]) -> Selection:
   logger = getLogger(__name__)
