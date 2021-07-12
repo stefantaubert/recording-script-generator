@@ -6,12 +6,12 @@ from typing import Dict, List, Optional, Set, Tuple
 
 import enchant
 from ordered_set import OrderedSet
-from text_selection.greedy_export import greedy_ngrams_epochs
 from recording_script_generator.core.text_extraction import (
     contains_proper_names, contains_undesired_text, file_to_utterances,
     get_minimum_frequency, get_non_dict_words_amount, is_sentence,
     strip_punctuation_words, words_contain_acronyms)
 from text_selection import greedy_kld_uniform_ngrams_iterations
+from text_selection.greedy_export import greedy_ngrams_epochs
 from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings
 from text_utils.text import (EngToIpaMode, text_normalize, text_to_ipa,

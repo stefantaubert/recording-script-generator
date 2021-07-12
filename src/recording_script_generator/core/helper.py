@@ -1,5 +1,6 @@
 from collections import Counter, OrderedDict
 from logging import getLogger
+from typing import List
 from typing import OrderedDict as OrderedDictType
 from typing import Set, Tuple
 
@@ -7,6 +8,7 @@ from pandas import DataFrame
 from recording_script_generator.core.main import (PreparationData,
                                                   ReadingPassage,
                                                   Representation)
+from text_utils.text import get_ngrams
 
 
 def number_prepend_zeros(n: int, max_n: int) -> str:
@@ -56,6 +58,17 @@ def _log_counter(c: Counter):
     logger.info(f"- {char} ({occ}x)")
 
 
+def log_ngram_stats(ngrams: List[Tuple[str, ...]]) -> None:
+  logger = getLogger(__name__)
+  if len(ngrams) == 0:
+    return None
+  counter = Counter(ngrams)
+  total = sum(counter.values())
+  for key, value in counter.most_common():
+    logger.info(f"- {key}: {value/total*100:.4f}")
+  return None
+
+
 def log_stats(data: PreparationData, avg_chars_per_s: int) -> None:
   assert avg_chars_per_s >= 0
   counter_repr = Counter([x for y in data.representations.values() for x in y])
@@ -71,6 +84,10 @@ def log_stats(data: PreparationData, avg_chars_per_s: int) -> None:
     {k: (v, data.representations[k]) for k, v in data.reading_passages.items() if k in data.selected})
   rest = OrderedDict(
     {k: (v, data.representations[k]) for k, v in data.reading_passages.items() if k not in data.selected})
+
+  one_grams = [x for (read, rep) in selected.values() for x in get_ngrams(rep, n=1)]
+  logger.info("One-grams stats:")
+  log_ngram_stats(one_grams)
 
   selected_read_chars_len = len([x for (read, rep) in selected.values() for x in read])
   rest_read_chars_len = len([x for (read, rep) in rest.values() for x in read])
