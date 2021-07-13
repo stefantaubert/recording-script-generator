@@ -85,7 +85,7 @@ def get_non_dict_words_amount(words: List[str], dict: enchant.Dict) -> int:
 
 
 def strip_punctuation(word: str):
-  res = word.strip(".,;-/!?:\\—()[]{}")
+  res = word.strip(".,;-/!?:\\—()[]{}\"'")
   return res
 
 

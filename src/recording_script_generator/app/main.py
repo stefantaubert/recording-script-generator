@@ -5,13 +5,14 @@ from shutil import rmtree
 from typing import Callable, List, Optional, Set, Tuple
 
 from pandas import DataFrame
-from recording_script_generator.core.helper import (df_to_txt,
+from recording_script_generator.core.helper import (df_to_tex, df_to_txt,
+                                                    get_n_gram_stats_df,
                                                     get_reading_scripts,
-                                                    log_stats)
+                                                    log_general_stats)
 from recording_script_generator.core.main import (
     PreparationData, PreparationTarget, add_corpus_from_text, convert_to_ipa,
     merge, normalize, remove_duplicate_utterances,
-    remove_utterances_with_proper_names_and_acronyms,
+    remove_utterances_with_acronyms, remove_utterances_with_proper_names,
     remove_utterances_with_too_seldom_words,
     remove_utterances_with_undesired_sentence_lengths,
     remove_utterances_with_undesired_text,
@@ -26,8 +27,13 @@ from text_utils.text import EngToIpaMode
 DATA_FILE = "data.pkl"
 SELECTED_FILENAME = "selected.csv"
 SELECTED_TXT_FILENAME = "selected.txt"
+SELECTED_TEX_FILENAME = "selected.tex"
+ONE_GRAM_STATS_CSV_FILENAME = "1_gram_stats.csv"
+TWO_GRAM_STATS_CSV_FILENAME = "2_gram_stats.csv"
+THREE_GRAM_STATS_CSV_FILENAME = "3_gram_stats.csv"
 REST_FILENAME = "rest.csv"
 REST_TXT_FILENAME = "rest.txt"
+REST_TEX_FILENAME = "rest.tex"
 SEP = "\t"
 AVG_CHARS_PER_S = 25
 
@@ -53,14 +59,33 @@ def save_corpus(step_dir: Path, corpus: PreparationData) -> None:
   return None
 
 
+def _save_stats_df(step_dir: Path, data: PreparationData) -> None:
+  logger = getLogger(__name__)
+  logger.info("Getting 1-gram stats...")
+  one_gram_repr_stats = get_n_gram_stats_df(data.representations, data.selected, n=1)
+  one_gram_repr_stats.to_csv(step_dir / ONE_GRAM_STATS_CSV_FILENAME,
+                             sep=SEP, header=True, index=False)
+
+  logger.info("Getting 2-gram stats...")
+  two_gram_repr_stats = get_n_gram_stats_df(data.representations, data.selected, n=2)
+  two_gram_repr_stats.to_csv(step_dir / TWO_GRAM_STATS_CSV_FILENAME,
+                             sep=SEP, header=True, index=False)
+
+  logger.info("Getting 3-gram stats...")
+  three_gram_repr_stats = get_n_gram_stats_df(data.representations, data.selected, n=3)
+  three_gram_repr_stats.to_csv(step_dir / THREE_GRAM_STATS_CSV_FILENAME,
+                               sep=SEP, header=True, index=False)
+  logger.info("Done.")
+
+
 def save_scripts(step_dir: Path, data: PreparationData) -> None:
   selected_df, rest_df = get_reading_scripts(data)
   selected_df.to_csv(step_dir / SELECTED_FILENAME, sep=SEP, header=True, index=False)
   rest_df.to_csv(step_dir / REST_FILENAME, sep=SEP, header=True, index=False)
-  selected_txt = df_to_txt(selected_df)
-  (step_dir / SELECTED_TXT_FILENAME).write_text(selected_txt)
-  rest_txt = df_to_txt(rest_df)
-  (step_dir / REST_TXT_FILENAME).write_text(rest_txt)
+  (step_dir / SELECTED_TXT_FILENAME).write_text(df_to_txt(selected_df))
+  (step_dir / SELECTED_TEX_FILENAME).write_text(df_to_tex(selected_df))
+  (step_dir / REST_TXT_FILENAME).write_text(df_to_txt(rest_df))
+  (step_dir / REST_TEX_FILENAME).write_text(df_to_tex(rest_df))
 
 
 def app_add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: str, text_path: Path, lang: Language, ignore_tones: Optional[bool] = False, ignore_arcs: Optional[bool] = True, replace_unknown_ipa_by: Optional[str] = "_", overwrite: bool = False) -> None:
@@ -99,7 +124,8 @@ def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, t
   step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(step_dir, result)
   save_scripts(step_dir, result)
-  log_stats(result, AVG_CHARS_PER_S)
+  log_general_stats(result, AVG_CHARS_PER_S)
+  _save_stats_df(step_dir, result)
 
 
 def app_merge_merged(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_corpus_name: str, out_step_name: str, overwrite: bool = False):
@@ -135,7 +161,8 @@ def app_merge_merged(base_dir: Path, corpora_step_names: List[Tuple[str, str]], 
   out_step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(out_step_dir, merged_data)
   save_scripts(out_step_dir, merged_data)
-  log_stats(merged_data, AVG_CHARS_PER_S)
+  log_general_stats(merged_data, AVG_CHARS_PER_S)
+  _save_stats_df(out_step_dir, merged_data)
 
 
 def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str], overwrite: bool, method: Callable[[PreparationData], None]):
@@ -168,7 +195,8 @@ def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_na
   out_step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(out_step_dir, data)
   save_scripts(out_step_dir, data)
-  log_stats(data, AVG_CHARS_PER_S)
+  log_general_stats(data, AVG_CHARS_PER_S)
+  _save_stats_df(out_step_dir, data)
 
 
 def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, ignore_tones: Optional[bool] = False, ignore_arcs: Optional[bool] = True, replace_unknown_ipa_by: Optional[str] = "_", out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
@@ -230,11 +258,21 @@ def app_remove_duplicate_utterances(base_dir: Path, corpus_name: str, in_step_na
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_remove_utterances_with_proper_names_and_acronyms(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_remove_utterances_with_proper_names(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
-  logger.info("Removing utterances with proper names or acronyms...")
+  logger.info("Removing utterances with proper names...")
   method = partial(
-    remove_utterances_with_proper_names_and_acronyms,
+    remove_utterances_with_proper_names,
+  )
+
+  _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+
+
+def app_remove_utterances_with_acronyms(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+  logger = getLogger(__name__)
+  logger.info("Removing utterances with acronyms...")
+  method = partial(
+    remove_utterances_with_acronyms,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)

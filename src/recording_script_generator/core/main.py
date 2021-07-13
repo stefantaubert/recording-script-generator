@@ -175,7 +175,18 @@ def remove_duplicate_utterances(data: PreparationData) -> None:
   _remove_utterances_with_logging(remove, data)
 
 
-def remove_utterances_with_proper_names_and_acronyms(data: PreparationData) -> None:
+def remove_utterances_with_proper_names(data: PreparationData) -> None:
+  remove = OrderedSet()
+  for utterance_id, utterance_symbols in data.representations.items():
+    utterance = ''.join(utterance_symbols)
+
+    if contains_proper_names(utterance):
+      remove.add(utterance_id)
+
+  _remove_utterances_with_logging(remove, data)
+
+
+def remove_utterances_with_acronyms(data: PreparationData) -> None:
   remove = OrderedSet()
   for utterance_id, utterance_symbols in data.representations.items():
     utterance = ''.join(utterance_symbols)
@@ -183,8 +194,6 @@ def remove_utterances_with_proper_names_and_acronyms(data: PreparationData) -> N
     words_non_punctuation = strip_punctuation_words(words)
 
     if words_contain_acronyms(words_non_punctuation):
-      remove.add(utterance_id)
-    elif contains_proper_names(utterance):
       remove.add(utterance_id)
 
   _remove_utterances_with_logging(remove, data)
