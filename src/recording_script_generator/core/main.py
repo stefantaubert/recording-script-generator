@@ -1,8 +1,9 @@
 from collections import Counter, OrderedDict
 from dataclasses import dataclass
 from enum import IntEnum
+from functools import partial
 from logging import getLogger
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Set, Tuple, Union
 
@@ -15,7 +16,9 @@ from recording_script_generator.core.text_extraction import (
 from text_selection import greedy_kld_uniform_ngrams_iterations
 from text_selection.greedy_export import (greedy_ngrams_epochs,
                                           greedy_ngrams_seconds)
-from text_selection.greedy_kld_export import greedy_kld_uniform_ngrams_seconds
+from text_selection.greedy_kld_export import (
+    greedy_kld_uniform_ngrams_seconds,
+    greedy_kld_uniform_ngrams_seconds_with_preselection)
 from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings
 from text_utils.text import (EngToIpaMode, text_normalize, text_to_ipa,
@@ -338,6 +341,21 @@ def boundaries_are_distinct(boundaries: List[SplitBoundary]) -> bool:
 
 
 def select_kld_ngrams_duration_split(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: int, ignore_symbols: Optional[Set[str]], split_seconds_percent: Dict[SplitBoundary, float]) -> None:
+  method = partial(greedy_kld_uniform_ngrams_seconds_with_preselection,
+                   n_gram=n_gram,
+                   ignore_symbols=ignore_symbols,
+                   )
+
+  select_n_grams_duration_split(
+    data=data,
+    minutes=minutes,
+    reading_speed_chars_per_s=reading_speed_chars_per_s,
+    split_seconds_percent=split_seconds_percent,
+    method=method,
+  )
+
+
+def select_n_grams_duration_split(data: PreparationData, minutes: float, reading_speed_chars_per_s: int, split_seconds_percent: Dict[SplitBoundary, float], method: Callable[[OrderedDictType[SentenceId, Representation], Dict[int, float], float], OrderedSet[SentenceId]]) -> None:
   sum_percent = sum(split_seconds_percent.values())
   assert 0.9999 <= sum_percent <= 1.0001
   assert boundaries_are_distinct(list(split_seconds_percent.keys()))
@@ -362,6 +380,7 @@ def select_kld_ngrams_duration_split(data: PreparationData, n_gram: int, minutes
   else:
     logger.info("Didn't missed out any utterances.")
 
+  already_selected = OrderedDict()
   for subset, percent, (boundary_min, boundary_max) in subsets:
     logger.info(
       f"Current subset: {len(subset)}/{len(non_selected_durations)} ({len(subset)/len(non_selected_durations)*100:.2f}%)")
@@ -373,21 +392,24 @@ def select_kld_ngrams_duration_split(data: PreparationData, n_gram: int, minutes
                                                        if k in subset})
     subset_durations_s = {k: v for k, v in non_selected_durations.items() if k in subset}
 
-    new_selected = greedy_kld_uniform_ngrams_seconds(
+    new_selected = method(
       data=subset_non_selected_representations,
-      n_gram=n_gram,
-      ignore_symbols=ignore_symbols,
       seconds=target_minutes * 60,
       durations_s=subset_durations_s,
+      preselection=already_selected,
     )
+
+    new_selected_data = OrderedDict(
+      {k: v for k, v in subset_non_selected_representations.items() if k in new_selected})
+
+    already_selected.update(new_selected_data)
 
     data.selected |= new_selected
     selected_duration = sum(len(v) / reading_speed_chars_per_s / 60
                             for k, v in subset_non_selected_reading_passages.items()
                             if k in new_selected)
     logger.info(
-        f"Added {len(new_selected)} utterances to selection ({selected_duration:.2f}min) for utterances with durations [{boundary_min}, {boundary_max}] and {percent*100:.2f}% of the total set.")
-  return True
+        f"Added {len(new_selected)} utterances to selection ({selected_duration:.2f}/{target_minutes:.2f}min) for utterances with durations [{boundary_min}, {boundary_max}] and {percent*100:.2f}% of the total set.")
 
 
 def filter_after_duration(corpus: Dict[int, float], min_duration_incl: float, max_duration_excl: float) -> Set[int]:
