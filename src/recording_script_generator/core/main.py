@@ -2,7 +2,9 @@ from collections import Counter, OrderedDict
 from dataclasses import dataclass
 from enum import IntEnum
 from logging import getLogger
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional
+from typing import OrderedDict as OrderedDictType
+from typing import Set, Tuple, Union
 
 import enchant
 from ordered_set import OrderedSet
@@ -11,7 +13,9 @@ from recording_script_generator.core.text_extraction import (
     get_minimum_frequency, get_non_dict_words_amount, is_sentence,
     strip_punctuation_words, words_contain_acronyms)
 from text_selection import greedy_kld_uniform_ngrams_iterations
-from text_selection.greedy_export import greedy_ngrams_epochs
+from text_selection.greedy_export import (greedy_ngrams_epochs,
+                                          greedy_ngrams_seconds)
+from text_selection.greedy_kld_export import greedy_kld_uniform_ngrams_seconds
 from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings
 from text_utils.text import (EngToIpaMode, text_normalize, text_to_ipa,
@@ -300,6 +304,105 @@ def select_kld_ngrams_iterations(data: PreparationData, n_gram: int, iterations:
   logger.info(f"Added {len(new_selected)} utterances to selection.")
 
 
+def select_kld_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: int, ignore_symbols: Optional[Set[str]]):
+  logger = getLogger(__name__)
+  non_selected_reading_passages = OrderedDict(
+    {k: v for k, v in data.reading_passages.items() if k not in data.selected})
+  non_selected_representations = OrderedDict(
+    {k: v for k, v in data.representations.items() if k not in data.selected})
+  durations = {k: len(v) / reading_speed_chars_per_s for k,
+               v in non_selected_reading_passages.items()}
+  new_selected = greedy_kld_uniform_ngrams_seconds(
+    data=non_selected_representations,
+    n_gram=n_gram,
+    ignore_symbols=ignore_symbols,
+    seconds=minutes * 60,
+    durations_s=durations,
+  )
+
+  data.selected |= new_selected
+  selected_duration = sum(len(v) / reading_speed_chars_per_s / 60
+                          for k, v in non_selected_reading_passages.items() if k in new_selected)
+  logger.info(f"Added {len(new_selected)} utterances to selection ({selected_duration:.2f}min).")
+
+
+SplitBoundary = Tuple[float, float]
+
+
+def boundaries_are_distinct(boundaries: List[SplitBoundary]) -> bool:
+  tmp = []
+  for boundary in boundaries:
+    tmp.extend(list(boundary))
+  is_same = tmp == list(sorted(tmp))
+  return is_same
+
+
+def select_kld_ngrams_duration_split(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: int, ignore_symbols: Optional[Set[str]], split_seconds_percent: Dict[SplitBoundary, float]) -> None:
+  sum_percent = sum(split_seconds_percent.values())
+  assert 0.9999 <= sum_percent <= 1.0001
+  assert boundaries_are_distinct(list(split_seconds_percent.keys()))
+
+  logger = getLogger(__name__)
+  subsets: List[Tuple[Set[int], float, SplitBoundary]] = []
+  non_selected_durations = {k: len(v) / reading_speed_chars_per_s for k,
+                            v in data.reading_passages.items() if k not in data.selected}
+
+  for boundary, percent in split_seconds_percent.items():
+    boundary_min, boundary_max = boundary
+    filtered_utterance_ids = filter_after_duration(
+      non_selected_durations, boundary_min, boundary_max)
+    subsets.append((filtered_utterance_ids, percent, boundary))
+
+  utterance_ids_in_any_subset = {utt_id for utt_ids, _, _ in subsets for utt_id in utt_ids}
+  utterance_ids_not_in_any_subset = {utt_id for utt_id in non_selected_durations.keys()
+                                     if utt_id not in utterance_ids_in_any_subset}
+  if len(utterance_ids_not_in_any_subset) > 0:
+    logger.warning(
+        f"Missed out non-selected utterances: {len(utterance_ids_not_in_any_subset)}/{len(non_selected_durations)} ({len(utterance_ids_not_in_any_subset)/len(non_selected_durations)*100:.2f}%)")
+  else:
+    logger.info("Didn't missed out any utterances.")
+
+  for subset, percent, (boundary_min, boundary_max) in subsets:
+    logger.info(
+      f"Current subset: {len(subset)}/{len(non_selected_durations)} ({len(subset)/len(non_selected_durations)*100:.2f}%)")
+    target_minutes = minutes * percent
+
+    subset_non_selected_reading_passages = {k: v for k, v in data.reading_passages.items()
+                                            if k in subset}
+    subset_non_selected_representations = OrderedDict({k: v for k, v in data.representations.items()
+                                                       if k in subset})
+    subset_durations_s = {k: v for k, v in non_selected_durations.items() if k in subset}
+
+    new_selected = greedy_kld_uniform_ngrams_seconds(
+      data=subset_non_selected_representations,
+      n_gram=n_gram,
+      ignore_symbols=ignore_symbols,
+      seconds=target_minutes * 60,
+      durations_s=subset_durations_s,
+    )
+
+    data.selected |= new_selected
+    selected_duration = sum(len(v) / reading_speed_chars_per_s / 60
+                            for k, v in subset_non_selected_reading_passages.items()
+                            if k in new_selected)
+    logger.info(
+        f"Added {len(new_selected)} utterances to selection ({selected_duration:.2f}min) for utterances with durations [{boundary_min}, {boundary_max}] and {percent*100:.2f}% of the total set.")
+  return True
+
+
+def filter_after_duration(corpus: Dict[int, float], min_duration_incl: float, max_duration_excl: float) -> Set[int]:
+  assert min_duration_incl >= 0
+  assert max_duration_excl >= 0
+
+  filtered_utterance_indicies = set()
+
+  for utterance_id, utterance_duration in corpus.items():
+    if min_duration_incl <= utterance_duration < max_duration_excl:
+      filtered_utterance_indicies.add(utterance_id)
+
+  return filtered_utterance_indicies
+
+
 def select_greedy_ngrams_epochs(data: PreparationData, n_gram: int, epochs: int, ignore_symbols: Optional[Set[str]]):
   logger = getLogger(__name__)
   rest = OrderedDict({k: v for k, v in data.representations.items() if k not in data.selected})
@@ -313,3 +416,25 @@ def select_greedy_ngrams_epochs(data: PreparationData, n_gram: int, epochs: int,
   data.selected |= new_selected
 
   logger.info(f"Added {len(new_selected)} utterances to selection.")
+
+
+def select_greedy_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: int, ignore_symbols: Optional[Set[str]]):
+  logger = getLogger(__name__)
+  non_selected_reading_passages = OrderedDict(
+    {k: v for k, v in data.reading_passages.items() if k not in data.selected})
+  non_selected_representations = OrderedDict(
+    {k: v for k, v in data.representations.items() if k not in data.selected})
+  durations = {k: len(v) / reading_speed_chars_per_s for k,
+               v in non_selected_reading_passages.items()}
+  new_selected = greedy_ngrams_seconds(
+    non_selected_representations,
+    n_gram=n_gram,
+    ignore_symbols=ignore_symbols,
+    seconds=minutes * 60,
+    durations_s=durations,
+  )
+
+  data.selected |= new_selected
+  selected_duration = sum(len(v) / reading_speed_chars_per_s / 60
+                          for k, v in non_selected_reading_passages.items() if k in new_selected)
+  logger.info(f"Added {len(new_selected)} utterances to selection ({selected_duration:.2f}min).")
