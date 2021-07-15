@@ -17,7 +17,7 @@ from text_selection import greedy_kld_uniform_ngrams_iterations
 from text_selection.greedy_export import (greedy_ngrams_epochs,
                                           greedy_ngrams_seconds)
 from text_selection.greedy_kld_export import (
-    greedy_kld_uniform_ngrams_seconds,
+    SelectionMode, greedy_kld_uniform_ngrams_seconds,
     greedy_kld_uniform_ngrams_seconds_with_preselection)
 from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings
@@ -344,6 +344,7 @@ def select_kld_ngrams_duration_split(data: PreparationData, n_gram: int, minutes
   method = partial(greedy_kld_uniform_ngrams_seconds_with_preselection,
                    n_gram=n_gram,
                    ignore_symbols=ignore_symbols,
+                   mode=SelectionMode.SHORTEST,
                    )
 
   select_n_grams_duration_split(
