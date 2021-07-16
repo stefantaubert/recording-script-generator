@@ -1,17 +1,23 @@
-from collections import Counter, OrderedDict
-from logging import getLogger
-from typing import Dict, List
+import random
+from collections import OrderedDict
+from enum import IntEnum
+from typing import Optional
 from typing import OrderedDict as OrderedDictType
-from typing import Set, Tuple
+from typing import Tuple
 
-import numpy as np
 from ordered_set import OrderedSet
 from pandas import DataFrame
 from recording_script_generator.core.main import (PreparationData,
                                                   ReadingPassage,
-                                                  Representation, SentenceId,
-                                                  Symbols)
-from text_utils.text import get_ngrams
+                                                  ReadingPassages,
+                                                  Representation)
+
+
+class SortingMode(IntEnum):
+  SYMBOL_COUNT_ASC = 0
+  BY_SELECTION = 1
+  BY_INDEX = 2
+  RANDOM = 3
 
 
 def number_prepend_zeros(n: int, max_n: int) -> str:
@@ -36,11 +42,38 @@ def get_df_from_reading_passages(reading_passages: OrderedDictType[int, Tuple[Re
   return df
 
 
-def get_reading_scripts(data: PreparationData) -> Tuple[DataFrame, DataFrame]:
+def get_keys_custom_sort(reading_passages: OrderedDictType[int, ReadingPassage], mode: SortingMode, seed: Optional[int]) -> OrderedSet[int]:
+  if mode == SortingMode.BY_SELECTION:
+    unchanged_keys = OrderedSet(list(reading_passages.keys()))
+    return unchanged_keys
+  if mode == SortingMode.SYMBOL_COUNT_ASC:
+    reading_passages_lens = [(key, len(symbols)) for key, symbols in reading_passages.items()]
+    reading_passages_lens.sort(key=lambda key_lens: key_lens[1])
+    result = OrderedSet([key for key, _ in reading_passages_lens])
+    return result
+  if mode == SortingMode.RANDOM:
+    assert seed is not None
+    keys = list(reading_passages.keys())
+    random.seed(seed)
+    random.shuffle(keys)
+    result = OrderedSet(keys)
+    return result
+  if mode == SortingMode.BY_INDEX:
+    keys_sorted_by_index = OrderedSet(list(sorted(reading_passages.keys())))
+    return keys_sorted_by_index
+
+  raise Exception()
+
+
+def get_reading_scripts(data: PreparationData, mode: SortingMode, seed: Optional[int]) -> Tuple[DataFrame, DataFrame]:
+  selected_reading_passages = OrderedDict({k: data.reading_passages[k] for k in data.selected})
+  keys_sorted = get_keys_custom_sort(selected_reading_passages, mode=mode, seed=seed)
   selected = OrderedDict(
-    {k: (v, data.representations[k]) for k, v in data.reading_passages.items() if k in data.selected})
+    {k: (data.reading_passages[k], data.representations[k])
+     for k in keys_sorted})
   rest = OrderedDict(
-    {k: (v, data.representations[k]) for k, v in data.reading_passages.items() if k not in data.selected})
+    {k: (data.reading_passages[k], data.representations[k])
+     for k in keys_sorted})
 
   selected_df = get_df_from_reading_passages(selected)
   rest_df = get_df_from_reading_passages(rest)

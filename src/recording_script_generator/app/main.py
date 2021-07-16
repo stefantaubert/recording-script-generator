@@ -5,7 +5,8 @@ from shutil import rmtree
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from pandas import DataFrame
-from recording_script_generator.core.export import (df_to_tex, df_to_txt,
+from recording_script_generator.core.export import (SortingMode, df_to_tex,
+                                                    df_to_txt,
                                                     get_reading_scripts)
 from recording_script_generator.core.main import (
     PreparationData, PreparationTarget, SplitBoundary, add_corpus_from_text,
@@ -40,6 +41,8 @@ REST_TXT_FILENAME = "rest.txt"
 REST_TEX_FILENAME = "rest.tex"
 SEP = "\t"
 AVG_CHARS_PER_S = 25
+DEFAULT_SEED = 1111
+DEFAULT_SORTING_MODE = SortingMode.BY_INDEX
 
 
 def get_corpus_dir(base_dir: Path, corpus_name: str) -> Path:
@@ -83,7 +86,8 @@ def _save_stats_df(step_dir: Path, data: PreparationData) -> None:
 
 
 def save_scripts(step_dir: Path, data: PreparationData) -> None:
-  selected_df, rest_df = get_reading_scripts(data)
+  selected_df, rest_df = get_reading_scripts(
+    data, mode=DEFAULT_SORTING_MODE, seed=DEFAULT_SEED)
   selected_df.to_csv(step_dir / SELECTED_FILENAME, sep=SEP, header=True, index=False)
   rest_df.to_csv(step_dir / REST_FILENAME, sep=SEP, header=True, index=False)
   (step_dir / SELECTED_TXT_FILENAME).write_text(df_to_txt(selected_df))
