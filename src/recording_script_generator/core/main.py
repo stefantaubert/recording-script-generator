@@ -5,7 +5,7 @@ from functools import partial
 from logging import getLogger
 from typing import Callable, Dict, List, Optional
 from typing import OrderedDict as OrderedDictType
-from typing import Set, Tuple, Union
+from typing import Set, Tuple
 
 import enchant
 from ordered_set import OrderedSet
@@ -14,8 +14,8 @@ from recording_script_generator.core.text_extraction import (
     get_minimum_frequency, get_non_dict_words_amount, is_sentence,
     strip_punctuation_words, words_contain_acronyms)
 from text_selection import greedy_kld_uniform_ngrams_iterations
-from text_selection.greedy_export import (greedy_ngrams_epochs,
-                                          greedy_ngrams_seconds)
+from text_selection.greedy_export import (greedy_ngrams_durations_advanced,
+                                          greedy_ngrams_epochs)
 from text_selection.greedy_kld_export import (
     SelectionMode, greedy_kld_uniform_ngrams_seconds,
     greedy_kld_uniform_ngrams_seconds_with_preselection)
@@ -340,11 +340,11 @@ def boundaries_are_distinct(boundaries: List[SplitBoundary]) -> bool:
   return is_same
 
 
-def select_kld_ngrams_duration_split(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: int, ignore_symbols: Optional[Set[str]], split_seconds_percent: Dict[SplitBoundary, float]) -> None:
+def select_kld_ngrams_duration_split(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: int, ignore_symbols: Optional[Set[str]], split_seconds_percent: Dict[SplitBoundary, float], mode: SelectionMode) -> None:
   method = partial(greedy_kld_uniform_ngrams_seconds_with_preselection,
                    n_gram=n_gram,
                    ignore_symbols=ignore_symbols,
-                   mode=SelectionMode.SHORTEST,
+                   mode=mode,
                    )
 
   select_n_grams_duration_split(
@@ -441,7 +441,7 @@ def select_greedy_ngrams_epochs(data: PreparationData, n_gram: int, epochs: int,
   logger.info(f"Added {len(new_selected)} utterances to selection.")
 
 
-def select_greedy_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: int, ignore_symbols: Optional[Set[str]]):
+def select_greedy_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: int, ignore_symbols: Optional[Set[str]], mode: SelectionMode):
   logger = getLogger(__name__)
   non_selected_reading_passages = OrderedDict(
     {k: v for k, v in data.reading_passages.items() if k not in data.selected})
@@ -449,12 +449,13 @@ def select_greedy_ngrams_duration(data: PreparationData, n_gram: int, minutes: f
     {k: v for k, v in data.representations.items() if k not in data.selected})
   durations = {k: len(v) / reading_speed_chars_per_s for k,
                v in non_selected_reading_passages.items()}
-  new_selected = greedy_ngrams_seconds(
-    non_selected_representations,
+  new_selected = greedy_ngrams_durations_advanced(
+    data=non_selected_representations,
     n_gram=n_gram,
     ignore_symbols=ignore_symbols,
-    seconds=minutes * 60,
-    durations_s=durations,
+    target_duration=minutes * 60,
+    durations=durations,
+    mode=mode,
   )
 
   data.selected |= new_selected

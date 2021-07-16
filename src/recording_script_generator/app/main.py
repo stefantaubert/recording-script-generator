@@ -23,6 +23,7 @@ from recording_script_generator.core.stats import (get_n_gram_stats_df,
                                                    log_general_stats)
 from recording_script_generator.utils import (get_subdir, load_obj, read_lines,
                                               read_text, save_json, save_obj)
+from text_selection.selection import SelectionMode
 from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings
 from text_utils.text import EngToIpaMode
@@ -383,6 +384,7 @@ def app_select_kld_ngrams_duration_split(base_dir: Path, corpus_name: str, in_st
     minutes=minutes,
     reading_speed_chars_per_s=reading_speed_chars_per_s,
     split_seconds_percent=split_seconds_percent,
+    mode=SelectionMode.FIRST,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
@@ -410,6 +412,7 @@ def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_
     ignore_symbols=ignore_symbols,
     minutes=minutes,
     reading_speed_chars_per_s=reading_speed_chars_per_s,
+    mode=SelectionMode.SHORTEST,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
