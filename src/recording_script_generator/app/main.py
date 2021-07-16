@@ -29,6 +29,9 @@ from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings
 from text_utils.text import EngToIpaMode
 
+DEFAULT_SEED = 1111
+DEFAULT_SORTING_MODE = SortingMode.BY_INDEX
+AVG_CHARS_PER_S = 25
 DATA_FILE = "data.pkl"
 SELECTED_FILENAME = "selected.csv"
 SELECTED_TXT_FILENAME = "selected.txt"
@@ -40,10 +43,6 @@ REST_FILENAME = "rest.csv"
 REST_TXT_FILENAME = "rest.txt"
 REST_TEX_FILENAME = "rest.tex"
 SEP = "\t"
-AVG_CHARS_PER_S = 25
-DEFAULT_SEED = 1111
-DEFAULT_SORTING_MODE = SortingMode.BY_INDEX
-
 
 def get_corpus_dir(base_dir: Path, corpus_name: str) -> Path:
   return base_dir / corpus_name
