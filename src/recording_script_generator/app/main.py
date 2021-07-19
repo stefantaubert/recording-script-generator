@@ -3,9 +3,8 @@ from logging import getLogger
 from math import inf
 from pathlib import Path
 from shutil import rmtree
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import Callable, List, Optional, Set, Tuple
 
-from pandas import DataFrame
 from recording_script_generator.core.export import (SortingMode, df_to_tex,
                                                     df_to_txt,
                                                     get_reading_scripts)
@@ -19,19 +18,17 @@ from recording_script_generator.core.main import (
     remove_utterances_with_undesired_text,
     remove_utterances_with_unknown_words, select_all_utterances,
     select_greedy_ngrams_duration, select_greedy_ngrams_epochs,
-    select_kld_ngrams_duration, select_kld_ngrams_duration_split,
-    select_kld_ngrams_iterations)
+    select_kld_ngrams_duration, select_kld_ngrams_iterations)
 from recording_script_generator.core.stats import (get_n_gram_stats_df,
                                                    log_general_stats)
-from recording_script_generator.utils import (get_subdir, load_obj, read_lines,
-                                              read_text, save_json, save_obj)
+from recording_script_generator.utils import load_obj, read_text, save_obj
 from text_selection.selection import SelectionMode
 from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings
 from text_utils.text import EngToIpaMode
 
 DEFAULT_SEED = 1111
-DEFAULT_SORTING_MODE = SortingMode.BY_INDEX
+DEFAULT_SORTING_MODE = SortingMode.BY_SELECTION
 AVG_CHARS_PER_S = 25
 DATA_FILE = "data.pkl"
 SELECTED_FILENAME = "selected.csv"
@@ -129,12 +126,31 @@ def log_stats(base_dir: Path, corpus_name: str, step_name: str) -> None:
   _log_stats(data, step_dir)
 
 
+def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorting_mode: SortingMode) -> None:
+  logger = getLogger(__name__)
+  corpus_dir = get_corpus_dir(base_dir, corpus_name)
+
+  if not corpus_dir.exists():
+    logger.info("Corpus does not exist.")
+    return
+
+  step_dir = get_step_dir(corpus_dir, step_name)
+
+  if not step_dir.exists():
+    logger.info("Step does not exist.")
+    return
+
+  data = load_corpus(step_dir)
+
+  save_scripts(step_dir, data, sorting_mode)
+
+
 def _log_stats(data: PreparationData, step_dir: Path):
   log_general_stats(data, AVG_CHARS_PER_S)
   _save_stats_df(step_dir, data)
 
 
-def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, text: str, lang: Language, ignore_tones: Optional[bool] = False, ignore_arcs: Optional[bool] = True, replace_unknown_ipa_by: Optional[str] = "_", overwrite: bool = False, sorting_mode: SortingMode = DEFAULT_SORTING_MODE) -> None:
+def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, text: str, lang: Language, ignore_tones: Optional[bool] = False, ignore_arcs: Optional[bool] = True, replace_unknown_ipa_by: Optional[str] = "_", overwrite: bool = False) -> None:
   logger = getLogger(__name__)
   logger.info("Adding corpus...")
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
@@ -158,11 +174,11 @@ def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, t
   step_dir = get_step_dir(corpus_dir, step_name)
   step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(step_dir, result)
-  save_scripts(step_dir, result, sorting_mode)
+  save_scripts(step_dir, result, DEFAULT_SORTING_MODE)
   _log_stats(result, step_dir)
 
 
-def app_merge_merged(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_corpus_name: str, out_step_name: str, overwrite: bool = False, sorting_mode: SortingMode = DEFAULT_SORTING_MODE):
+def app_merge_merged(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_corpus_name: str, out_step_name: str, overwrite: bool = False):
   logger = getLogger(__name__)
   logger.info(f"Merging multiple corpora...")
 
@@ -194,11 +210,11 @@ def app_merge_merged(base_dir: Path, corpora_step_names: List[Tuple[str, str]], 
   out_step_dir = get_step_dir(out_corpus_dir, out_step_name)
   out_step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(out_step_dir, merged_data)
-  save_scripts(out_step_dir, merged_data, sorting_mode)
+  save_scripts(out_step_dir, merged_data, DEFAULT_SORTING_MODE)
   _log_stats(merged_data, out_step_dir)
 
 
-def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str], overwrite: bool, method: Callable[[PreparationData], None], sorting_mode: SortingMode = DEFAULT_SORTING_MODE):
+def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str], overwrite: bool, method: Callable[[PreparationData], None]):
   logger = getLogger(__name__)
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
   in_step_dir = get_step_dir(corpus_dir, in_step_name)
@@ -227,7 +243,7 @@ def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_na
     logger.info("Overwriting existing out dir.")
   out_step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(out_step_dir, data)
-  save_scripts(out_step_dir, data, sorting_mode)
+  save_scripts(out_step_dir, data, DEFAULT_SORTING_MODE)
   _log_stats(data, out_step_dir)
 
 
@@ -367,32 +383,6 @@ def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_nam
     reading_speed_chars_per_s=reading_speed_chars_per_s,
     ignore_symbols=ignore_symbols,
     boundary=boundary,
-    mode=SelectionMode.FIRST,
-  )
-
-  _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
-
-
-def app_select_kld_ngrams_duration_split(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, split_seconds_percent: Dict[SplitBoundary, float], reading_speed_chars_per_s: int = AVG_CHARS_PER_S, ignore_symbols: Optional[Set[str]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
-  logger = getLogger(__name__)
-  logger.info("Selecting utterances with KLD...")
-
-  if not boundaries_are_distinct(list(split_seconds_percent.keys())):
-    logger.error("Split boundaries were not distinct!")
-    return
-
-  sum_percent = sum(split_seconds_percent.values())
-  if not 0.9999 <= sum_percent <= 1.0001:
-    logger.error(f"The percentages need to sum up to 100% (1.0), instead it was: {sum_percent}!")
-    return
-
-  method = partial(
-    select_kld_ngrams_duration_split,
-    n_gram=n_gram,
-    ignore_symbols=ignore_symbols,
-    minutes=minutes,
-    reading_speed_chars_per_s=reading_speed_chars_per_s,
-    split_seconds_percent=split_seconds_percent,
     mode=SelectionMode.FIRST,
   )
 
