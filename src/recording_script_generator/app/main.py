@@ -1,5 +1,6 @@
 from functools import partial
 from logging import getLogger
+from math import inf
 from pathlib import Path
 from shutil import rmtree
 from typing import Callable, Dict, List, Optional, Set, Tuple
@@ -43,6 +44,9 @@ REST_FILENAME = "rest.csv"
 REST_TXT_FILENAME = "rest.txt"
 REST_TEX_FILENAME = "rest.tex"
 SEP = "\t"
+DEFAULT_IGNORE = {}
+DEFAULT_SPLIT_BOUNDARY = (0, inf)
+
 
 def get_corpus_dir(base_dir: Path, corpus_name: str) -> Path:
   return base_dir / corpus_name
@@ -84,9 +88,9 @@ def _save_stats_df(step_dir: Path, data: PreparationData) -> None:
   logger.info("Done.")
 
 
-def save_scripts(step_dir: Path, data: PreparationData) -> None:
+def save_scripts(step_dir: Path, data: PreparationData, sorting_mode: SortingMode) -> None:
   selected_df, rest_df = get_reading_scripts(
-    data, mode=DEFAULT_SORTING_MODE, seed=DEFAULT_SEED)
+    data, mode=sorting_mode, seed=DEFAULT_SEED)
   selected_df.to_csv(step_dir / SELECTED_FILENAME, sep=SEP, header=True, index=False)
   rest_df.to_csv(step_dir / REST_FILENAME, sep=SEP, header=True, index=False)
   (step_dir / SELECTED_TXT_FILENAME).write_text(df_to_txt(selected_df))
@@ -130,7 +134,7 @@ def _log_stats(data: PreparationData, step_dir: Path):
   _save_stats_df(step_dir, data)
 
 
-def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, text: str, lang: Language, ignore_tones: Optional[bool] = False, ignore_arcs: Optional[bool] = True, replace_unknown_ipa_by: Optional[str] = "_", overwrite: bool = False) -> None:
+def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, text: str, lang: Language, ignore_tones: Optional[bool] = False, ignore_arcs: Optional[bool] = True, replace_unknown_ipa_by: Optional[str] = "_", overwrite: bool = False, sorting_mode: SortingMode = DEFAULT_SORTING_MODE) -> None:
   logger = getLogger(__name__)
   logger.info("Adding corpus...")
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
@@ -154,11 +158,11 @@ def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, t
   step_dir = get_step_dir(corpus_dir, step_name)
   step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(step_dir, result)
-  save_scripts(step_dir, result)
+  save_scripts(step_dir, result, sorting_mode)
   _log_stats(result, step_dir)
 
 
-def app_merge_merged(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_corpus_name: str, out_step_name: str, overwrite: bool = False):
+def app_merge_merged(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_corpus_name: str, out_step_name: str, overwrite: bool = False, sorting_mode: SortingMode = DEFAULT_SORTING_MODE):
   logger = getLogger(__name__)
   logger.info(f"Merging multiple corpora...")
 
@@ -190,11 +194,11 @@ def app_merge_merged(base_dir: Path, corpora_step_names: List[Tuple[str, str]], 
   out_step_dir = get_step_dir(out_corpus_dir, out_step_name)
   out_step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(out_step_dir, merged_data)
-  save_scripts(out_step_dir, merged_data)
+  save_scripts(out_step_dir, merged_data, sorting_mode)
   _log_stats(merged_data, out_step_dir)
 
 
-def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str], overwrite: bool, method: Callable[[PreparationData], None]):
+def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str], overwrite: bool, method: Callable[[PreparationData], None], sorting_mode: SortingMode = DEFAULT_SORTING_MODE):
   logger = getLogger(__name__)
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
   in_step_dir = get_step_dir(corpus_dir, in_step_name)
@@ -223,7 +227,7 @@ def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_na
     logger.info("Overwriting existing out dir.")
   out_step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(out_step_dir, data)
-  save_scripts(out_step_dir, data)
+  save_scripts(out_step_dir, data, sorting_mode)
   _log_stats(data, out_step_dir)
 
 
@@ -353,15 +357,17 @@ def app_select_kld_ngrams_iterations(base_dir: Path, corpus_name: str, in_step_n
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: int = AVG_CHARS_PER_S, ignore_symbols: Optional[Set[str]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: int = AVG_CHARS_PER_S, ignore_symbols: Set[str] = DEFAULT_IGNORE, boundary: SplitBoundary = DEFAULT_SPLIT_BOUNDARY, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with KLD...")
   method = partial(
     select_kld_ngrams_duration,
     n_gram=n_gram,
-    ignore_symbols=ignore_symbols,
     minutes=minutes,
     reading_speed_chars_per_s=reading_speed_chars_per_s,
+    ignore_symbols=ignore_symbols,
+    boundary=boundary,
+    mode=SelectionMode.FIRST,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
