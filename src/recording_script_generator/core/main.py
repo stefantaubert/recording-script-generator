@@ -19,6 +19,7 @@ from text_selection.greedy_export import (greedy_ngrams_durations_advanced,
 from text_selection.greedy_kld_export import (
     SelectionMode, greedy_kld_uniform_ngrams_seconds,
     greedy_kld_uniform_ngrams_seconds_with_preselection)
+from text_selection.utils import DurationBoundary
 from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings
 from text_utils.text import (EngToIpaMode, text_normalize, text_to_ipa,
@@ -307,10 +308,7 @@ def select_kld_ngrams_iterations(data: PreparationData, n_gram: int, iterations:
   logger.info(f"Added {len(new_selected)} utterances to selection.")
 
 
-SplitBoundary = Tuple[float, float]
-
-
-def select_kld_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: int, ignore_symbols: Set[str], boundary: SplitBoundary, mode: SelectionMode):
+def select_kld_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: int, ignore_symbols: Set[str], boundary: DurationBoundary, mode: SelectionMode):
   logger = getLogger(__name__)
   selected_representations = OrderedDict(
     {k: v for k, v in data.representations.items() if k in data.selected})
@@ -321,23 +319,10 @@ def select_kld_ngrams_duration(data: PreparationData, n_gram: int, minutes: floa
                             for k, v in data.reading_passages.items()
                             if k not in data.selected}
 
-  # maybe to text-selection
-  boundary_min, boundary_max = boundary
-  filtered_utterance_ids = filter_after_duration(non_selected_durations, boundary_min, boundary_max)
-
-  not_selected_utterances_out_of_boundary = len(
-    non_selected_durations) - len(filtered_utterance_ids)
-
-  if not_selected_utterances_out_of_boundary > 0:
-    logger.warning(
-        f"Missed out non-selected utterances: {not_selected_utterances_out_of_boundary}/{len(non_selected_durations)} ({not_selected_utterances_out_of_boundary/len(non_selected_durations)*100:.2f}%)")
-  else:
-    logger.info("Didn't missed out any utterances through boundary.")
-
   non_selected_reading_passages = OrderedDict(
-    {k: v for k, v in data.reading_passages.items() if k in filtered_utterance_ids})
+    {k: v for k, v in data.reading_passages.items() if k not in data.selected})
   non_selected_representations = OrderedDict(
-    {k: v for k, v in data.representations.items() if k in filtered_utterance_ids})
+    {k: v for k, v in data.representations.items() if k not in data.selected})
 
   new_selected = greedy_kld_uniform_ngrams_seconds_with_preselection(
     data=non_selected_representations,
@@ -347,20 +332,13 @@ def select_kld_ngrams_duration(data: PreparationData, n_gram: int, minutes: floa
     durations_s=non_selected_durations,
     mode=mode,
     preselection=selected_representations,
+    duration_boundary=boundary,
   )
 
   data.selected |= new_selected
   selected_duration = sum(len(v) / reading_speed_chars_per_s / 60
                           for k, v in non_selected_reading_passages.items() if k in new_selected)
   logger.info(f"Added {len(new_selected)} utterances to selection ({selected_duration:.2f}min).")
-
-
-def boundaries_are_distinct(boundaries: List[SplitBoundary]) -> bool:
-  tmp = []
-  for boundary in boundaries:
-    tmp.extend(list(boundary))
-  is_same = tmp == list(sorted(tmp))
-  return is_same
 
 
 def filter_after_duration(corpus: Dict[int, float], min_duration_incl: float, max_duration_excl: float) -> Set[int]:

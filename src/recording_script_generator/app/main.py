@@ -5,12 +5,14 @@ from pathlib import Path
 from shutil import rmtree
 from typing import Callable, List, Optional, Set, Tuple
 
+from text_selection.utils import DurationBoundary
+
 from recording_script_generator.core.export import (SortingMode, df_to_tex,
                                                     df_to_txt,
                                                     get_reading_scripts)
 from recording_script_generator.core.main import (
-    PreparationData, PreparationTarget, SplitBoundary, add_corpus_from_text,
-    boundaries_are_distinct, convert_to_ipa, merge, normalize,
+    PreparationData, PreparationTarget, add_corpus_from_text,
+    convert_to_ipa, merge, normalize,
     remove_duplicate_utterances, remove_utterances_with_acronyms,
     remove_utterances_with_proper_names,
     remove_utterances_with_too_seldom_words,
@@ -373,7 +375,7 @@ def app_select_kld_ngrams_iterations(base_dir: Path, corpus_name: str, in_step_n
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: int = AVG_CHARS_PER_S, ignore_symbols: Set[str] = DEFAULT_IGNORE, boundary: SplitBoundary = DEFAULT_SPLIT_BOUNDARY, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: int = AVG_CHARS_PER_S, ignore_symbols: Set[str] = DEFAULT_IGNORE, boundary: DurationBoundary = DEFAULT_SPLIT_BOUNDARY, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with KLD...")
   method = partial(
