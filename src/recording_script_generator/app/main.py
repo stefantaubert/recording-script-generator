@@ -5,16 +5,13 @@ from pathlib import Path
 from shutil import rmtree
 from typing import Callable, List, Optional, Set, Tuple
 
-from text_selection.utils import DurationBoundary
-
 from recording_script_generator.core.export import (SortingMode, df_to_tex,
                                                     df_to_txt,
                                                     get_reading_scripts)
 from recording_script_generator.core.main import (
-    PreparationData, PreparationTarget, add_corpus_from_text,
-    convert_to_ipa, merge, normalize,
-    remove_duplicate_utterances, remove_utterances_with_acronyms,
-    remove_utterances_with_proper_names,
+    PreparationData, PreparationTarget, add_corpus_from_text, convert_to_ipa,
+    merge, normalize, remove_duplicate_utterances,
+    remove_utterances_with_acronyms, remove_utterances_with_proper_names,
     remove_utterances_with_too_seldom_words,
     remove_utterances_with_undesired_sentence_lengths,
     remove_utterances_with_undesired_text,
@@ -25,6 +22,7 @@ from recording_script_generator.core.stats import (get_n_gram_stats_df,
                                                    log_general_stats)
 from recording_script_generator.utils import load_obj, read_text, save_obj
 from text_selection.selection import SelectionMode
+from text_selection.utils import DurationBoundary
 from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings
 from text_utils.text import EngToIpaMode
@@ -109,7 +107,35 @@ def app_add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: s
                            ignore_tones, ignore_arcs, replace_unknown_ipa_by, overwrite)
 
 
-def log_stats(base_dir: Path, corpus_name: str, step_name: str) -> None:
+def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, text: str, lang: Language, ignore_tones: Optional[bool] = False, ignore_arcs: Optional[bool] = True, replace_unknown_ipa_by: Optional[str] = "_", overwrite: bool = False) -> None:
+  logger = getLogger(__name__)
+  logger.info("Adding corpus...")
+  corpus_dir = get_corpus_dir(base_dir, corpus_name)
+
+  if corpus_dir.exists() and not overwrite:
+    logger.info("Corpus already exists.")
+    return
+
+  result = add_corpus_from_text(
+    text=text,
+    lang=lang,
+    ipa_settings=IPAExtractionSettings(ignore_tones, ignore_arcs, replace_unknown_ipa_by),
+  )
+
+  if corpus_dir.exists():
+    assert overwrite
+    rmtree(corpus_dir)
+    logger.info("Removed existing corpus.")
+
+  corpus_dir.mkdir(parents=True, exist_ok=False)
+  step_dir = get_step_dir(corpus_dir, step_name)
+  step_dir.mkdir(parents=False, exist_ok=False)
+  save_corpus(step_dir, result)
+  save_scripts(step_dir, result, DEFAULT_SORTING_MODE)
+  _log_stats(result, step_dir)
+
+
+def app_log_stats(base_dir: Path, corpus_name: str, step_name: str) -> None:
   logger = getLogger(__name__)
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
 
@@ -150,34 +176,6 @@ def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorti
 def _log_stats(data: PreparationData, step_dir: Path):
   log_general_stats(data, AVG_CHARS_PER_S)
   _save_stats_df(step_dir, data)
-
-
-def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, text: str, lang: Language, ignore_tones: Optional[bool] = False, ignore_arcs: Optional[bool] = True, replace_unknown_ipa_by: Optional[str] = "_", overwrite: bool = False) -> None:
-  logger = getLogger(__name__)
-  logger.info("Adding corpus...")
-  corpus_dir = get_corpus_dir(base_dir, corpus_name)
-
-  if corpus_dir.exists() and not overwrite:
-    logger.info("Corpus already exists.")
-    return
-
-  result = add_corpus_from_text(
-    text=text,
-    lang=lang,
-    ipa_settings=IPAExtractionSettings(ignore_tones, ignore_arcs, replace_unknown_ipa_by),
-  )
-
-  if corpus_dir.exists():
-    assert overwrite
-    rmtree(corpus_dir)
-    logger.info("Removed existing corpus.")
-
-  corpus_dir.mkdir(parents=True, exist_ok=False)
-  step_dir = get_step_dir(corpus_dir, step_name)
-  step_dir.mkdir(parents=False, exist_ok=False)
-  save_corpus(step_dir, result)
-  save_scripts(step_dir, result, DEFAULT_SORTING_MODE)
-  _log_stats(result, step_dir)
 
 
 def app_merge_merged(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_corpus_name: str, out_step_name: str, overwrite: bool = False):
@@ -362,35 +360,6 @@ def app_remove_utterances_with_too_seldom_words(base_dir: Path, corpus_name: str
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_select_kld_ngrams_iterations(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, iterations: int, ignore_symbols: Optional[Set[str]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
-  logger = getLogger(__name__)
-  logger.info("Selecting utterances with KLD...")
-  method = partial(
-    select_kld_ngrams_iterations,
-    n_gram=n_gram,
-    iterations=iterations,
-    ignore_symbols=ignore_symbols,
-  )
-
-  _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
-
-
-def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: int = AVG_CHARS_PER_S, ignore_symbols: Set[str] = DEFAULT_IGNORE, boundary: DurationBoundary = DEFAULT_SPLIT_BOUNDARY, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
-  logger = getLogger(__name__)
-  logger.info("Selecting utterances with KLD...")
-  method = partial(
-    select_kld_ngrams_duration,
-    n_gram=n_gram,
-    minutes=minutes,
-    reading_speed_chars_per_s=reading_speed_chars_per_s,
-    ignore_symbols=ignore_symbols,
-    boundary=boundary,
-    mode=SelectionMode.FIRST,
-  )
-
-  _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
-
-
 def app_select_greedy_ngrams_epochs(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, epochs: int, ignore_symbols: Optional[Set[str]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with Greedy...")
@@ -404,6 +373,19 @@ def app_select_greedy_ngrams_epochs(base_dir: Path, corpus_name: str, in_step_na
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
+# def app_select_kld_ngrams_iterations(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, iterations: int, ignore_symbols: Optional[Set[str]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+#   logger = getLogger(__name__)
+#   logger.info("Selecting utterances with KLD...")
+#   method = partial(
+#     select_kld_ngrams_iterations,
+#     n_gram=n_gram,
+#     iterations=iterations,
+#     ignore_symbols=ignore_symbols,
+#   )
+
+#   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+
+
 def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: int = AVG_CHARS_PER_S, ignore_symbols: Optional[Set[str]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with Greedy...")
@@ -414,6 +396,22 @@ def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_
     minutes=minutes,
     reading_speed_chars_per_s=reading_speed_chars_per_s,
     mode=SelectionMode.SHORTEST,
+  )
+
+  _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+
+
+def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: int = AVG_CHARS_PER_S, ignore_symbols: Set[str] = DEFAULT_IGNORE, boundary_min_s: float = DEFAULT_SPLIT_BOUNDARY[0], boundary_max_s: float = DEFAULT_SPLIT_BOUNDARY[1], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+  logger = getLogger(__name__)
+  logger.info("Selecting utterances with KLD...")
+  method = partial(
+    select_kld_ngrams_duration,
+    n_gram=n_gram,
+    minutes=minutes,
+    reading_speed_chars_per_s=reading_speed_chars_per_s,
+    ignore_symbols=ignore_symbols,
+    boundary=(boundary_min_s, boundary_max_s),
+    mode=SelectionMode.FIRST,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)

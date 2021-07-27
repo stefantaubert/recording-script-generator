@@ -1,18 +1,26 @@
 import os
 from argparse import ArgumentParser
+from math import inf
 from pathlib import Path
 from typing import Callable
 
 from text_utils import EngToIpaMode, Language
 
-from recording_script_generator.app.merge import (
-    app_ignore, app_log_stats, app_merge, app_merge_merged,
-    app_select_greedy_ngrams_epochs, app_select_kld_ngrams_epochs)
-from recording_script_generator.app.preparation import (
-    add_corpus_from_text_file, app_convert_to_ipa, app_normalize)
-from recording_script_generator.core.merge import select_rest
-from recording_script_generator.core.preparation import PreparationTarget
-from recording_script_generator.utils import parse_tuple_list
+from recording_script_generator.app.main import (
+    AVG_CHARS_PER_S, app_add_corpus_from_text, app_add_corpus_from_text_file,
+    app_convert_to_ipa, app_generate_scripts, app_log_stats, app_merge_merged,
+    app_normalize, app_remove_duplicate_utterances, app_remove_undesired_text,
+    app_remove_utterances_with_acronyms,
+    app_remove_utterances_with_proper_names,
+    app_remove_utterances_with_too_seldom_words,
+    app_remove_utterances_with_undesired_sentence_lengths,
+    app_remove_utterances_with_unknown_words, app_select_all,
+    app_select_greedy_ngrams_duration, app_select_greedy_ngrams_epochs,
+    app_select_kld_ngrams_duration)
+from recording_script_generator.core.export import SortingMode
+from recording_script_generator.core.main import PreparationTarget
+from recording_script_generator.utils import (parse_set, parse_tuple_list,
+                                              try_parse_tuple_list)
 
 BASE_DIR_VAR = "base_dir"
 
@@ -31,116 +39,236 @@ def _add_parser_to(subparsers, name: str, init_method: Callable[[ArgumentParser]
     add_base_dir(parser)
   return parser
 
-# region corpus
-
 
 def init_add_corpus_from_text_file_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True)
   parser.add_argument('--step_name', type=str, required=True)
-  parser.add_argument('--text_path', type=Path, default=Path("/tmp/out.txt"))
+  parser.add_argument('--text_path', type=Path, required=True)
   parser.add_argument('--lang', choices=Language, type=Language.__getitem__)
-  parser.add_argument('--ignore_tones', action='store_true')
   parser.add_argument('--replace_unknown_ipa_by', type=str, default="_")
-  parser.set_defaults(overwrite=True, ignore_arcs=True)
-  return add_corpus_from_text_file
+  parser.add_argument('--overwrite', action='store_true')
+  parser.set_defaults(ignore_arcs=True, ignore_tones=False)
+  return app_add_corpus_from_text_file
+
+
+def init_add_corpus_from_text_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True)
+  parser.add_argument('--step_name', type=str, required=True)
+  parser.add_argument('--text', type=str, required=True)
+  parser.add_argument('--lang', choices=Language, type=Language.__getitem__)
+  parser.add_argument('--replace_unknown_ipa_by', type=str, default="_")
+  parser.add_argument('--overwrite', action='store_true')
+  parser.set_defaults(ignore_arcs=True, ignore_tones=False)
+  return app_add_corpus_from_text
+
+
+def init_log_stats_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True)
+  parser.add_argument('--step_name', type=str, required=True)
+  return app_log_stats
+
+
+def init_generate_scripts_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True)
+  parser.add_argument('--step_name', type=str, required=True)
+  parser.add_argument('--sorting_mode', choices=SortingMode,
+                      type=SortingMode.__getitem__, required=True)
+  return app_generate_scripts
+
+
+def init_merge_merged_parser(parser: ArgumentParser):
+  parser.add_argument('--corpora_step_names', type=str, required=True)
+  parser.add_argument('--out_corpus_name', type=str, required=True)
+  parser.add_argument('--out_step_name', type=str, required=True)
+  parser.add_argument('--overwrite', action='store_true')
+  return _merge_merged_cli
+
+
+def _merge_merged_cli(**args):
+  args["corpora_step_names"] = parse_tuple_list(args["corpora_step_names"])
+  app_merge_merged(**args)
 
 
 def init_normalize_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True)
   parser.add_argument('--in_step_name', type=str, required=True)
-  parser.add_argument('--out_step_name', type=str, required=True)
-  parser.add_argument('--ignore_tones', action='store_true')
+  parser.add_argument('--target', choices=PreparationTarget,
+                      type=PreparationTarget.__getitem__, required=True)
   parser.add_argument('--replace_unknown_ipa_by', type=str, default="_")
-  parser.add_argument('--target', choices=PreparationTarget, type=PreparationTarget.__getitem__)
-  parser.set_defaults(overwrite=True, ignore_arcs=True)
+  parser.add_argument('--out_step_name', type=str, required=False)
+  parser.add_argument('--overwrite', action='store_true')
+  parser.set_defaults(ignore_arcs=True, ignore_tones=False)
   return app_normalize
 
 
 def init_convert_to_ipa_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True)
   parser.add_argument('--in_step_name', type=str, required=True)
-  parser.add_argument('--out_step_name', type=str, required=True)
-  parser.add_argument('--ignore_tones', action='store_true')
+  parser.add_argument('--target', choices=PreparationTarget,
+                      type=PreparationTarget.__getitem__, required=True)
+  parser.add_argument('--mode', choices=EngToIpaMode, type=EngToIpaMode.__getitem__, required=False)
   parser.add_argument('--replace_unknown_ipa_by', type=str, default="_")
-  parser.add_argument('--target', choices=PreparationTarget, type=PreparationTarget.__getitem__)
-  parser.add_argument('--mode', choices=EngToIpaMode, type=EngToIpaMode.__getitem__)
-  parser.set_defaults(overwrite=True, ignore_arcs=True, use_cache=True)
+  parser.add_argument('--replace_unknown_with', type=str, default="_")
+  parser.add_argument('--out_step_name', type=str, required=False)
+  parser.add_argument('--overwrite', action='store_true')
+  parser.set_defaults(ignore_arcs=True, ignore_tones=False,
+                      consider_ipa_annotations=False, use_cache=True)
   return app_convert_to_ipa
-# endregion
-
-# region script
 
 
-def init_merge_parser(parser: ArgumentParser):
-  parser.add_argument('--merge_name', type=str, required=True)
-  parser.add_argument('--script_name', type=str, required=True)
-  parser.add_argument('--corpora', type=str, required=True)
-  parser.set_defaults(overwrite=True)
-  return _merge_cli
+def init_select_all_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True)
+  parser.add_argument('--in_step_name', type=str, required=True)
+  parser.add_argument('--out_step_name', type=str, required=False)
+  parser.add_argument('--overwrite', action='store_true')
+  return app_select_all
 
 
-def _merge_cli(**args):
-  args["corpora"] = parse_tuple_list(args["corpora"])
-  app_merge(**args)
+def init_remove_undesired_text_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True)
+  parser.add_argument('--in_step_name', type=str, required=True)
+  parser.add_argument('--undesired', type=str, required=True)
+  parser.add_argument('--out_step_name', type=str, required=False)
+  parser.add_argument('--overwrite', action='store_true')
+  return _app_remove_undesired_text_cli
 
 
-def init_select_rest_parser(parser: ArgumentParser):
-  parser.add_argument('--merge_name', type=str, required=True)
-  parser.add_argument('--in_script_name', type=str, required=True)
-  parser.add_argument('--out_script_name', type=str, required=True)
-  parser.set_defaults(overwrite=True)
-  return select_rest
+def _app_remove_undesired_text_cli(**args):
+  args["undesired"] = parse_set(args["undesired"], split_symbol=" ")
+  app_remove_undesired_text(**args)
+
+
+IN_STEP_NAME_HELP = ""
+CORPUS_NAME_HELP = ""
+OUT_STEP_NAME_HELP = ""
+OVERWRITE_HELP = ""
+
+
+def init_remove_duplicate_utterances_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True, help=CORPUS_NAME_HELP)
+  parser.add_argument('--in_step_name', type=str, required=True, help=IN_STEP_NAME_HELP)
+  parser.add_argument('--out_step_name', type=str, required=False, help=OUT_STEP_NAME_HELP)
+  parser.add_argument('--overwrite', action='store_true', help=OVERWRITE_HELP)
+  return app_remove_duplicate_utterances
+
+
+def init_remove_utterances_with_proper_names_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True, help=CORPUS_NAME_HELP)
+  parser.add_argument('--in_step_name', type=str, required=True, help=IN_STEP_NAME_HELP)
+  parser.add_argument('--out_step_name', type=str, required=False, help=OUT_STEP_NAME_HELP)
+  parser.add_argument('--overwrite', action='store_true', help=OVERWRITE_HELP)
+  return app_remove_utterances_with_proper_names
+
+
+def init_remove_utterances_with_acronyms_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True, help=CORPUS_NAME_HELP)
+  parser.add_argument('--in_step_name', type=str, required=True, help=IN_STEP_NAME_HELP)
+  parser.add_argument('--out_step_name', type=str, required=False, help=OUT_STEP_NAME_HELP)
+  parser.add_argument('--overwrite', action='store_true', help=OVERWRITE_HELP)
+  return app_remove_utterances_with_acronyms
+
+
+def init_remove_utterances_with_undesired_sentence_lengths_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True, help=CORPUS_NAME_HELP)
+  parser.add_argument('--in_step_name', type=str, required=True, help=IN_STEP_NAME_HELP)
+  parser.add_argument('--min_word_count', type=int, required=False, help="")
+  parser.add_argument('--max_word_count', type=int, required=False, help="")
+  parser.add_argument('--out_step_name', type=str, required=False, help=OUT_STEP_NAME_HELP)
+  parser.add_argument('--overwrite', action='store_true', help=OVERWRITE_HELP)
+  return app_remove_utterances_with_undesired_sentence_lengths
+
+
+def init_remove_utterances_with_unknown_words_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name',
+                      type=str, required=True, help=CORPUS_NAME_HELP)
+  parser.add_argument('--in_step_name',
+                      type=str, required=True, help=IN_STEP_NAME_HELP)
+  parser.add_argument('--max_unknown_word_count',
+                      type=int, required=False, help="")
+  parser.add_argument('--out_step_name',
+                      type=str, required=False, help=OUT_STEP_NAME_HELP)
+  parser.add_argument('--overwrite',
+                      action='store_true', help=OVERWRITE_HELP)
+  return app_remove_utterances_with_unknown_words
+
+
+def init_remove_utterances_with_too_seldom_words_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True,
+                      help=CORPUS_NAME_HELP)
+  parser.add_argument('--in_step_name', type=str, required=True,
+                      help=IN_STEP_NAME_HELP)
+  parser.add_argument('--min_occurrence_count', type=int, required=False,
+                      help="")
+  parser.add_argument('--out_step_name', type=str, required=False,
+                      help=OUT_STEP_NAME_HELP)
+  parser.add_argument('--overwrite', action='store_true',
+                      help=OVERWRITE_HELP)
+  return app_remove_utterances_with_too_seldom_words
 
 
 def init_select_greedy_ngrams_epochs_parser(parser: ArgumentParser):
   parser.add_argument('--merge_name', type=str, required=True)
-  parser.add_argument('--in_script_name', type=str, required=True)
-  parser.add_argument('--out_script_name', type=str, required=True)
+  parser.add_argument('--in_step_name', type=str, required=True,
+                      help=IN_STEP_NAME_HELP)
   parser.add_argument('--n_gram', type=int, required=True)
   parser.add_argument('--epochs', type=int, required=True)
-  parser.set_defaults(overwrite=True)
-  return app_select_greedy_ngrams_epochs
+  parser.add_argument('--ignore_symbols', type=str, required=False)
+  parser.add_argument('--out_step_name', type=str, required=False,
+                      help=OUT_STEP_NAME_HELP)
+  parser.add_argument('--overwrite', action='store_true',
+                      help=OVERWRITE_HELP)
+  return _app_select_greedy_ngrams_epochs_cli
 
 
-def init_select_kld_ngrams_epochs_parser(parser: ArgumentParser):
+def _app_select_greedy_ngrams_epochs_cli(**args):
+  args["ignore_symbols"] = parse_set(args["ignore_symbols"], split_symbol=" ")
+  app_select_greedy_ngrams_epochs(**args)
+
+
+def init_select_greedy_ngrams_duration_parser(parser: ArgumentParser):
   parser.add_argument('--merge_name', type=str, required=True)
-  parser.add_argument('--in_script_name', type=str, required=True)
-  parser.add_argument('--out_script_name', type=str, required=True)
+  parser.add_argument('--in_step_name', type=str, required=True,
+                      help=IN_STEP_NAME_HELP)
   parser.add_argument('--n_gram', type=int, required=True)
-  parser.add_argument('--epochs', type=int, required=True)
-  parser.set_defaults(overwrite=True)
-  return app_select_kld_ngrams_epochs
+  parser.add_argument('--minutes', type=float, required=True)
+  parser.add_argument('--reading_speed_chars_per_s', type=int,
+                      default=AVG_CHARS_PER_S)
+  parser.add_argument('--ignore_symbols', type=str, required=False)
+  parser.add_argument('--out_step_name', type=str, required=False,
+                      help=OUT_STEP_NAME_HELP)
+  parser.add_argument('--overwrite', action='store_true',
+                      help=OVERWRITE_HELP)
+  return _app_select_greedy_ngrams_duration_cli
 
 
-def init_ignore_parser(parser: ArgumentParser):
+def _app_select_greedy_ngrams_duration_cli(**args):
+  args["ignore_symbols"] = parse_set(args["ignore_symbols"], split_symbol=" ")
+  app_select_greedy_ngrams_duration(**args)
+
+
+def init_select_kld_ngrams_duration_parser(parser: ArgumentParser):
   parser.add_argument('--merge_name', type=str, required=True)
-  parser.add_argument('--in_script_name', type=str, required=True)
-  parser.add_argument('--out_script_name', type=str, required=True)
-  parser.add_argument('--ignore_symbol', type=str, required=True)
-  parser.set_defaults(overwrite=True)
-  return app_ignore
+  parser.add_argument('--in_step_name', type=str, required=True,
+                      help=IN_STEP_NAME_HELP)
+  parser.add_argument('--n_gram', type=int, required=True)
+  parser.add_argument('--minutes', type=float, required=True)
+  parser.add_argument('--reading_speed_chars_per_s', type=int,
+                      default=AVG_CHARS_PER_S)
+  parser.add_argument('--ignore_symbols', type=str, required=False)
+  parser.add_argument('--boundary_min_s', type=int, default=0,
+                      help="")
+  parser.add_argument('--boundary_max_s', type=int, default=inf,
+                      help="")
+  parser.add_argument('--out_step_name', type=str, required=False,
+                      help=OUT_STEP_NAME_HELP)
+  parser.add_argument('--overwrite', action='store_true',
+                      help=OVERWRITE_HELP)
+  return _app_select_kld_ngrams_duration_cli
 
 
-def init_log_stats_parser(parser: ArgumentParser):
-  parser.add_argument('--merge_name', type=str, required=True)
-  parser.add_argument('--script_name', type=str, required=True)
-  parser.add_argument('--avg_chars_per_s', type=int, default=15)
-  parser.set_defaults()
-  return app_log_stats
-
-
-def init_merge_merged_parser(parser: ArgumentParser):
-  parser.add_argument('--merge_names', type=str, required=True)
-  parser.add_argument('--out_merge_name', type=str, required=True)
-  parser.add_argument('--out_script_name', type=str, required=True)
-  parser.set_defaults(overwrite=True)
-  return _merge_merged_cli
-
-
-def _merge_merged_cli(**args):
-  args["merge_names"] = parse_tuple_list(args["merge_names"])
-  app_merge_merged(**args)
-# endregion
+def _app_select_kld_ngrams_duration_cli(**args):
+  args["ignore_symbols"] = parse_set(args["ignore_symbols"], split_symbol=" ")
+  app_select_kld_ngrams_duration(**args)
 
 
 def _init_parser():
