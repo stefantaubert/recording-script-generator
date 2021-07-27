@@ -42,7 +42,8 @@ REST_TXT_FILENAME = "rest.txt"
 REST_TEX_FILENAME = "rest.tex"
 SEP = "\t"
 DEFAULT_IGNORE = {}
-DEFAULT_SPLIT_BOUNDARY = (0, inf)
+DEFAULT_SPLIT_BOUNDARY_MIN_S = 0
+DEFAULT_SPLIT_BOUNDARY_MAX_S = inf
 
 
 def get_corpus_dir(base_dir: Path, corpus_name: str) -> Path:
@@ -178,7 +179,7 @@ def _log_stats(data: PreparationData, step_dir: Path):
   _save_stats_df(step_dir, data)
 
 
-def app_merge_merged(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_corpus_name: str, out_step_name: str, overwrite: bool = False):
+def app_merge(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_corpus_name: str, out_step_name: str, overwrite: bool = False):
   logger = getLogger(__name__)
   logger.info(f"Merging multiple corpora...")
 
@@ -401,7 +402,7 @@ def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: int = AVG_CHARS_PER_S, ignore_symbols: Set[str] = DEFAULT_IGNORE, boundary_min_s: float = DEFAULT_SPLIT_BOUNDARY[0], boundary_max_s: float = DEFAULT_SPLIT_BOUNDARY[1], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: int = AVG_CHARS_PER_S, ignore_symbols: Set[str] = DEFAULT_IGNORE, boundary_min_s: float = DEFAULT_SPLIT_BOUNDARY_MIN_S, boundary_max_s: float = DEFAULT_SPLIT_BOUNDARY_MAX_S, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with KLD...")
   method = partial(

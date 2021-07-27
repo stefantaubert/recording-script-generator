@@ -7,10 +7,11 @@ from typing import Callable
 from text_utils import EngToIpaMode, Language
 
 from recording_script_generator.app.main import (
-    AVG_CHARS_PER_S, app_add_corpus_from_text, app_add_corpus_from_text_file,
-    app_convert_to_ipa, app_generate_scripts, app_log_stats, app_merge_merged,
-    app_normalize, app_remove_duplicate_utterances, app_remove_undesired_text,
-    app_remove_utterances_with_acronyms,
+    AVG_CHARS_PER_S, DEFAULT_SPLIT_BOUNDARY_MAX_S,
+    DEFAULT_SPLIT_BOUNDARY_MIN_S, app_add_corpus_from_text,
+    app_add_corpus_from_text_file, app_convert_to_ipa, app_generate_scripts,
+    app_log_stats, app_merge, app_normalize, app_remove_duplicate_utterances,
+    app_remove_undesired_text, app_remove_utterances_with_acronyms,
     app_remove_utterances_with_proper_names,
     app_remove_utterances_with_too_seldom_words,
     app_remove_utterances_with_undesired_sentence_lengths,
@@ -76,17 +77,17 @@ def init_generate_scripts_parser(parser: ArgumentParser):
   return app_generate_scripts
 
 
-def init_merge_merged_parser(parser: ArgumentParser):
+def init_merge_parser(parser: ArgumentParser):
   parser.add_argument('--corpora_step_names', type=str, required=True)
   parser.add_argument('--out_corpus_name', type=str, required=True)
   parser.add_argument('--out_step_name', type=str, required=True)
   parser.add_argument('--overwrite', action='store_true')
-  return _merge_merged_cli
+  return _merge_cli
 
 
-def _merge_merged_cli(**args):
+def _merge_cli(**args):
   args["corpora_step_names"] = parse_tuple_list(args["corpora_step_names"])
-  app_merge_merged(**args)
+  app_merge(**args)
 
 
 def init_normalize_parser(parser: ArgumentParser):
@@ -255,10 +256,10 @@ def init_select_kld_ngrams_duration_parser(parser: ArgumentParser):
   parser.add_argument('--reading_speed_chars_per_s', type=int,
                       default=AVG_CHARS_PER_S)
   parser.add_argument('--ignore_symbols', type=str, required=False)
-  parser.add_argument('--boundary_min_s', type=int, default=0,
-                      help="")
-  parser.add_argument('--boundary_max_s', type=int, default=inf,
-                      help="")
+  parser.add_argument('--boundary_min_s', type=int,
+                      default=DEFAULT_SPLIT_BOUNDARY_MIN_S, help="")
+  parser.add_argument('--boundary_max_s', type=int,
+                      default=DEFAULT_SPLIT_BOUNDARY_MAX_S, help="")
   parser.add_argument('--out_step_name', type=str, required=False,
                       help=OUT_STEP_NAME_HELP)
   parser.add_argument('--overwrite', action='store_true',
@@ -275,18 +276,27 @@ def _init_parser():
   result = ArgumentParser()
   subparsers = result.add_subparsers(help='sub-command help')
 
-  _add_parser_to(subparsers, "corpus-add", init_add_corpus_from_text_file_parser)
-  _add_parser_to(subparsers, "corpus-normalize", init_normalize_parser)
-  _add_parser_to(subparsers, "corpus-to-ipa", init_convert_to_ipa_parser)
-  _add_parser_to(subparsers, "script-merge", init_merge_parser)
-  _add_parser_to(subparsers, "script-select-rest", init_select_rest_parser)
-  _add_parser_to(subparsers, "script-merge-merged", init_merge_merged_parser)
-  _add_parser_to(subparsers, "script-select-greedy-ngrams-epochs",
-                 init_select_greedy_ngrams_epochs_parser)
-  _add_parser_to(subparsers, "script-select-kld-ngrams-epochs",
-                 init_select_kld_ngrams_epochs_parser)
-  _add_parser_to(subparsers, "script-ignore", init_ignore_parser)
-  _add_parser_to(subparsers, "script-print-stats", init_log_stats_parser)
+  _add_parser_to(subparsers, "add-file", init_add_corpus_from_text_file_parser)
+  _add_parser_to(subparsers, "add-text", init_add_corpus_from_text_parser)
+  _add_parser_to(subparsers, "normalize", init_normalize_parser)
+  _add_parser_to(subparsers, "to-ipa", init_convert_to_ipa_parser)
+  _add_parser_to(subparsers, "stats", init_log_stats_parser)
+  _add_parser_to(subparsers, "gen-scripts", init_generate_scripts_parser)
+  _add_parser_to(subparsers, "merge", init_merge_parser)
+  _add_parser_to(subparsers, "remove-text", init_remove_undesired_text_parser)
+  _add_parser_to(subparsers, "remove-duplicates", init_remove_duplicate_utterances_parser)
+  _add_parser_to(subparsers, "remove-proper-names", init_remove_utterances_with_proper_names_parser)
+  _add_parser_to(subparsers, "remove-acronyms", init_remove_utterances_with_acronyms_parser)
+  _add_parser_to(subparsers, "remove-word-counts",
+                 init_remove_utterances_with_undesired_sentence_lengths_parser)
+  _add_parser_to(subparsers, "remove-unknown-words",
+                 init_remove_utterances_with_unknown_words_parser)
+  _add_parser_to(subparsers, "remove-rare-words",
+                 init_remove_utterances_with_too_seldom_words_parser)
+  _add_parser_to(subparsers, "select-all", init_select_all_parser)
+  _add_parser_to(subparsers, "select-greedy-epochs", init_select_greedy_ngrams_epochs_parser)
+  _add_parser_to(subparsers, "select-greedy-duration", init_select_greedy_ngrams_duration_parser)
+  _add_parser_to(subparsers, "select-kld-duration", init_select_kld_ngrams_duration_parser)
 
   return result
 
