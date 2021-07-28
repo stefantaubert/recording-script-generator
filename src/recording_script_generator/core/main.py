@@ -141,6 +141,10 @@ def select_all_utterances(data: PreparationData):
   data.selected |= OrderedSet(data.reading_passages.keys())
 
 
+def deselect_all_utterances(data: PreparationData):
+  data.selected = OrderedSet()
+
+
 def _remove_utterances(utterance_ids: Set[int], data: PreparationData) -> None:
   for remove_utterance_id in utterance_ids:
     data.reading_passages.pop(remove_utterance_id)
@@ -182,6 +186,12 @@ def get_single_target_language(data: PreparationData, target: PreparationTarget)
   return data.representations_lang
 
 
+def remove_deselected(data: PreparationData) -> None:
+  remove = OrderedSet(data.reading_passages.keys()) - data.selected
+
+  _remove_utterances_with_logging(remove, data)
+
+
 def remove_utterances_with_undesired_text(data: PreparationData, target: PreparationTarget, undesired: Set[str]) -> None:
   remove = OrderedSet()
   target_data = get_single_target(data, target)
@@ -209,7 +219,7 @@ def remove_duplicate_utterances(data: PreparationData, target: PreparationTarget
 
 def remove_utterances_with_proper_names(data: PreparationData, target: PreparationTarget, ) -> None:
   remove = OrderedSet()
-  target_lang  = get_single_target_language(data, target)
+  target_lang = get_single_target_language(data, target)
   if target_lang != Language.ENG:
     logger = getLogger(__name__)
     logger.error("Language needs to be English!")

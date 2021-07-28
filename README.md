@@ -139,7 +139,6 @@ pipenv run python -m cli select-kld-duration \
   --ignore_symbols=" &'" \
   --boundary_min_s=5 \
   --overwrite
-
 ```
 
 ## File structure

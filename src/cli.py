@@ -7,10 +7,11 @@ from typing import Callable
 from text_utils import EngToIpaMode, Language
 
 from recording_script_generator.app.main import (
-    AVG_CHARS_PER_S, DEFAULT_SPLIT_BOUNDARY_MAX_S,
+    AVG_CHARS_PER_S, DEFAULT_SEED, DEFAULT_SPLIT_BOUNDARY_MAX_S,
     DEFAULT_SPLIT_BOUNDARY_MIN_S, app_add_corpus_from_text,
-    app_add_corpus_from_text_file, app_convert_to_ipa, app_generate_scripts,
-    app_log_stats, app_merge, app_normalize, app_remove_duplicate_utterances,
+    app_add_corpus_from_text_file, app_convert_to_ipa, app_deselect_all,
+    app_generate_scripts, app_log_stats, app_merge, app_normalize,
+    app_remove_deselected, app_remove_duplicate_utterances,
     app_remove_undesired_text, app_remove_utterances_with_acronyms,
     app_remove_utterances_with_proper_names,
     app_remove_utterances_with_too_seldom_words,
@@ -81,7 +82,14 @@ def init_generate_scripts_parser(parser: ArgumentParser):
   parser.add_argument('--step_name', type=str, required=True)
   parser.add_argument('--sorting_mode', choices=SortingMode,
                       type=SortingMode.__getitem__, required=True)
-  return app_generate_scripts
+  parser.add_argument('--seed', type=int, default=DEFAULT_SEED)
+  parser.add_argument('--ignore_symbols', type=str, required=False)
+  return _app_generate_scripts_cli
+
+
+def _app_generate_scripts_cli(**args):
+  args["ignore_symbols"] = parse_set(args["ignore_symbols"], split_symbol="&")
+  app_generate_scripts(**args)
 
 
 def init_merge_parser(parser: ArgumentParser):
@@ -130,6 +138,22 @@ def init_select_all_parser(parser: ArgumentParser):
   parser.add_argument('--out_step_name', type=str, required=False)
   parser.add_argument('--overwrite', action='store_true')
   return app_select_all
+
+
+def init_deselect_all_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True)
+  parser.add_argument('--in_step_name', type=str, required=True)
+  parser.add_argument('--out_step_name', type=str, required=False)
+  parser.add_argument('--overwrite', action='store_true')
+  return app_deselect_all
+
+
+def init_remove_deselected_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True)
+  parser.add_argument('--in_step_name', type=str, required=True)
+  parser.add_argument('--out_step_name', type=str, required=False)
+  parser.add_argument('--overwrite', action='store_true')
+  return app_remove_deselected
 
 
 def init_remove_undesired_text_parser(parser: ArgumentParser):
@@ -298,6 +322,7 @@ def _init_parser():
   _add_parser_to(subparsers, "stats", init_log_stats_parser)
   _add_parser_to(subparsers, "gen-scripts", init_generate_scripts_parser)
   _add_parser_to(subparsers, "merge", init_merge_parser)
+  _add_parser_to(subparsers, "remove-deselected", init_remove_deselected_parser)
   _add_parser_to(subparsers, "remove-text", init_remove_undesired_text_parser)
   _add_parser_to(subparsers, "remove-duplicates", init_remove_duplicate_utterances_parser)
   _add_parser_to(subparsers, "remove-proper-names", init_remove_utterances_with_proper_names_parser)
@@ -312,6 +337,7 @@ def _init_parser():
   _add_parser_to(subparsers, "select-greedy-epochs", init_select_greedy_ngrams_epochs_parser)
   _add_parser_to(subparsers, "select-greedy-duration", init_select_greedy_ngrams_duration_parser)
   _add_parser_to(subparsers, "select-kld-duration", init_select_kld_ngrams_duration_parser)
+  _add_parser_to(subparsers, "deselect-all", init_select_all_parser)
 
   return result
 

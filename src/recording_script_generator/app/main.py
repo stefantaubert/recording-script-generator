@@ -10,14 +10,15 @@ from recording_script_generator.core.export import (SortingMode, df_to_tex,
                                                     get_reading_scripts)
 from recording_script_generator.core.main import (
     PreparationData, PreparationTarget, add_corpus_from_text, convert_to_ipa,
-    merge, normalize, remove_duplicate_utterances,
+    merge, normalize, remove_deselected, remove_duplicate_utterances,
     remove_utterances_with_acronyms, remove_utterances_with_proper_names,
     remove_utterances_with_too_seldom_words,
     remove_utterances_with_undesired_sentence_lengths,
     remove_utterances_with_undesired_text,
     remove_utterances_with_unknown_words, select_all_utterances,
     select_greedy_ngrams_duration, select_greedy_ngrams_epochs,
-    select_kld_ngrams_duration, select_kld_ngrams_iterations)
+    select_kld_ngrams_duration, select_kld_ngrams_iterations,
+    deselect_all_utterances)
 from recording_script_generator.core.stats import (get_n_gram_stats_df,
                                                    log_general_stats)
 from recording_script_generator.utils import load_obj, read_text, save_obj
@@ -86,9 +87,13 @@ def _save_stats_df(step_dir: Path, data: PreparationData) -> None:
   logger.info("Done.")
 
 
-def save_scripts(step_dir: Path, data: PreparationData, sorting_mode: SortingMode) -> None:
+def _save_scripts(step_dir: Path, data: PreparationData, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[str]] = DEFAULT_IGNORE) -> None:
   selected_df, rest_df = get_reading_scripts(
-    data, mode=sorting_mode, seed=DEFAULT_SEED)
+    data=data,
+    mode=sorting_mode,
+    seed=seed,
+    ignore_symbols=ignore_symbols,
+  )
   selected_df.to_csv(step_dir / SELECTED_FILENAME, sep=SEP, header=True, index=False)
   rest_df.to_csv(step_dir / REST_FILENAME, sep=SEP, header=True, index=False)
   (step_dir / SELECTED_TXT_FILENAME).write_text(df_to_txt(selected_df))
@@ -132,7 +137,7 @@ def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, t
   step_dir = get_step_dir(corpus_dir, step_name)
   step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(step_dir, result)
-  save_scripts(step_dir, result, DEFAULT_SORTING_MODE)
+  _save_scripts(step_dir, result, DEFAULT_SORTING_MODE)
   _log_stats(result, step_dir)
 
 
@@ -155,7 +160,7 @@ def app_log_stats(base_dir: Path, corpus_name: str, step_name: str) -> None:
   _log_stats(data, step_dir)
 
 
-def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorting_mode: SortingMode) -> None:
+def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorting_mode: SortingMode,seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[str]] = DEFAULT_IGNORE) -> None:
   logger = getLogger(__name__)
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
 
@@ -171,7 +176,7 @@ def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorti
 
   data = load_corpus(step_dir)
 
-  save_scripts(step_dir, data, sorting_mode)
+  _save_scripts(step_dir, data, sorting_mode, seed, ignore_symbols)
 
 
 def _log_stats(data: PreparationData, step_dir: Path):
@@ -211,7 +216,7 @@ def app_merge(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_cor
   out_step_dir = get_step_dir(out_corpus_dir, out_step_name)
   out_step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(out_step_dir, merged_data)
-  save_scripts(out_step_dir, merged_data, DEFAULT_SORTING_MODE)
+  _save_scripts(out_step_dir, merged_data, DEFAULT_SORTING_MODE)
   _log_stats(merged_data, out_step_dir)
 
 
@@ -244,7 +249,7 @@ def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_na
     logger.info("Overwriting existing out dir.")
   out_step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(out_step_dir, data)
-  save_scripts(out_step_dir, data, DEFAULT_SORTING_MODE)
+  _save_scripts(out_step_dir, data, DEFAULT_SORTING_MODE)
   _log_stats(data, out_step_dir)
 
 
@@ -281,6 +286,26 @@ def app_select_all(base_dir: Path, corpus_name: str, in_step_name: str, out_step
   logger.info("Selecting all...")
   method = partial(
     select_all_utterances,
+  )
+
+  _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+
+
+def app_deselect_all(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+  logger = getLogger(__name__)
+  logger.info("Deselecting all...")
+  method = partial(
+    deselect_all_utterances,
+  )
+
+  _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+
+
+def app_remove_deselected(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+  logger = getLogger(__name__)
+  logger.info("Removing deselected...")
+  method = partial(
+    remove_deselected,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
