@@ -50,7 +50,7 @@ def get_keys_custom_sort(data: PreparationData, mode: SortingMode, seed: Optiona
 
   if mode == SortingMode.RANDOM:
     assert seed is not None
-    keys = list(data.reading_passages.keys())
+    keys = list(selected_reading_passages.keys())
     random.seed(seed)
     random.shuffle(keys)
     result = OrderedSet(keys)
