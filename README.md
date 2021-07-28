@@ -37,7 +37,7 @@ pipenv run python -m cli merge \
   --overwrite
 
 export corpus_name="merged"
-export apply_step_name="modified"
+export apply_step_name="preprocessed"
 
 pipenv run python -m cli remove-acronyms \
   --corpus_name="$corpus_name" \
