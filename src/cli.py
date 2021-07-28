@@ -88,7 +88,8 @@ def init_generate_scripts_parser(parser: ArgumentParser):
 
 
 def _app_generate_scripts_cli(**args):
-  args["ignore_symbols"] = parse_set(args["ignore_symbols"], split_symbol="&")
+  if args["ignore_symbols"] is not None:
+    args["ignore_symbols"] = parse_set(args["ignore_symbols"], split_symbol="&")
   app_generate_scripts(**args)
 
 
