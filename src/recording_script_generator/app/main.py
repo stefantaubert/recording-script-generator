@@ -286,52 +286,57 @@ def app_select_all(base_dir: Path, corpus_name: str, in_step_name: str, out_step
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_remove_undesired_text(base_dir: Path, corpus_name: str, in_step_name: str, undesired: Set[str], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_remove_undesired_text(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, undesired: Set[str], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing undesired text...")
   method = partial(
     remove_utterances_with_undesired_text,
+    target=target,
     undesired=undesired,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_remove_duplicate_utterances(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_remove_duplicate_utterances(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing duplicate utterances...")
   method = partial(
     remove_duplicate_utterances,
+    target=target,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_remove_utterances_with_proper_names(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_remove_utterances_with_proper_names(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing utterances with proper names...")
   method = partial(
     remove_utterances_with_proper_names,
+    target=target,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_remove_utterances_with_acronyms(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_remove_utterances_with_acronyms(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing utterances with acronyms...")
   method = partial(
     remove_utterances_with_acronyms,
+    target=target,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_remove_utterances_with_undesired_sentence_lengths(base_dir: Path, corpus_name: str, in_step_name: str, min_word_count: Optional[int] = None, max_word_count: Optional[int] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_remove_utterances_with_undesired_sentence_lengths(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, min_word_count: Optional[int] = None, max_word_count: Optional[int] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing utterances with undesired word counts...")
   method = partial(
     remove_utterances_with_undesired_sentence_lengths,
+    target=target,
     min_word_count=min_word_count,
     max_word_count=max_word_count,
   )
@@ -339,22 +344,24 @@ def app_remove_utterances_with_undesired_sentence_lengths(base_dir: Path, corpus
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_remove_utterances_with_unknown_words(base_dir: Path, corpus_name: str, in_step_name: str, max_unknown_word_count: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_remove_utterances_with_unknown_words(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, max_unknown_word_count: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing utterances with to many unknown words...")
   method = partial(
     remove_utterances_with_unknown_words,
+    target=target,
     max_unknown_word_count=max_unknown_word_count,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_remove_utterances_with_too_seldom_words(base_dir: Path, corpus_name: str, in_step_name: str, min_occurrence_count: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_remove_utterances_with_too_seldom_words(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, min_occurrence_count: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing utterances with too seldom words...")
   method = partial(
     remove_utterances_with_too_seldom_words,
+    target=target,
     min_occurrence_count=min_occurrence_count,
   )
 

@@ -73,7 +73,7 @@ def get_reading_scripts(data: PreparationData, mode: SortingMode, seed: Optional
      for k in keys_sorted})
   rest = OrderedDict(
     {k: (data.reading_passages[k], data.representations[k])
-     for k in keys_sorted})
+     for k in data.reading_passages if k not in keys_sorted})
 
   selected_df = get_df_from_reading_passages(selected)
   rest_df = get_df_from_reading_passages(rest)

@@ -105,7 +105,7 @@ def is_acronym(word: str) -> bool:
   return False
 
 
-def contains_proper_names(sentence: str) -> bool:
+def contains_eng_proper_names(sentence: str) -> bool:
   pattern = r" [A-HJ-Z]"
   matches = re.search(pattern, sentence)
   return matches is not None

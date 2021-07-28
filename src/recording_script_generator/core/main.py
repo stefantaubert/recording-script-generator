@@ -10,7 +10,7 @@ from typing import Set, Tuple
 import enchant
 from ordered_set import OrderedSet
 from recording_script_generator.core.text_extraction import (
-    contains_proper_names, contains_undesired_text, file_to_utterances,
+    contains_eng_proper_names, contains_undesired_text, file_to_utterances,
     get_minimum_frequency, get_non_dict_words_amount, is_sentence,
     strip_punctuation_words, words_contain_acronyms)
 from text_selection import greedy_kld_uniform_ngrams_iterations
@@ -160,9 +160,32 @@ def _remove_utterances_with_logging(utterance_ids: Set[int], data: PreparationDa
     f"Removed {len(utterance_ids)} of {old_len} utterances ({len(utterance_ids)/old_len*100:.2f}%) and obtained {len(data.representations)} utterances.")
 
 
-def remove_utterances_with_undesired_text(data: PreparationData, undesired: Set[str]) -> None:
+def get_single_target(data: PreparationData, target: PreparationTarget) -> Dict[int, Symbols]:
+  logger = getLogger(__name__)
+  if target == PreparationTarget.BOTH:
+    logger.error("Target BOTH is not supported in this case!")
+    raise Exception()
+  if target == PreparationTarget.READING_PASSAGES:
+    data.reading_passages
+  assert target == PreparationTarget.REPRESENTATIONS
+  return data.representations
+
+
+def get_single_target_language(data: PreparationData, target: PreparationTarget) -> Language:
+  logger = getLogger(__name__)
+  if target == PreparationTarget.BOTH:
+    logger.error("Target BOTH is not supported in this case!")
+    raise Exception()
+  if target == PreparationTarget.READING_PASSAGES:
+    data.reading_passages_lang
+  assert target == PreparationTarget.REPRESENTATIONS
+  return data.representations_lang
+
+
+def remove_utterances_with_undesired_text(data: PreparationData, target: PreparationTarget, undesired: Set[str]) -> None:
   remove = OrderedSet()
-  for utterance_id, utterance_symbols in data.representations.items():
+  target_data = get_single_target(data, target)
+  for utterance_id, utterance_symbols in target_data.items():
     utterance = ''.join(utterance_symbols)
     if contains_undesired_text(utterance, undesired=undesired, ignore_case=True):
       remove.add(utterance_id)
@@ -170,10 +193,11 @@ def remove_utterances_with_undesired_text(data: PreparationData, undesired: Set[
   _remove_utterances_with_logging(remove, data)
 
 
-def remove_duplicate_utterances(data: PreparationData) -> None:
+def remove_duplicate_utterances(data: PreparationData, target: PreparationTarget, ) -> None:
   remove = OrderedSet()
   already_exist: Set[Tuple[str, ...]] = set()
-  for utterance_id, utterance_symbols in data.representations.items():
+  target_data = get_single_target(data, target)
+  for utterance_id, utterance_symbols in target_data.items():
     utterance_symbols_tuple = tuple(utterance_symbols)
     if utterance_symbols_tuple in already_exist:
       remove.add(utterance_id)
@@ -183,20 +207,28 @@ def remove_duplicate_utterances(data: PreparationData) -> None:
   _remove_utterances_with_logging(remove, data)
 
 
-def remove_utterances_with_proper_names(data: PreparationData) -> None:
+def remove_utterances_with_proper_names(data: PreparationData, target: PreparationTarget, ) -> None:
   remove = OrderedSet()
-  for utterance_id, utterance_symbols in data.representations.items():
+  target_lang  = get_single_target_language(data, target)
+  if target_lang != Language.ENG:
+    logger = getLogger(__name__)
+    logger.error("Language needs to be English!")
+    raise Exception()
+
+  target_data = get_single_target(data, target)
+  for utterance_id, utterance_symbols in target_data.items():
     utterance = ''.join(utterance_symbols)
 
-    if contains_proper_names(utterance):
+    if contains_eng_proper_names(utterance):
       remove.add(utterance_id)
 
   _remove_utterances_with_logging(remove, data)
 
 
-def remove_utterances_with_acronyms(data: PreparationData) -> None:
+def remove_utterances_with_acronyms(data: PreparationData, target: PreparationTarget, ) -> None:
   remove = OrderedSet()
-  for utterance_id, utterance_symbols in data.representations.items():
+  target_data = get_single_target(data, target)
+  for utterance_id, utterance_symbols in target_data.items():
     utterance = ''.join(utterance_symbols)
     words = utterance.split(" ")
     words_non_punctuation = strip_punctuation_words(words)
@@ -207,9 +239,10 @@ def remove_utterances_with_acronyms(data: PreparationData) -> None:
   _remove_utterances_with_logging(remove, data)
 
 
-def remove_utterances_with_undesired_sentence_lengths(data: PreparationData, min_word_count: Optional[int], max_word_count: Optional[int]) -> None:
+def remove_utterances_with_undesired_sentence_lengths(data: PreparationData, target: PreparationTarget, min_word_count: Optional[int], max_word_count: Optional[int]) -> None:
   remove = OrderedSet()
-  for utterance_id, utterance_symbols in data.representations.items():
+  target_data = get_single_target(data, target)
+  for utterance_id, utterance_symbols in target_data.items():
     utterance = ''.join(utterance_symbols)
     words = utterance.split(" ")
     words_count = len(words)
@@ -222,15 +255,17 @@ def remove_utterances_with_undesired_sentence_lengths(data: PreparationData, min
   _remove_utterances_with_logging(remove, data)
 
 
-def remove_utterances_with_unknown_words(data: PreparationData, max_unknown_word_count: int) -> None:
-  if data.representations_lang != Language.ENG:
+def remove_utterances_with_unknown_words(data: PreparationData, target: PreparationTarget, max_unknown_word_count: int) -> None:
+  target_lang = get_single_target_language(data, target)
+  if target_lang != Language.ENG:
     logger = getLogger(__name__)
     logger.error("Language needs to be English!")
-    return
+    raise Exception()
 
   lexicon = enchant.Dict("en_US")
   remove = OrderedSet()
-  for utterance_id, utterance_symbols in data.representations.items():
+  target_data = get_single_target(data, target)
+  for utterance_id, utterance_symbols in target_data.items():
     utterance = ''.join(utterance_symbols)
     words = utterance.split(" ")
     words_non_punctuation = strip_punctuation_words(words)
@@ -242,10 +277,11 @@ def remove_utterances_with_unknown_words(data: PreparationData, max_unknown_word
   _remove_utterances_with_logging(remove, data)
 
 
-def remove_utterances_with_too_seldom_words(data: PreparationData, min_occurrence_count: int) -> None:
+def remove_utterances_with_too_seldom_words(data: PreparationData, target: PreparationTarget, min_occurrence_count: int) -> None:
   remove = OrderedSet()
   stripped_words: Dict[int, List[str]] = {}
-  for utterance_id, utterance_symbols in data.representations.items():
+  target_data = get_single_target(data, target)
+  for utterance_id, utterance_symbols in target_data.items():
     utterance = ''.join(utterance_symbols)
     words = utterance.split(" ")
     words_non_punctuation = strip_punctuation_words(words)
@@ -341,17 +377,17 @@ def select_kld_ngrams_duration(data: PreparationData, n_gram: int, minutes: floa
   logger.info(f"Added {len(new_selected)} utterances to selection ({selected_duration:.2f}min).")
 
 
-def filter_after_duration(corpus: Dict[int, float], min_duration_incl: float, max_duration_excl: float) -> Set[int]:
-  assert min_duration_incl >= 0
-  assert max_duration_excl >= 0
+# def filter_after_duration(corpus: Dict[int, float], min_duration_incl: float, max_duration_excl: float) -> Set[int]:
+#   assert min_duration_incl >= 0
+#   assert max_duration_excl >= 0
 
-  filtered_utterance_indicies = set()
+#   filtered_utterance_indicies = set()
 
-  for utterance_id, utterance_duration in corpus.items():
-    if min_duration_incl <= utterance_duration < max_duration_excl:
-      filtered_utterance_indicies.add(utterance_id)
+#   for utterance_id, utterance_duration in corpus.items():
+#     if min_duration_incl <= utterance_duration < max_duration_excl:
+#       filtered_utterance_indicies.add(utterance_id)
 
-  return filtered_utterance_indicies
+#   return filtered_utterance_indicies
 
 
 def select_greedy_ngrams_epochs(data: PreparationData, n_gram: int, epochs: int, ignore_symbols: Optional[Set[str]]):

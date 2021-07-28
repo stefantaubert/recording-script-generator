@@ -26,6 +26,13 @@ from recording_script_generator.utils import (parse_set, parse_tuple_list,
 BASE_DIR_VAR = "base_dir"
 
 
+IN_STEP_NAME_HELP = ""
+CORPUS_NAME_HELP = ""
+OUT_STEP_NAME_HELP = ""
+OVERWRITE_HELP = ""
+TARGET_HELP = ""
+
+
 def add_base_dir(parser: ArgumentParser):
   assert BASE_DIR_VAR in os.environ.keys()
   base_dir = os.environ[BASE_DIR_VAR]
@@ -93,8 +100,8 @@ def _merge_cli(**args):
 def init_normalize_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True)
   parser.add_argument('--in_step_name', type=str, required=True)
-  parser.add_argument('--target', choices=PreparationTarget,
-                      type=PreparationTarget.__getitem__, required=True)
+  parser.add_argument('--target', type=PreparationTarget.__getitem__,
+                      choices=PreparationTarget, required=True, help=TARGET_HELP)
   parser.add_argument('--replace_unknown_ipa_by', type=str, default="_")
   parser.add_argument('--out_step_name', type=str, required=False)
   parser.add_argument('--overwrite', action='store_true')
@@ -105,8 +112,8 @@ def init_normalize_parser(parser: ArgumentParser):
 def init_convert_to_ipa_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True)
   parser.add_argument('--in_step_name', type=str, required=True)
-  parser.add_argument('--target', choices=PreparationTarget,
-                      type=PreparationTarget.__getitem__, required=True)
+  parser.add_argument('--target', type=PreparationTarget.__getitem__,
+                      choices=PreparationTarget, required=True, help=TARGET_HELP)
   parser.add_argument('--mode', choices=EngToIpaMode, type=EngToIpaMode.__getitem__, required=False)
   parser.add_argument('--replace_unknown_ipa_by', type=str, default="_")
   parser.add_argument('--replace_unknown_with', type=str, default="_")
@@ -128,6 +135,8 @@ def init_select_all_parser(parser: ArgumentParser):
 def init_remove_undesired_text_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True)
   parser.add_argument('--in_step_name', type=str, required=True)
+  parser.add_argument('--target', type=PreparationTarget.__getitem__,
+                      choices=PreparationTarget, required=True, help=TARGET_HELP)
   parser.add_argument('--undesired', type=str, required=True)
   parser.add_argument('--out_step_name', type=str, required=False)
   parser.add_argument('--overwrite', action='store_true')
@@ -139,15 +148,11 @@ def _app_remove_undesired_text_cli(**args):
   app_remove_undesired_text(**args)
 
 
-IN_STEP_NAME_HELP = ""
-CORPUS_NAME_HELP = ""
-OUT_STEP_NAME_HELP = ""
-OVERWRITE_HELP = ""
-
-
 def init_remove_duplicate_utterances_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True, help=CORPUS_NAME_HELP)
   parser.add_argument('--in_step_name', type=str, required=True, help=IN_STEP_NAME_HELP)
+  parser.add_argument('--target', type=PreparationTarget.__getitem__,
+                      choices=PreparationTarget, required=True, help=TARGET_HELP)
   parser.add_argument('--out_step_name', type=str, required=False, help=OUT_STEP_NAME_HELP)
   parser.add_argument('--overwrite', action='store_true', help=OVERWRITE_HELP)
   return app_remove_duplicate_utterances
@@ -156,6 +161,8 @@ def init_remove_duplicate_utterances_parser(parser: ArgumentParser):
 def init_remove_utterances_with_proper_names_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True, help=CORPUS_NAME_HELP)
   parser.add_argument('--in_step_name', type=str, required=True, help=IN_STEP_NAME_HELP)
+  parser.add_argument('--target', type=PreparationTarget.__getitem__,
+                      choices=PreparationTarget, required=True, help=TARGET_HELP)
   parser.add_argument('--out_step_name', type=str, required=False, help=OUT_STEP_NAME_HELP)
   parser.add_argument('--overwrite', action='store_true', help=OVERWRITE_HELP)
   return app_remove_utterances_with_proper_names
@@ -164,6 +171,8 @@ def init_remove_utterances_with_proper_names_parser(parser: ArgumentParser):
 def init_remove_utterances_with_acronyms_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True, help=CORPUS_NAME_HELP)
   parser.add_argument('--in_step_name', type=str, required=True, help=IN_STEP_NAME_HELP)
+  parser.add_argument('--target', type=PreparationTarget.__getitem__,
+                      choices=PreparationTarget, required=True, help=TARGET_HELP)
   parser.add_argument('--out_step_name', type=str, required=False, help=OUT_STEP_NAME_HELP)
   parser.add_argument('--overwrite', action='store_true', help=OVERWRITE_HELP)
   return app_remove_utterances_with_acronyms
@@ -172,6 +181,8 @@ def init_remove_utterances_with_acronyms_parser(parser: ArgumentParser):
 def init_remove_utterances_with_undesired_sentence_lengths_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True, help=CORPUS_NAME_HELP)
   parser.add_argument('--in_step_name', type=str, required=True, help=IN_STEP_NAME_HELP)
+  parser.add_argument('--target', type=PreparationTarget.__getitem__,
+                      choices=PreparationTarget, required=True, help=TARGET_HELP)
   parser.add_argument('--min_word_count', type=int, required=False, help="")
   parser.add_argument('--max_word_count', type=int, required=False, help="")
   parser.add_argument('--out_step_name', type=str, required=False, help=OUT_STEP_NAME_HELP)
@@ -184,6 +195,8 @@ def init_remove_utterances_with_unknown_words_parser(parser: ArgumentParser):
                       type=str, required=True, help=CORPUS_NAME_HELP)
   parser.add_argument('--in_step_name',
                       type=str, required=True, help=IN_STEP_NAME_HELP)
+  parser.add_argument('--target', type=PreparationTarget.__getitem__,
+                      choices=PreparationTarget, required=True, help=TARGET_HELP)
   parser.add_argument('--max_unknown_word_count',
                       type=int, required=False, help="")
   parser.add_argument('--out_step_name',
@@ -198,6 +211,8 @@ def init_remove_utterances_with_too_seldom_words_parser(parser: ArgumentParser):
                       help=CORPUS_NAME_HELP)
   parser.add_argument('--in_step_name', type=str, required=True,
                       help=IN_STEP_NAME_HELP)
+  parser.add_argument('--target', type=PreparationTarget.__getitem__,
+                      choices=PreparationTarget, required=True, help=TARGET_HELP)
   parser.add_argument('--min_occurrence_count', type=int, required=False,
                       help="")
   parser.add_argument('--out_step_name', type=str, required=False,
@@ -248,7 +263,7 @@ def _app_select_greedy_ngrams_duration_cli(**args):
 
 
 def init_select_kld_ngrams_duration_parser(parser: ArgumentParser):
-  parser.add_argument('--merge_name', type=str, required=True)
+  parser.add_argument('--corpus_name', type=str, required=True)
   parser.add_argument('--in_step_name', type=str, required=True,
                       help=IN_STEP_NAME_HELP)
   parser.add_argument('--n_gram', type=int, required=True)
@@ -268,7 +283,7 @@ def init_select_kld_ngrams_duration_parser(parser: ArgumentParser):
 
 
 def _app_select_kld_ngrams_duration_cli(**args):
-  args["ignore_symbols"] = parse_set(args["ignore_symbols"], split_symbol=" ")
+  args["ignore_symbols"] = parse_set(args["ignore_symbols"], split_symbol="&")
   app_select_kld_ngrams_duration(**args)
 
 
