@@ -179,6 +179,15 @@ Each line contains one utterance.
 
 ## Template corpora
 
-- LJSpeech data
-- Charles Darwin: On the Origin of Species, 6th Edition (1872)
-- ...
+- ljs: LJSpeech data
+- darwin: Charles Darwin - On the Origin of Species, 6th Edition (1872)
+- SS128-0: William Pittenger - Extempore Speech: How to Acquire and Practice It (1883)
+- pg6463: George Stuart Fullerton - A Handbook of Ethical Theory (<=1925)
+- pg27682: Harold Steele Mackaye - The Panchronicon (1904)
+- pg32500: George Thompson - Discussion on American Slavery (1836)
+- pg34150: Various authors - Wilson's Tales of the Borders and of Scotland (1885)
+- pg38180: John Corbin - An American at Oxford (1902)
+- pg39455: M. M. Mangasarian - Is Life Worth Living Without Immortality?: A Lecture Delivered Before the Independent Religious Society (<=1943)
+- pg42197: Alfred J. Church - With the King at Oxford: A Tale of the Great Rebellion (1886)
+- solomon: Solomon Northup - Twelve Years a Slave (1853)
+- thoughts: Prentice Mulford - Thoughts are Things (1889)
