@@ -95,30 +95,36 @@ def get_utterance_durations(utterances: List[Symbols], avg_chars_per_s: float) -
 def get_utterance_duration_distribution(utterance_durations: List[float]) -> OrderedDictType[int, float]:
   duration_distribution: OrderedDictType[int, float] = OrderedDict()
   current_step_duration = 0
-  unsorted_utterances = utterance_durations.copy()
-  while len(unsorted_utterances) > 0:
+
+  unsorted_utterances_rounded = [round(x, 1) for x in utterance_durations]
+  while len(unsorted_utterances_rounded) > 0:
     to_remove = []
-    for utterance_duration in unsorted_utterances:
-      current_duration = round(utterance_duration)
-      if current_duration == current_step_duration:
+    for current_duration in unsorted_utterances_rounded:
+      if current_duration == round(current_step_duration, 1):
         if current_step_duration not in duration_distribution:
           duration_distribution[current_step_duration] = 1
         else:
           duration_distribution[current_step_duration] += 1
-        to_remove.append(utterance_duration)
+        to_remove.append(current_duration)
     for item in to_remove:
-      unsorted_utterances.remove(item)
-    current_step_duration += 1
+      unsorted_utterances_rounded.remove(item)
+    current_step_duration += 0.1
   return duration_distribution
 
 
 def _log_distribution(distribution: OrderedDictType[int, float]) -> None:
   logger = getLogger(__name__)
+  total_length = sum([step_duration * step_occurrences for step_duration,
+                     step_occurrences in distribution.items()])
   total_count = sum(distribution.values())
   current_summed_occurrences = 0
+  current_summed_lengths = 0
   for step_duration, step_occurrences in distribution.items():
+    current_length = step_duration * step_occurrences
+    current_summed_lengths += current_length
     current_summed_occurrences += step_occurrences
-    logger.info(f"{step_duration}s: {step_occurrences} ({step_occurrences/total_count*100:.2f}%) ({current_summed_occurrences/total_count*100:.2f}%)")
+    #logger.info(f"{step_duration:.1f}s: {step_occurrences} ({step_occurrences/total_count*100:.2f}%) ({current_summed_occurrences/total_count*100:.2f}%)")
+    logger.info(f"{step_duration:.1f}s: {step_occurrences} ({current_length/total_length*100:.2f}%) ({current_summed_lengths/total_length*100:.2f}%)")
 
 
 def log_general_stats(data: PreparationData, avg_chars_per_s: float) -> None:
