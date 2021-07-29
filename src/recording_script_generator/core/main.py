@@ -1,11 +1,8 @@
 from collections import Counter, OrderedDict
 from dataclasses import dataclass
 from enum import IntEnum
-from functools import partial
 from logging import getLogger
-from typing import Callable, Dict, List, Optional
-from typing import OrderedDict as OrderedDictType
-from typing import Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import enchant
 from ordered_set import OrderedSet
@@ -18,8 +15,7 @@ from text_selection import greedy_kld_uniform_ngrams_iterations
 from text_selection.greedy_export import (greedy_ngrams_durations_advanced,
                                           greedy_ngrams_epochs)
 from text_selection.greedy_kld_export import (
-    SelectionMode, greedy_kld_uniform_ngrams_seconds,
-    greedy_kld_uniform_ngrams_seconds_with_preselection)
+    SelectionMode, greedy_kld_uniform_ngrams_seconds_with_preselection)
 from text_selection.utils import DurationBoundary
 from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings

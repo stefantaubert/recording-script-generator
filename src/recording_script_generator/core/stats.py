@@ -85,7 +85,7 @@ def get_utterance_word_counts(utterances: List[Symbols]) -> List[int]:
   return word_counts
 
 
-def get_utterance_durations(utterances: List[Symbols], avg_chars_per_s: int) -> List[float]:
+def get_utterance_durations(utterances: List[Symbols], avg_chars_per_s: float) -> List[float]:
   word_counts = []
   for utterance in utterances:
     word_counts.append(len(utterance) / avg_chars_per_s)
@@ -121,8 +121,8 @@ def _log_distribution(distribution: OrderedDictType[int, float]) -> None:
     logger.info(f"{step_duration}s: {step_occurrences} ({step_occurrences/total_count*100:.2f}%) ({current_summed_occurrences/total_count*100:.2f}%)")
 
 
-def log_general_stats(data: PreparationData, avg_chars_per_s: int) -> None:
-  assert avg_chars_per_s >= 0
+def log_general_stats(data: PreparationData, avg_chars_per_s: float) -> None:
+  assert avg_chars_per_s > 0
   logger = getLogger(__name__)
 
   selected = OrderedDict(

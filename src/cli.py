@@ -310,9 +310,9 @@ def init_select_kld_ngrams_duration_parser(parser: ArgumentParser):
   parser.add_argument('--reading_speed_chars_per_s', type=float,
                       default=DEFAULT_AVG_CHARS_PER_S)
   parser.add_argument('--ignore_symbols', type=str, required=False)
-  parser.add_argument('--boundary_min_s', type=int,
+  parser.add_argument('--boundary_min_s', type=float,
                       default=DEFAULT_SPLIT_BOUNDARY_MIN_S, help="")
-  parser.add_argument('--boundary_max_s', type=int,
+  parser.add_argument('--boundary_max_s', type=float,
                       default=DEFAULT_SPLIT_BOUNDARY_MAX_S, help="")
   parser.add_argument('--out_step_name', type=str, required=False,
                       help=OUT_STEP_NAME_HELP)

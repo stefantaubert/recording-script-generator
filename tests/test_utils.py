@@ -1,5 +1,5 @@
 from ordered_set import OrderedSet
-from recording_script_generator.core.export import detect_ids_from_tex
+from recording_script_generator.utils import detect_ids_from_tex
 
 
 def test_detect_ids_from_tex__one_id():
