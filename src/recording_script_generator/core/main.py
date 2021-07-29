@@ -204,7 +204,7 @@ def remove_utterances_with_undesired_text(data: PreparationData, target: Prepara
   _remove_utterances_with_logging(remove, data)
 
 
-def remove_duplicate_utterances(data: PreparationData, target: PreparationTarget, ) -> None:
+def remove_duplicate_utterances(data: PreparationData, target: PreparationTarget) -> None:
   remove = OrderedSet()
   already_exist: Set[Tuple[str, ...]] = set()
   target_data = get_single_target(data, target)
@@ -218,7 +218,7 @@ def remove_duplicate_utterances(data: PreparationData, target: PreparationTarget
   _remove_utterances_with_logging(remove, data)
 
 
-def remove_utterances_with_proper_names(data: PreparationData, target: PreparationTarget, ) -> None:
+def remove_utterances_with_proper_names(data: PreparationData, target: PreparationTarget) -> None:
   remove = OrderedSet()
   target_lang = get_single_target_language(data, target)
   if target_lang != Language.ENG:
@@ -236,7 +236,7 @@ def remove_utterances_with_proper_names(data: PreparationData, target: Preparati
   _remove_utterances_with_logging(remove, data)
 
 
-def remove_utterances_with_acronyms(data: PreparationData, target: PreparationTarget, ) -> None:
+def remove_utterances_with_acronyms(data: PreparationData, target: PreparationTarget) -> None:
   remove = OrderedSet()
   target_data = get_single_target(data, target)
   for utterance_id, utterance_symbols in target_data.items():
