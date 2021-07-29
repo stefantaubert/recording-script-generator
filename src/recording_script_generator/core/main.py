@@ -9,6 +9,7 @@ from typing import Set, Tuple
 
 import enchant
 from ordered_set import OrderedSet
+from recording_script_generator.core.export import detect_ids_from_tex
 from recording_script_generator.core.text_extraction import (
     contains_eng_proper_names, contains_undesired_text, file_to_utterances,
     get_minimum_frequency, get_non_dict_words_amount, is_sentence,
@@ -436,3 +437,24 @@ def select_greedy_ngrams_duration(data: PreparationData, n_gram: int, minutes: f
   selected_duration = sum(len(v) / reading_speed_chars_per_s / 60
                           for k, v in non_selected_reading_passages.items() if k in new_selected)
   logger.info(f"Added {len(new_selected)} utterances to selection ({selected_duration:.2f}min).")
+
+
+def select_from_tex(data: PreparationData, tex: str) -> None:
+  logger = getLogger(__name__)
+  ids_in_tex = detect_ids_from_tex(tex)
+
+  new_ids = ids_in_tex - data.selected
+  if len(new_ids) > 0:
+    logger.error("Added new entries:")
+    logger.info(new_ids)
+    raise Exception()
+
+  final_ids = OrderedSet()
+  for current_id in data.selected:
+    if current_id in ids_in_tex:
+      final_ids.add(current_id)
+
+  removed_count = len(data.selected - ids_in_tex)
+  data.selected = final_ids
+
+  logger.info(f"Removed {removed_count} utterances from selection.")

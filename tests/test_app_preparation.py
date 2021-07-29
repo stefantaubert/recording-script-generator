@@ -1,8 +1,5 @@
 from pathlib import Path
 
-from recording_script_generator.app.preparation import (
-    add_corpus_from_text_file, app_convert_to_ipa, app_normalize)
-from recording_script_generator.core.preparation import PreparationTarget
 from text_utils.ipa2symb import IPAExtractionSettings
 from text_utils.language import Language
 from text_utils.text import EngToIpaMode
