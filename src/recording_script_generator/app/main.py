@@ -1,6 +1,5 @@
 from functools import partial
 from logging import getLogger
-from math import inf
 from pathlib import Path
 from shutil import rmtree
 from typing import Callable, List, Optional, Set, Tuple
@@ -10,27 +9,30 @@ from recording_script_generator.core.export import (SortingMode, df_to_tex,
                                                     get_reading_scripts)
 from recording_script_generator.core.main import (
     PreparationData, PreparationTarget, add_corpus_from_text, convert_to_ipa,
-    merge, normalize, remove_deselected, remove_duplicate_utterances,
-    remove_utterances_with_acronyms, remove_utterances_with_proper_names,
+    deselect_all_utterances, merge, normalize, remove_deselected,
+    remove_duplicate_utterances, remove_utterances_with_acronyms,
+    remove_utterances_with_proper_names,
     remove_utterances_with_too_seldom_words,
     remove_utterances_with_undesired_sentence_lengths,
     remove_utterances_with_undesired_text,
     remove_utterances_with_unknown_words, select_all_utterances,
-    select_greedy_ngrams_duration, select_greedy_ngrams_epochs,
-    select_kld_ngrams_duration, select_kld_ngrams_iterations,
-    deselect_all_utterances)
+    select_from_tex, select_greedy_ngrams_duration,
+    select_greedy_ngrams_epochs, select_kld_ngrams_duration,
+    select_kld_ngrams_iterations)
 from recording_script_generator.core.stats import (get_n_gram_stats_df,
                                                    log_general_stats)
+from recording_script_generator.globals import (DEFAULT_AVG_CHARS_PER_S,
+                                                DEFAULT_IGNORE, DEFAULT_SEED,
+                                                DEFAULT_SORTING_MODE,
+                                                DEFAULT_SPLIT_BOUNDARY_MAX_S,
+                                                DEFAULT_SPLIT_BOUNDARY_MIN_S,
+                                                SEP)
 from recording_script_generator.utils import load_obj, read_text, save_obj
 from text_selection.selection import SelectionMode
-from text_selection.utils import DurationBoundary
 from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings
 from text_utils.text import EngToIpaMode
 
-DEFAULT_SEED = 1111
-DEFAULT_SORTING_MODE = SortingMode.BY_SELECTION
-AVG_CHARS_PER_S = 25
 DATA_FILE = "data.pkl"
 SELECTED_FILENAME = "selected.csv"
 SELECTED_TXT_FILENAME = "selected.txt"
@@ -41,10 +43,6 @@ THREE_GRAM_STATS_CSV_FILENAME = "3_gram_stats.csv"
 REST_FILENAME = "rest.csv"
 REST_TXT_FILENAME = "rest.txt"
 REST_TEX_FILENAME = "rest.tex"
-SEP = "\t"
-DEFAULT_IGNORE = {}
-DEFAULT_SPLIT_BOUNDARY_MIN_S = 0
-DEFAULT_SPLIT_BOUNDARY_MAX_S = inf
 
 
 def get_corpus_dir(base_dir: Path, corpus_name: str) -> Path:
@@ -97,9 +95,13 @@ def _save_scripts(step_dir: Path, data: PreparationData, sorting_mode: SortingMo
   selected_df.to_csv(step_dir / SELECTED_FILENAME, sep=SEP, header=True, index=False)
   rest_df.to_csv(step_dir / REST_FILENAME, sep=SEP, header=True, index=False)
   (step_dir / SELECTED_TXT_FILENAME).write_text(df_to_txt(selected_df))
-  (step_dir / SELECTED_TEX_FILENAME).write_text(df_to_tex(selected_df))
+  get_tex_path(step_dir).write_text(df_to_tex(selected_df))
   (step_dir / REST_TXT_FILENAME).write_text(df_to_txt(rest_df))
   (step_dir / REST_TEX_FILENAME).write_text(df_to_tex(rest_df))
+
+
+def get_tex_path(step_dir: Path) -> Path:
+  return step_dir / SELECTED_TEX_FILENAME
 
 
 def app_add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: str, text_path: Path, lang: Language, ignore_tones: Optional[bool] = False, ignore_arcs: Optional[bool] = True, replace_unknown_ipa_by: Optional[str] = "_", overwrite: bool = False) -> None:
@@ -138,10 +140,9 @@ def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, t
   step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(step_dir, result)
   _save_scripts(step_dir, result, DEFAULT_SORTING_MODE)
-  _log_stats(result, step_dir)
 
 
-def app_log_stats(base_dir: Path, corpus_name: str, step_name: str) -> None:
+def app_log_stats(base_dir: Path, corpus_name: str, step_name: str, reading_speed_chars_per_s: int = DEFAULT_AVG_CHARS_PER_S) -> None:
   logger = getLogger(__name__)
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
 
@@ -157,10 +158,11 @@ def app_log_stats(base_dir: Path, corpus_name: str, step_name: str) -> None:
 
   data = load_corpus(step_dir)
 
-  _log_stats(data, step_dir)
+  log_general_stats(data, reading_speed_chars_per_s)
+  _save_stats_df(step_dir, data)
 
 
-def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorting_mode: SortingMode,seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[str]] = DEFAULT_IGNORE) -> None:
+def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[str]] = DEFAULT_IGNORE) -> None:
   logger = getLogger(__name__)
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
 
@@ -177,11 +179,6 @@ def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorti
   data = load_corpus(step_dir)
 
   _save_scripts(step_dir, data, sorting_mode, seed, ignore_symbols)
-
-
-def _log_stats(data: PreparationData, step_dir: Path):
-  log_general_stats(data, AVG_CHARS_PER_S)
-  _save_stats_df(step_dir, data)
 
 
 def app_merge(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_corpus_name: str, out_step_name: str, overwrite: bool = False):
@@ -217,7 +214,6 @@ def app_merge(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_cor
   out_step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(out_step_dir, merged_data)
   _save_scripts(out_step_dir, merged_data, DEFAULT_SORTING_MODE)
-  _log_stats(merged_data, out_step_dir)
 
 
 def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str], overwrite: bool, method: Callable[[PreparationData], None]):
@@ -250,7 +246,6 @@ def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_na
   out_step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(out_step_dir, data)
   _save_scripts(out_step_dir, data, DEFAULT_SORTING_MODE)
-  _log_stats(data, out_step_dir)
 
 
 def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, ignore_tones: Optional[bool] = False, ignore_arcs: Optional[bool] = True, replace_unknown_ipa_by: Optional[str] = "_", out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
@@ -296,6 +291,22 @@ def app_deselect_all(base_dir: Path, corpus_name: str, in_step_name: str, out_st
   logger.info("Deselecting all...")
   method = partial(
     deselect_all_utterances,
+  )
+
+  _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+
+
+def app_select_from_tex(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+  logger = getLogger(__name__)
+  logger.info("Selecting from tex...")
+  corpus_dir = get_corpus_dir(base_dir, corpus_name)
+  step_dir = get_step_dir(corpus_dir, in_step_name)
+  tex_path = get_tex_path(step_dir)
+  assert tex_path.exists()
+  tex_content = read_text(tex_path)
+  method = partial(
+    select_from_tex,
+    tex=tex_content,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
@@ -419,7 +430,7 @@ def app_select_greedy_ngrams_epochs(base_dir: Path, corpus_name: str, in_step_na
 #   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: int = AVG_CHARS_PER_S, ignore_symbols: Optional[Set[str]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: int = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Optional[Set[str]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with Greedy...")
   method = partial(
@@ -434,7 +445,7 @@ def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: int = AVG_CHARS_PER_S, ignore_symbols: Set[str] = DEFAULT_IGNORE, boundary_min_s: float = DEFAULT_SPLIT_BOUNDARY_MIN_S, boundary_max_s: float = DEFAULT_SPLIT_BOUNDARY_MAX_S, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: int = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Set[str] = DEFAULT_IGNORE, boundary_min_s: float = DEFAULT_SPLIT_BOUNDARY_MIN_S, boundary_max_s: float = DEFAULT_SPLIT_BOUNDARY_MAX_S, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with KLD...")
   method = partial(

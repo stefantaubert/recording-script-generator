@@ -1,3 +1,4 @@
+import re
 import json
 import os
 import pickle
@@ -5,6 +6,8 @@ from pathlib import Path
 from typing import Any, List, Optional, Set, Tuple
 
 from ordered_set import OrderedSet
+
+IDS_TEX_PATTERN = re.compile(" % ([0-9]*)\n")
 
 
 def get_subdir(training_dir_path: str, subdir: str, create: bool = True) -> str:
@@ -79,3 +82,11 @@ def parse_set(set_str: str, split_symbol: str) -> OrderedSet[str]:
   step1: List[str] = set_str.split(split_symbol)
   result = OrderedSet(step1)
   return result
+
+
+def detect_ids_from_tex(tex: str) -> OrderedSet[int]:
+  res = OrderedSet()
+  matches = re.findall(IDS_TEX_PATTERN, tex)
+  for match in matches:
+    res.add(int(match))
+  return res

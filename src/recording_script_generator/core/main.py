@@ -9,11 +9,11 @@ from typing import Set, Tuple
 
 import enchant
 from ordered_set import OrderedSet
-from recording_script_generator.core.export import detect_ids_from_tex
 from recording_script_generator.core.text_extraction import (
     contains_eng_proper_names, contains_undesired_text, file_to_utterances,
     get_minimum_frequency, get_non_dict_words_amount, is_sentence,
     strip_punctuation_words, words_contain_acronyms)
+from recording_script_generator.utils import detect_ids_from_tex
 from text_selection import greedy_kld_uniform_ngrams_iterations
 from text_selection.greedy_export import (greedy_ngrams_durations_advanced,
                                           greedy_ngrams_epochs)
@@ -171,7 +171,7 @@ def get_single_target(data: PreparationData, target: PreparationTarget) -> Dict[
     logger.error("Target BOTH is not supported in this case!")
     raise Exception()
   if target == PreparationTarget.READING_PASSAGES:
-    data.reading_passages
+    return data.reading_passages
   assert target == PreparationTarget.REPRESENTATIONS
   return data.representations
 
@@ -455,6 +455,11 @@ def select_from_tex(data: PreparationData, tex: str) -> None:
       final_ids.add(current_id)
 
   removed_count = len(data.selected - ids_in_tex)
-  data.selected = final_ids
 
-  logger.info(f"Removed {removed_count} utterances from selection.")
+  if removed_count == 0:
+    logger.info("Nothing to do.")
+  else:
+    remove_ids = data.selected - ids_in_tex
+    data.selected -= remove_ids
+    logger.info(
+      f"Removed {len(remove_ids)} sentences from selection ({','.join(list(map(str, list(remove_ids))))}).")

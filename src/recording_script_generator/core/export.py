@@ -1,5 +1,4 @@
 import random
-import re
 from collections import OrderedDict
 from enum import IntEnum
 from typing import Optional
@@ -14,7 +13,6 @@ from recording_script_generator.core.main import (PreparationData,
                                                   Representation)
 from text_selection import greedy_kld_uniform_ngrams_default
 
-IDS_TEX_PATTERN = re.compile(" % ([0-9]*)\n")
 
 
 class SortingMode(IntEnum):
@@ -116,11 +114,3 @@ def df_to_tex(df: DataFrame) -> str:
     result += f"  \\item {row['Utterance']} % {row['Id']}\n"
   result += "\\end{enumerate}"
   return result
-
-
-def detect_ids_from_tex(tex: str) -> OrderedSet[int]:
-  res = OrderedSet()
-  matches = re.findall(IDS_TEX_PATTERN, tex)
-  for match in matches:
-    res.add(int(match))
-  return res
