@@ -96,11 +96,13 @@ def get_utterance_duration_distribution(utterance_durations: List[float]) -> Ord
   duration_distribution: OrderedDictType[int, float] = OrderedDict()
   current_step_duration = 0
 
-  unsorted_utterances_rounded = [round(x, 1) for x in utterance_durations]
+  #unsorted_utterances_rounded = [round(x, 1) for x in utterance_durations]
+  unsorted_utterances_rounded = [round(x) for x in utterance_durations]
   while len(unsorted_utterances_rounded) > 0:
     to_remove = []
     for current_duration in unsorted_utterances_rounded:
-      if current_duration == round(current_step_duration, 1):
+      # if current_duration == round(current_step_duration, 1):
+      if current_duration == round(current_step_duration):
         if current_step_duration not in duration_distribution:
           duration_distribution[current_step_duration] = 1
         else:
@@ -108,7 +110,8 @@ def get_utterance_duration_distribution(utterance_durations: List[float]) -> Ord
         to_remove.append(current_duration)
     for item in to_remove:
       unsorted_utterances_rounded.remove(item)
-    current_step_duration += 0.1
+    #current_step_duration += 0.1
+    current_step_duration += 1
   return duration_distribution
 
 
@@ -124,7 +127,7 @@ def _log_distribution(distribution: OrderedDictType[int, float]) -> None:
     current_summed_lengths += current_length
     current_summed_occurrences += step_occurrences
     #logger.info(f"{step_duration:.1f}s: {step_occurrences} ({step_occurrences/total_count*100:.2f}%) ({current_summed_occurrences/total_count*100:.2f}%)")
-    logger.info(f"{step_duration:.1f}s: {step_occurrences} ({current_length/total_length*100:.2f}%) ({current_summed_lengths/total_length*100:.2f}%)")
+    logger.info(f"{step_duration:.0f}s: {step_occurrences} ({current_length/total_length*100:.2f}%) ({current_summed_lengths/total_length*100:.2f}%)")
 
 
 def log_general_stats(data: PreparationData, avg_chars_per_s: float) -> None:
