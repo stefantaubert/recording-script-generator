@@ -182,7 +182,7 @@ def get_single_target_language(data: PreparationData, target: PreparationTarget)
     logger.error("Target BOTH is not supported in this case!")
     raise Exception()
   if target == PreparationTarget.READING_PASSAGES:
-    data.reading_passages_lang
+    return data.reading_passages_lang
   assert target == PreparationTarget.REPRESENTATIONS
   return data.representations_lang
 

@@ -142,7 +142,7 @@ def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, t
   _save_scripts(step_dir, result, DEFAULT_SORTING_MODE)
 
 
-def app_log_stats(base_dir: Path, corpus_name: str, step_name: str, reading_speed_chars_per_s: int = DEFAULT_AVG_CHARS_PER_S) -> None:
+def app_log_stats(base_dir: Path, corpus_name: str, step_name: str, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S) -> None:
   logger = getLogger(__name__)
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
 
@@ -430,7 +430,7 @@ def app_select_greedy_ngrams_epochs(base_dir: Path, corpus_name: str, in_step_na
 #   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: int = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Optional[Set[str]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Optional[Set[str]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with Greedy...")
   method = partial(
@@ -445,7 +445,7 @@ def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: int = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Set[str] = DEFAULT_IGNORE, boundary_min_s: float = DEFAULT_SPLIT_BOUNDARY_MIN_S, boundary_max_s: float = DEFAULT_SPLIT_BOUNDARY_MAX_S, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Set[str] = DEFAULT_IGNORE, boundary_min_s: float = DEFAULT_SPLIT_BOUNDARY_MIN_S, boundary_max_s: float = DEFAULT_SPLIT_BOUNDARY_MAX_S, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with KLD...")
   method = partial(

@@ -78,7 +78,7 @@ def init_add_corpus_from_text_parser(parser: ArgumentParser):
 def init_log_stats_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True)
   parser.add_argument('--step_name', type=str, required=True)
-  parser.add_argument('--reading_speed_chars_per_s', type=int,
+  parser.add_argument('--reading_speed_chars_per_s', type=float,
                       default=DEFAULT_AVG_CHARS_PER_S)
   return app_log_stats
 
@@ -286,7 +286,7 @@ def init_select_greedy_ngrams_duration_parser(parser: ArgumentParser):
                       help=IN_STEP_NAME_HELP)
   parser.add_argument('--n_gram', type=int, required=True)
   parser.add_argument('--minutes', type=float, required=True)
-  parser.add_argument('--reading_speed_chars_per_s', type=int,
+  parser.add_argument('--reading_speed_chars_per_s', type=float,
                       default=DEFAULT_AVG_CHARS_PER_S)
   parser.add_argument('--ignore_symbols', type=str, required=False)
   parser.add_argument('--out_step_name', type=str, required=False,
@@ -307,7 +307,7 @@ def init_select_kld_ngrams_duration_parser(parser: ArgumentParser):
                       help=IN_STEP_NAME_HELP)
   parser.add_argument('--n_gram', type=int, required=True)
   parser.add_argument('--minutes', type=float, required=True)
-  parser.add_argument('--reading_speed_chars_per_s', type=int,
+  parser.add_argument('--reading_speed_chars_per_s', type=float,
                       default=DEFAULT_AVG_CHARS_PER_S)
   parser.add_argument('--ignore_symbols', type=str, required=False)
   parser.add_argument('--boundary_min_s', type=int,
