@@ -455,7 +455,6 @@ def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_nam
     reading_speed_chars_per_s=reading_speed_chars_per_s,
     ignore_symbols=ignore_symbols,
     boundary=(boundary_min_s, boundary_max_s),
-    mode=SelectionMode.FIRST,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)

@@ -351,7 +351,7 @@ def select_kld_ngrams_iterations(data: PreparationData, n_gram: int, iterations:
   logger.info(f"Added {len(new_selected)} utterances to selection.")
 
 
-def select_kld_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: int, ignore_symbols: Set[str], boundary: DurationBoundary, mode: SelectionMode):
+def select_kld_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: int, ignore_symbols: Set[str], boundary: DurationBoundary):
   logger = getLogger(__name__)
   selected_representations = OrderedDict(
     {k: v for k, v in data.representations.items() if k in data.selected})
@@ -373,9 +373,9 @@ def select_kld_ngrams_duration(data: PreparationData, n_gram: int, minutes: floa
     ignore_symbols=ignore_symbols,
     seconds=minutes * 60,
     durations_s=non_selected_durations,
-    mode=mode,
     preselection=selected_representations,
     duration_boundary=boundary,
+    mp=True,
   )
 
   data.selected |= new_selected
