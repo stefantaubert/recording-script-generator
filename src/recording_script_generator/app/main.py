@@ -85,12 +85,14 @@ def _save_stats_df(step_dir: Path, data: PreparationData) -> None:
   logger.info("Done.")
 
 
-def _save_scripts(step_dir: Path, data: PreparationData, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[str]] = DEFAULT_IGNORE) -> None:
+def _save_scripts(step_dir: Path, data: PreparationData, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[str]] = DEFAULT_IGNORE, parts_count: Optional[int] = None, take_per_part: Optional[int] = None) -> None:
   selected_df, rest_df = get_reading_scripts(
     data=data,
     mode=sorting_mode,
     seed=seed,
     ignore_symbols=ignore_symbols,
+    parts_count=parts_count,
+    take_per_part=take_per_part,
   )
   selected_df.to_csv(step_dir / SELECTED_FILENAME, sep=SEP, header=True, index=False)
   rest_df.to_csv(step_dir / REST_FILENAME, sep=SEP, header=True, index=False)
@@ -162,7 +164,7 @@ def app_log_stats(base_dir: Path, corpus_name: str, step_name: str, reading_spee
   _save_stats_df(step_dir, data)
 
 
-def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[str]] = DEFAULT_IGNORE) -> None:
+def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[str]] = DEFAULT_IGNORE, parts_count: Optional[int]= None, take_per_part: Optional[int]= None) -> None:
   logger = getLogger(__name__)
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
 
@@ -178,7 +180,7 @@ def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorti
 
   data = load_corpus(step_dir)
 
-  _save_scripts(step_dir, data, sorting_mode, seed, ignore_symbols)
+  _save_scripts(step_dir, data, sorting_mode, seed, ignore_symbols, parts_count, take_per_part)
 
 
 def app_merge(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_corpus_name: str, out_step_name: str, overwrite: bool = False):

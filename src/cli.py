@@ -89,6 +89,8 @@ def init_generate_scripts_parser(parser: ArgumentParser):
   parser.add_argument('--sorting_mode', choices=SortingMode,
                       type=SortingMode.__getitem__, required=True)
   parser.add_argument('--seed', type=int, default=DEFAULT_SEED)
+  parser.add_argument('--parts_count', type=int, required=False)
+  parser.add_argument('--take_per_part', type=int, required=False)
   parser.add_argument('--ignore_symbols', type=str, required=False)
   return _app_generate_scripts_cli
 

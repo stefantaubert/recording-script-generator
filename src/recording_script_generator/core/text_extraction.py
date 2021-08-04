@@ -111,28 +111,28 @@ def contains_eng_proper_names(sentence: str) -> bool:
   return matches is not None
 
 
-def get_word_frequencies() -> FreqDist:
-  tmp_path = Path(tempfile.gettempdir()) / "word_freq.pkl"
-  if tmp_path.exists():
-    with tmp_path.open(mode="rb") as f:
-      word_frequencies = pickle.load(f)
-  else:
-    from nltk import download
-    download('brown', quiet=True)
-    from nltk.corpus import brown
-    word_frequencies = FreqDist(word.lower() for sentence in brown.sents()
-                                for word in sentence)
-    with tmp_path.open(mode="wb") as f:
-      pickle.dump(word_frequencies, f)
+# def get_word_frequencies() -> FreqDist:
+#   tmp_path = Path(tempfile.gettempdir()) / "word_freq.pkl"
+#   if tmp_path.exists():
+#     with tmp_path.open(mode="rb") as f:
+#       word_frequencies = pickle.load(f)
+#   else:
+#     from nltk import download
+#     download('brown', quiet=True)
+#     from nltk.corpus import brown
+#     word_frequencies = FreqDist(word.lower() for sentence in brown.sents()
+#                                 for word in sentence)
+#     with tmp_path.open(mode="wb") as f:
+#       pickle.dump(word_frequencies, f)
 
-  return word_frequencies
+#   return word_frequencies
 
 
 def get_minimum_frequency(words: List[str], word_frequencies: Counter) -> int:
-  freqs = [word_frequencies[word.lower()] for word in words]
-  result = min(freqs)
-  for freq, word in zip(freqs, words):
-    if freq <= 1:
-      #print(word, freq)
-      pass
+  frequencies = [word_frequencies[word.lower()] for word in words]
+  result = min(frequencies)
+  # for freq, word in zip(freqs, words):
+  #   if freq <= 1:
+  #     #print(word, freq)
+  #     pass
   return result

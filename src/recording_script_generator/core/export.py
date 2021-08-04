@@ -12,7 +12,7 @@ from recording_script_generator.core.main import (PreparationData,
                                                   ReadingPassages,
                                                   Representation)
 from text_selection import greedy_kld_uniform_ngrams_default
-
+from text_selection.greedy_kld_export import greedy_kld_uniform_ngrams_parts
 
 
 class SortingMode(IntEnum):
@@ -21,6 +21,7 @@ class SortingMode(IntEnum):
   BY_INDEX = 2
   RANDOM = 3
   KLD = 4
+  KLD_PARTS = 5
 
 
 def number_prepend_zeros(n: int, max_n: int) -> str:
@@ -45,7 +46,7 @@ def get_df_from_reading_passages(reading_passages: OrderedDictType[int, Tuple[Re
   return df
 
 
-def get_keys_custom_sort(data: PreparationData, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]]) -> OrderedSet[int]:
+def get_keys_custom_sort(data: PreparationData, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> OrderedSet[int]:
 
   selected_reading_passages = OrderedDict({k: data.reading_passages[k] for k in data.selected})
 
@@ -83,11 +84,33 @@ def get_keys_custom_sort(data: PreparationData, mode: SortingMode, seed: Optiona
     )
     return keys_sorted_by_index
 
+  if mode == SortingMode.KLD_PARTS:
+    assert ignore_symbols is not None
+    assert parts_count is not None
+    assert take_per_part is not None
+
+    keys_sorted_by_index = greedy_kld_uniform_ngrams_parts(
+      data=selected_representations,
+      n_gram=1,
+      ignore_symbols=ignore_symbols,
+      parts_count=parts_count,
+      take_per_part=take_per_part,
+    )
+    return keys_sorted_by_index
+
   raise Exception()
 
 
-def get_reading_scripts(data: PreparationData, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]]) -> Tuple[DataFrame, DataFrame]:
-  keys_sorted = get_keys_custom_sort(data, mode=mode, seed=seed, ignore_symbols=ignore_symbols)
+def get_reading_scripts(data: PreparationData, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> Tuple[DataFrame, DataFrame]:
+  keys_sorted = get_keys_custom_sort(
+    data=data,
+    mode=mode,
+    seed=seed,
+    ignore_symbols=ignore_symbols,
+    take_per_part=take_per_part,
+    parts_count=parts_count,
+  )
+
   selected = OrderedDict(
     {k: (data.reading_passages[k], data.representations[k])
      for k in keys_sorted})
