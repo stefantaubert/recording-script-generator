@@ -1,13 +1,9 @@
-import pickle
 import re
-import tempfile
 from collections import Counter
 from logging import getLogger
-from pathlib import Path
 from typing import List, Set
 
 import enchant
-from nltk.probability import FreqDist
 from text_utils import Language, text_to_sentences
 
 
