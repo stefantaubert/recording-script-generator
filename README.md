@@ -179,7 +179,6 @@ Each line contains one utterance.
 
 ## Template corpora
 
-- ljs: LJSpeech data
 - darwin: Charles Darwin - On the Origin of Species, 6th Edition (1872)
 - SS128-0: William Pittenger - Extempore Speech: How to Acquire and Practice It (1883)
 - pg6463: George Stuart Fullerton - A Handbook of Ethical Theory (<=1925)
@@ -191,10 +190,13 @@ Each line contains one utterance.
 - pg42197: Alfred J. Church - With the King at Oxford: A Tale of the Great Rebellion (1886)
 - solomon: Solomon Northup - Twelve Years a Slave (1853)
 - thoughts: Prentice Mulford - Thoughts are Things (1889)
-- 46649-0: Arthur Griffiths - The Chronicles of Newgate, vol. 1/2 (1884)
-- pg46746: Arthur Griffiths - The Chronicles of Newgate, v. 2/2 (1884)
-- 49155-0: Marion Harland - Marion Harland's Cookery for Beginners (1884)
-- pg5767: Franklin Delano Roosevelt - The Fireside Chats of Franklin Delano Roosevelt (1933)
-- pg36250: Various authors - Arts and Crafts Essays (1893)
-- sciencehistory: Caroline E. Stackpole - The Science - History of the Universe (1909)
-- sevenwonders: Edgar J. Banks - The Seven Wonders of The Ancient World (1916)
+- ljs: LJSpeech data
+  - 46649-0: Arthur Griffiths - The Chronicles of Newgate, vol. 1/2 (1884)
+  - pg46746: Arthur Griffiths - The Chronicles of Newgate, v. 2/2 (1884)
+  - 49155-0: Marion Harland - Marion Harland's Cookery for Beginners (1884)
+  - pg5767: Franklin Delano Roosevelt - The Fireside Chats of Franklin Delano Roosevelt (1933)
+  - pg36250: Various authors - Arts and Crafts Essays (1893)
+  - sciencehistory: Caroline E. Stackpole - The Science - History of the Universe (1909)
+    - is not good
+  - sevenwonders: Edgar J. Banks - The Seven Wonders of The Ancient World (1916)
+    - is not good
