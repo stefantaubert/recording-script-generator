@@ -1,6 +1,7 @@
 import random
 from collections import OrderedDict
 from enum import IntEnum
+from logging import getLogger
 from typing import Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Set, Tuple
@@ -11,8 +12,10 @@ from recording_script_generator.core.main import (PreparationData,
                                                   ReadingPassage,
                                                   ReadingPassages,
                                                   Representation)
+from recording_script_generator.utils import detect_ids_from_tex
 from text_selection import greedy_kld_uniform_ngrams_default
 from text_selection.greedy_kld_export import greedy_kld_uniform_ngrams_parts
+from textgrid.textgrid import Interval, IntervalTier, TextGrid
 
 
 class SortingMode(IntEnum):
@@ -131,9 +134,68 @@ def df_to_txt(df: DataFrame) -> str:
   return result
 
 
-def df_to_tex(df: DataFrame) -> str:
+def df_to_tex(df: DataFrame, use_hint_on_question_and_exclamation: bool = True) -> str:
   result = "\\begin{enumerate}[label={\\protect\\threedigits{\\theenumi}:}]\n"
   for _, row in df.iterrows():
-    result += f"  \\item {row['Utterance']} % {row['Id']}\n"
+    hint = ""
+    if use_hint_on_question_and_exclamation:
+      add_hint = len(row["Utterance"]) > 0 and row["Utterance"][-1] in {"!", "?"}
+      if add_hint:
+        hint = f"{row['Utterance'][-1]} "
+    result += f"  \\item {hint}{row['Utterance']} % {row['Id']}\n"
   result += "\\end{enumerate}"
   return result
+
+
+def generate_textgrid(data: PreparationData, tex: str, reading_speed_chars_per_s: float) -> TextGrid:
+  ids_in_tex = detect_ids_from_tex(tex)
+  grid = TextGrid(
+    name="reading passages",
+    minTime=0,
+    maxTime=None,
+    strict=True,
+  )
+
+  graphemes_tier = IntervalTier(
+    name="sentences (graphemes)",
+    minTime=0,
+    maxTime=None,
+  )
+  grid.append(graphemes_tier)
+
+  phonemes_tier = IntervalTier(
+    name="sentences (phonemes)",
+    minTime=0,
+    maxTime=None,
+  )
+  grid.append(phonemes_tier)
+
+  last_time = 0
+  for read_id in ids_in_tex:
+    duration = len(data.reading_passages[read_id]) / reading_speed_chars_per_s
+    min_time = last_time
+    max_time = last_time + duration
+
+    graphemes = ''.join(data.reading_passages[read_id])
+    graphemes_interval = Interval(
+      minTime=min_time,
+      maxTime=max_time,
+      mark=graphemes,
+    )
+    graphemes_tier.addInterval(graphemes_interval)
+
+    phonemes = ''.join(data.representations[read_id])
+    phonemes_interval = Interval(
+      minTime=min_time,
+      maxTime=max_time,
+      mark=phonemes,
+    )
+    phonemes_tier.addInterval(phonemes_interval)
+
+    last_time = max_time
+
+  grid.maxTime = last_time
+  graphemes_tier.maxTime = last_time
+  phonemes_tier.maxTime = last_time
+
+  return grid

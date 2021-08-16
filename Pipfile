@@ -22,7 +22,7 @@ text-utils = {editable = true, ref = "master", git = "https://github.com/stefant
 text-selection = {editable = true, ref = "master", git = "https://github.com/stefantaubert/text-selection.git"}
 ordered-set = "*"
 pyenchant = "*"
-py-readability-metrics = "*"
+TextGrid = "*"
 
 [requires]
 python_version = "3.8"

@@ -14,8 +14,9 @@ from recording_script_generator.utils import detect_ids_from_tex
 from text_selection import greedy_kld_uniform_ngrams_iterations
 from text_selection.greedy_export import (greedy_ngrams_durations_advanced,
                                           greedy_ngrams_epochs)
-from text_selection.greedy_kld_export import (
-    SelectionMode, greedy_kld_uniform_ngrams_seconds_with_preselection)
+from text_selection.greedy_kld_export import \
+    greedy_kld_uniform_ngrams_seconds_with_preselection
+from text_selection.selection import SelectionMode
 from text_selection.utils import DurationBoundary
 from text_utils import Language
 from text_utils.ipa2symb import IPAExtractionSettings
@@ -29,6 +30,8 @@ ReadingPassage = Symbols
 Representation = Symbols
 ReadingPassages = Dict[int, ReadingPassage]
 Representations = Dict[int, Representation]
+
+MERGE_STRESS = True
 
 
 class PreparationTarget(IntEnum):
@@ -65,6 +68,7 @@ def add_corpus_from_text(text: str, lang: Language, ipa_settings: Optional[IPAEx
       lang=lang,
       ipa_settings=ipa_settings,
       logger=logger,
+      merge_stress=MERGE_STRESS,
     )
 
     reading_passages[utterance_id] = symbols
@@ -98,7 +102,8 @@ def normalize(data: PreparationData, target: PreparationTarget, ipa_settings: Op
     for utterance_id, symbols in tqdm(target_data.items()):
       text = ''.join(symbols)
       normalized_text = text_normalize(text, target_lang, logger)
-      symbols = text_to_symbols(normalized_text, target_lang, ipa_settings, logger)
+      symbols = text_to_symbols(normalized_text, target_lang, ipa_settings,
+                                logger, merge_stress=MERGE_STRESS)
       target_data[utterance_id] = symbols
 
 
@@ -130,7 +135,8 @@ def convert_to_ipa(data: PreparationData, target: PreparationTarget, ipa_setting
         consider_ipa_annotations=consider_ipa_annotations,
         logger=logger
       )
-      new_symbols = text_to_symbols(ipa_text, Language.IPA, ipa_settings, logger)
+      new_symbols = text_to_symbols(ipa_text, Language.IPA, ipa_settings,
+                                    logger, merge_stress=MERGE_STRESS)
       target_data[utterance_id] = new_symbols
 
 
@@ -351,7 +357,7 @@ def select_kld_ngrams_iterations(data: PreparationData, n_gram: int, iterations:
   logger.info(f"Added {len(new_selected)} utterances to selection.")
 
 
-def select_kld_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: int, ignore_symbols: Set[str], boundary: DurationBoundary):
+def select_kld_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: float, ignore_symbols: Set[str], boundary: DurationBoundary):
   logger = getLogger(__name__)
   selected_representations = OrderedDict(
     {k: v for k, v in data.representations.items() if k in data.selected})
@@ -412,7 +418,7 @@ def select_greedy_ngrams_epochs(data: PreparationData, n_gram: int, epochs: int,
   logger.info(f"Added {len(new_selected)} utterances to selection.")
 
 
-def select_greedy_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: int, ignore_symbols: Optional[Set[str]], mode: SelectionMode):
+def select_greedy_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: float, ignore_symbols: Optional[Set[str]], mode: SelectionMode):
   logger = getLogger(__name__)
   non_selected_reading_passages = OrderedDict(
     {k: v for k, v in data.reading_passages.items() if k not in data.selected})
@@ -455,7 +461,15 @@ def select_from_tex(data: PreparationData, tex: str) -> None:
   if removed_count == 0:
     logger.info("Nothing to do.")
   else:
+    old_len = len(data.selected)
     remove_ids = data.selected - ids_in_tex
     data.selected -= remove_ids
-    logger.info(
-      f"Removed {len(remove_ids)} sentences from selection ({','.join(list(map(str, list(remove_ids))))}).")
+    if old_len == 0:
+      logger.info(
+        f"Removed {len(remove_ids)} sentences from selection (100%).")
+    else:
+      #ids = ','.join(list(map(str, list(sorted(remove_ids)))))
+      logger.info(
+        f"Removed {len(remove_ids)} sentences from selection ({len(remove_ids)/old_len*100:.2}%).")
+    for removed_id in sorted(remove_ids):
+      logger.info(f"- {removed_id}: {''.join(data.reading_passages[removed_id])}")

@@ -6,6 +6,7 @@ from typing import Callable, List, Optional, Set, Tuple
 
 from recording_script_generator.core.export import (SortingMode, df_to_tex,
                                                     df_to_txt,
+                                                    generate_textgrid,
                                                     get_reading_scripts)
 from recording_script_generator.core.main import (
     PreparationData, PreparationTarget, add_corpus_from_text, convert_to_ipa,
@@ -164,7 +165,7 @@ def app_log_stats(base_dir: Path, corpus_name: str, step_name: str, reading_spee
   _save_stats_df(step_dir, data)
 
 
-def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[str]] = DEFAULT_IGNORE, parts_count: Optional[int]= None, take_per_part: Optional[int]= None) -> None:
+def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[str]] = DEFAULT_IGNORE, parts_count: Optional[int] = None, take_per_part: Optional[int] = None) -> None:
   logger = getLogger(__name__)
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
 
@@ -460,3 +461,26 @@ def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_nam
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+
+
+def app_generate_textgrid(base_dir: Path, corpus_name: str, step_name: str, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S) -> None:
+  logger = getLogger(__name__)
+  logger.info("Selecting from tex...")
+  corpus_dir = get_corpus_dir(base_dir, corpus_name)
+  step_dir = get_step_dir(corpus_dir, step_name)
+  tex_path = get_tex_path(step_dir)
+  assert tex_path.exists()
+  tex_content = read_text(tex_path)
+
+  data = load_corpus(step_dir)
+
+  grid = generate_textgrid(
+    data=data,
+    tex=tex_content,
+    reading_speed_chars_per_s=reading_speed_chars_per_s,
+  )
+
+  grid_path = step_dir / "textgrid.TextGrid"
+  grid.write(grid_path)
+
+  logger.info("Done.")

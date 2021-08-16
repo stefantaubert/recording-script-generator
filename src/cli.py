@@ -8,10 +8,10 @@ from text_utils import EngToIpaMode, Language
 
 from recording_script_generator.app.main import (
     app_add_corpus_from_text, app_add_corpus_from_text_file,
-    app_convert_to_ipa, app_deselect_all, app_generate_scripts, app_log_stats,
-    app_merge, app_normalize, app_remove_deselected,
-    app_remove_duplicate_utterances, app_remove_undesired_text,
-    app_remove_utterances_with_acronyms,
+    app_convert_to_ipa, app_deselect_all, app_generate_scripts,
+    app_generate_textgrid, app_log_stats, app_merge, app_normalize,
+    app_remove_deselected, app_remove_duplicate_utterances,
+    app_remove_undesired_text, app_remove_utterances_with_acronyms,
     app_remove_utterances_with_proper_names,
     app_remove_utterances_with_too_seldom_words,
     app_remove_utterances_with_undesired_sentence_lengths,
@@ -328,6 +328,14 @@ def _app_select_kld_ngrams_duration_cli(**args):
   app_select_kld_ngrams_duration(**args)
 
 
+def init_generate_textgrid_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True)
+  parser.add_argument('--step_name', type=str, required=True)
+  parser.add_argument('--reading_speed_chars_per_s', type=float,
+                      default=DEFAULT_AVG_CHARS_PER_S)
+  return app_generate_textgrid
+
+
 def _init_parser():
   result = ArgumentParser()
   subparsers = result.add_subparsers(help='sub-command help')
@@ -338,6 +346,7 @@ def _init_parser():
   _add_parser_to(subparsers, "to-ipa", init_convert_to_ipa_parser)
   _add_parser_to(subparsers, "stats", init_log_stats_parser)
   _add_parser_to(subparsers, "gen-scripts", init_generate_scripts_parser)
+  _add_parser_to(subparsers, "gen-textgrid", init_generate_textgrid_parser)
   _add_parser_to(subparsers, "merge", init_merge_parser)
   _add_parser_to(subparsers, "remove-deselected", init_remove_deselected_parser)
   _add_parser_to(subparsers, "remove-text", init_remove_undesired_text_parser)
