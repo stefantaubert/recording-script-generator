@@ -4,8 +4,9 @@ from pathlib import Path
 from shutil import rmtree
 from typing import Callable, List, Optional, Set, Tuple
 
-from recording_script_generator.core.export import (SortingMode, df_to_tex,
-                                                    df_to_txt,
+from recording_script_generator.core.export import (SortingMode,
+                                                    df_to_consecutive_txt,
+                                                    df_to_tex, df_to_txt,
                                                     generate_textgrid,
                                                     get_reading_scripts)
 from recording_script_generator.core.main import (
@@ -37,6 +38,7 @@ from text_utils.text import EngToIpaMode
 DATA_FILE = "data.pkl"
 SELECTED_FILENAME = "selected.csv"
 SELECTED_TXT_FILENAME = "selected.txt"
+SELECTED_TXT_CONSEC_FILENAME = "selected_consecutive.txt"
 SELECTED_TEX_FILENAME = "selected.tex"
 ONE_GRAM_STATS_CSV_FILENAME = "1_gram_stats.csv"
 TWO_GRAM_STATS_CSV_FILENAME = "2_gram_stats.csv"
@@ -44,6 +46,8 @@ THREE_GRAM_STATS_CSV_FILENAME = "3_gram_stats.csv"
 REST_FILENAME = "rest.csv"
 REST_TXT_FILENAME = "rest.txt"
 REST_TEX_FILENAME = "rest.tex"
+REST_TEX_FILENAME = "rest.tex"
+REST_TEX_CONSEC_FILENAME = "rest_consecutive.tex"
 
 
 def get_corpus_dir(base_dir: Path, corpus_name: str) -> Path:
@@ -98,9 +102,11 @@ def _save_scripts(step_dir: Path, data: PreparationData, sorting_mode: SortingMo
   selected_df.to_csv(step_dir / SELECTED_FILENAME, sep=SEP, header=True, index=False)
   rest_df.to_csv(step_dir / REST_FILENAME, sep=SEP, header=True, index=False)
   (step_dir / SELECTED_TXT_FILENAME).write_text(df_to_txt(selected_df))
+  (step_dir / SELECTED_TXT_CONSEC_FILENAME).write_text(df_to_consecutive_txt(selected_df))
   get_tex_path(step_dir).write_text(df_to_tex(selected_df))
   (step_dir / REST_TXT_FILENAME).write_text(df_to_txt(rest_df))
   (step_dir / REST_TEX_FILENAME).write_text(df_to_tex(rest_df))
+  (step_dir / REST_TEX_CONSEC_FILENAME).write_text(df_to_consecutive_txt(rest_df))
 
 
 def get_tex_path(step_dir: Path) -> Path:

@@ -134,6 +134,12 @@ def df_to_txt(df: DataFrame) -> str:
   return result
 
 
+def df_to_consecutive_txt(df: DataFrame) -> str:
+  all_utterances = [row['Utterance'] for _, row in df.iterrows()]
+  result = " ".join(all_utterances)
+  return result
+
+
 def df_to_tex(df: DataFrame, use_hint_on_question_and_exclamation: bool = True) -> str:
   result = "\\begin{enumerate}[label={\\protect\\threedigits{\\theenumi}:}]\n"
   for _, row in df.iterrows():
