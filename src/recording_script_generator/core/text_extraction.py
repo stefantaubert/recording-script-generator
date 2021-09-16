@@ -4,14 +4,18 @@ from logging import getLogger
 from typing import List, Set
 
 import enchant
-from text_utils import Language, text_to_sentences
+from text_utils import Language, SymbolFormat, text_to_sentences
 
 
-def file_to_utterances(content: str, lang: Language) -> List[str]:
+def file_to_utterances(content: str, lang: Language, text_format: SymbolFormat) -> List[str]:
   content_lines = content.split("\n")
   res = []
   for line in content_lines:
-    sentences = text_to_sentences(line.strip(), lang=lang, logger=getLogger(__name__))
+    sentences = text_to_sentences(
+      text=line.strip(),
+      lang=lang,
+      text_format=text_format,
+    )
     res.extend(sentences)
   return res
 
@@ -38,12 +42,16 @@ def starts_with_big_letter(sentence: str) -> bool:
   return res
 
 
-def is_sentence(sentence: str, lang: Language) -> bool:
-  if lang == Language.ENG or lang == Language.GER:
-    return starts_with_big_letter(sentence) and ends_with_punctuation(sentence)
-  if lang == Language.IPA:
+def is_sentence(sentence: str, lang: Language, sentence_format: SymbolFormat) -> bool:
+  if sentence_format == SymbolFormat.GRAPHEMES:
+    if lang == Language.ENG or lang == Language.GER:
+      return starts_with_big_letter(sentence) and ends_with_punctuation(sentence)
+    else:
+      raise Exception("Not supported!")
+  elif sentence_format.is_IPA:
     return ends_with_punctuation(sentence)
-  return sentence != ""
+  else:
+    assert False
 
 # def contains_direct_speech(sentence: str) -> bool:
 #   return len(set(sentence).intersection({"\""})) > 0

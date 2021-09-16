@@ -10,10 +10,10 @@ from recording_script_generator.core.export import (SortingMode,
                                                     generate_textgrid,
                                                     get_reading_scripts)
 from recording_script_generator.core.main import (
-    PreparationData, PreparationTarget, add_corpus_from_text, convert_to_ipa,
-    deselect_all_utterances, merge, normalize, remove_deselected,
-    remove_duplicate_utterances, remove_utterances_with_acronyms,
-    remove_utterances_with_proper_names,
+    PreparationData, PreparationTarget, add_corpus_from_text, change_ipa,
+    convert_to_ipa, deselect_all_utterances, merge, normalize,
+    remove_deselected, remove_duplicate_utterances,
+    remove_utterances_with_acronyms, remove_utterances_with_proper_names,
     remove_utterances_with_too_seldom_words,
     remove_utterances_with_undesired_sentence_lengths,
     remove_utterances_with_undesired_text,
@@ -32,8 +32,9 @@ from recording_script_generator.globals import (DEFAULT_AVG_CHARS_PER_S,
 from recording_script_generator.utils import load_obj, read_text, save_obj
 from text_selection.selection import SelectionMode
 from text_utils import Language
-from text_utils.ipa2symb import IPAExtractionSettings
-from text_utils.text import EngToIpaMode
+from text_utils.pronunciation.main import EngToIPAMode
+from text_utils.symbol_format import SymbolFormat
+from text_utils.types import Symbol
 
 DATA_FILE = "data.pkl"
 SELECTED_FILENAME = "selected.csv"
@@ -113,18 +114,17 @@ def get_tex_path(step_dir: Path) -> Path:
   return step_dir / SELECTED_TEX_FILENAME
 
 
-def app_add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: str, text_path: Path, lang: Language, ignore_tones: Optional[bool] = False, ignore_arcs: Optional[bool] = True, replace_unknown_ipa_by: Optional[str] = "_", overwrite: bool = False) -> None:
+def app_add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: str, text_path: Path, lang: Language, text_format: SymbolFormat, overwrite: bool = False) -> None:
   if not text_path.exists():
     logger = getLogger(__name__)
     logger.error("File does not exist.")
     return
 
   text = read_text(text_path)
-  app_add_corpus_from_text(base_dir, corpus_name, step_name, text, lang,
-                           ignore_tones, ignore_arcs, replace_unknown_ipa_by, overwrite)
+  app_add_corpus_from_text(base_dir, corpus_name, step_name, text, lang, text_format, overwrite)
 
 
-def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, text: str, lang: Language, ignore_tones: Optional[bool] = False, ignore_arcs: Optional[bool] = True, replace_unknown_ipa_by: Optional[str] = "_", overwrite: bool = False) -> None:
+def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, text: str, lang: Language, text_format: SymbolFormat, overwrite: bool = False) -> None:
   logger = getLogger(__name__)
   logger.info("Adding corpus...")
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
@@ -136,7 +136,7 @@ def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, t
   result = add_corpus_from_text(
     text=text,
     lang=lang,
-    ipa_settings=IPAExtractionSettings(ignore_tones, ignore_arcs, replace_unknown_ipa_by),
+    text_format=text_format,
   )
 
   if corpus_dir.exists():
@@ -171,7 +171,7 @@ def app_log_stats(base_dir: Path, corpus_name: str, step_name: str, reading_spee
   _save_stats_df(step_dir, data)
 
 
-def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[str]] = DEFAULT_IGNORE, parts_count: Optional[int] = None, take_per_part: Optional[int] = None) -> None:
+def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[Symbol]] = DEFAULT_IGNORE, parts_count: Optional[int] = None, take_per_part: Optional[int] = None) -> None:
   logger = getLogger(__name__)
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
 
@@ -257,29 +257,38 @@ def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_na
   _save_scripts(out_step_dir, data, DEFAULT_SORTING_MODE)
 
 
-def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, ignore_tones: Optional[bool] = False, ignore_arcs: Optional[bool] = True, replace_unknown_ipa_by: Optional[str] = "_", out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Normalizing...")
   method = partial(
     normalize,
     target=target,
-    ipa_settings=IPAExtractionSettings(ignore_tones, ignore_arcs, replace_unknown_ipa_by),
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_convert_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, mode: Optional[EngToIpaMode], ignore_tones: Optional[bool] = False, ignore_arcs: Optional[bool] = True, replace_unknown_ipa_by: Optional[str] = "_", replace_unknown_with: Optional[str] = "_", consider_ipa_annotations: bool = False, use_cache: Optional[bool] = True, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_convert_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, mode: Optional[EngToIPAMode], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Converting to IPA...")
   method = partial(
     convert_to_ipa,
     target=target,
-    ipa_settings=IPAExtractionSettings(ignore_tones, ignore_arcs, replace_unknown_ipa_by),
     mode=mode,
-    replace_unknown_with=replace_unknown_with,
-    consider_ipa_annotations=consider_ipa_annotations,
-    use_cache=use_cache,
+  )
+
+  _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+
+
+def app_change_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+  logger = getLogger(__name__)
+  logger.info("Changing IPA...")
+  method = partial(
+    change_ipa,
+    target=target,
+    ignore_tones=ignore_tones,
+    ignore_arcs=ignore_arcs,
+    ignore_stress=ignore_stress,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
@@ -331,7 +340,7 @@ def app_remove_deselected(base_dir: Path, corpus_name: str, in_step_name: str, o
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_remove_undesired_text(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, undesired: Set[str], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_remove_undesired_text(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, undesired: Set[Symbol], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing undesired text...")
   method = partial(
@@ -413,7 +422,7 @@ def app_remove_utterances_with_too_seldom_words(base_dir: Path, corpus_name: str
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_select_greedy_ngrams_epochs(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, epochs: int, ignore_symbols: Optional[Set[str]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_select_greedy_ngrams_epochs(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, epochs: int, ignore_symbols: Optional[Set[Symbol]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with Greedy...")
   method = partial(
@@ -439,7 +448,7 @@ def app_select_greedy_ngrams_epochs(base_dir: Path, corpus_name: str, in_step_na
 #   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Optional[Set[str]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Optional[Set[Symbol]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with Greedy...")
   method = partial(
@@ -454,7 +463,7 @@ def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Set[str] = DEFAULT_IGNORE, boundary_min_s: float = DEFAULT_SPLIT_BOUNDARY_MIN_S, boundary_max_s: float = DEFAULT_SPLIT_BOUNDARY_MAX_S, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Set[Symbol] = DEFAULT_IGNORE, boundary_min_s: float = DEFAULT_SPLIT_BOUNDARY_MIN_S, boundary_max_s: float = DEFAULT_SPLIT_BOUNDARY_MAX_S, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with KLD...")
   method = partial(

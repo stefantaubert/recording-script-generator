@@ -4,6 +4,7 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
+recording-script-generator = {editable = true, path = "."}
 autopep8 = "*"
 pylint = "*"
 pycodestyle = "*"
@@ -12,7 +13,6 @@ pipenv-setup = "*"
 rope = "*"
 pytest = "*"
 pytest-xdist = "*"
-recording-script-generator = {editable = true, path = "."}
 
 [packages]
 pandas = "*"

@@ -4,10 +4,11 @@ from math import inf
 from pathlib import Path
 from typing import Callable
 
-from text_utils import EngToIpaMode, Language
+from text_utils import EngToIPAMode, Language
+from text_utils.symbol_format import SymbolFormat
 
 from recording_script_generator.app.main import (
-    app_add_corpus_from_text, app_add_corpus_from_text_file,
+    app_add_corpus_from_text, app_add_corpus_from_text_file, app_change_ipa,
     app_convert_to_ipa, app_deselect_all, app_generate_scripts,
     app_generate_textgrid, app_log_stats, app_merge, app_normalize,
     app_remove_deselected, app_remove_duplicate_utterances,
@@ -22,11 +23,9 @@ from recording_script_generator.core.export import SortingMode
 from recording_script_generator.core.main import PreparationTarget
 from recording_script_generator.globals import (DEFAULT_AVG_CHARS_PER_S,
                                                 DEFAULT_SEED,
-                                                DEFAULT_SORTING_MODE,
                                                 DEFAULT_SPLIT_BOUNDARY_MAX_S,
                                                 DEFAULT_SPLIT_BOUNDARY_MIN_S)
-from recording_script_generator.utils import (parse_set, parse_tuple_list,
-                                              try_parse_tuple_list)
+from recording_script_generator.utils import parse_set, parse_tuple_list
 
 BASE_DIR_VAR = "base_dir"
 
@@ -40,8 +39,8 @@ TARGET_HELP = ""
 
 def add_base_dir(parser: ArgumentParser):
   assert BASE_DIR_VAR in os.environ.keys()
-  base_dir = os.environ[BASE_DIR_VAR]
-  parser.set_defaults(base_dir=Path(base_dir))
+  base_dir = Path(os.environ[BASE_DIR_VAR])
+  parser.set_defaults(base_dir=base_dir)
 
 
 def _add_parser_to(subparsers, name: str, init_method: Callable[[ArgumentParser], Callable], set_base_dir: bool = True) -> ArgumentParser:
@@ -58,7 +57,7 @@ def init_add_corpus_from_text_file_parser(parser: ArgumentParser):
   parser.add_argument('--step_name', type=str, required=True)
   parser.add_argument('--text_path', type=Path, required=True)
   parser.add_argument('--lang', choices=Language, type=Language.__getitem__)
-  parser.add_argument('--replace_unknown_ipa_by', type=str, default="_")
+  parser.add_argument('--text_format', choices=SymbolFormat, type=SymbolFormat.__getitem__)
   parser.add_argument('--overwrite', action='store_true')
   parser.set_defaults(ignore_arcs=True, ignore_tones=False)
   return app_add_corpus_from_text_file
@@ -69,7 +68,7 @@ def init_add_corpus_from_text_parser(parser: ArgumentParser):
   parser.add_argument('--step_name', type=str, required=True)
   parser.add_argument('--text', type=str, required=True)
   parser.add_argument('--lang', choices=Language, type=Language.__getitem__)
-  parser.add_argument('--replace_unknown_ipa_by', type=str, default="_")
+  parser.add_argument('--text_format', choices=SymbolFormat, type=SymbolFormat.__getitem__)
   parser.add_argument('--overwrite', action='store_true')
   parser.set_defaults(ignore_arcs=True, ignore_tones=False)
   return app_add_corpus_from_text
@@ -119,10 +118,8 @@ def init_normalize_parser(parser: ArgumentParser):
   parser.add_argument('--in_step_name', type=str, required=True)
   parser.add_argument('--target', type=PreparationTarget.__getitem__,
                       choices=PreparationTarget, required=True, help=TARGET_HELP)
-  parser.add_argument('--replace_unknown_ipa_by', type=str, default="_")
   parser.add_argument('--out_step_name', type=str, required=False)
   parser.add_argument('--overwrite', action='store_true')
-  parser.set_defaults(ignore_arcs=True, ignore_tones=False)
   return app_normalize
 
 
@@ -131,14 +128,23 @@ def init_convert_to_ipa_parser(parser: ArgumentParser):
   parser.add_argument('--in_step_name', type=str, required=True)
   parser.add_argument('--target', type=PreparationTarget.__getitem__,
                       choices=PreparationTarget, required=True, help=TARGET_HELP)
-  parser.add_argument('--mode', choices=EngToIpaMode, type=EngToIpaMode.__getitem__, required=False)
-  parser.add_argument('--replace_unknown_ipa_by', type=str, default="_")
-  parser.add_argument('--replace_unknown_with', type=str, default="_")
+  parser.add_argument('--mode', choices=EngToIPAMode, type=EngToIPAMode.__getitem__, required=False)
   parser.add_argument('--out_step_name', type=str, required=False)
   parser.add_argument('--overwrite', action='store_true')
-  parser.set_defaults(ignore_arcs=True, ignore_tones=False,
-                      consider_ipa_annotations=False, use_cache=True)
   return app_convert_to_ipa
+
+
+def init_change_ipa_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True)
+  parser.add_argument('--in_step_name', type=str, required=True)
+  parser.add_argument('--target', type=PreparationTarget.__getitem__,
+                      choices=PreparationTarget, required=True, help=TARGET_HELP)
+  parser.add_argument('--ignore_tones', action='store_true')
+  parser.add_argument('--ignore_arcs', action='store_true')
+  parser.add_argument('--ignore_stress', action='store_true')
+  parser.add_argument('--out_step_name', type=str, required=False)
+  parser.add_argument('--overwrite', action='store_true')
+  return app_change_ipa
 
 
 def init_select_from_tex_parser(parser: ArgumentParser):
@@ -344,6 +350,7 @@ def _init_parser():
   _add_parser_to(subparsers, "add-text", init_add_corpus_from_text_parser)
   _add_parser_to(subparsers, "normalize", init_normalize_parser)
   _add_parser_to(subparsers, "to-ipa", init_convert_to_ipa_parser)
+  _add_parser_to(subparsers, "change-ipa", init_change_ipa_parser)
   _add_parser_to(subparsers, "stats", init_log_stats_parser)
   _add_parser_to(subparsers, "gen-scripts", init_generate_scripts_parser)
   _add_parser_to(subparsers, "gen-textgrid", init_generate_textgrid_parser)

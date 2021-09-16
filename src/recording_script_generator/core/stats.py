@@ -7,9 +7,8 @@ from typing import Tuple
 import numpy as np
 from ordered_set import OrderedSet
 from pandas import DataFrame
-from recording_script_generator.core.main import (PreparationData, SentenceId,
-                                                  Symbols)
-from text_utils.text import get_ngrams
+from recording_script_generator.core.main import PreparationData, SentenceId
+from text_utils import Symbols, get_ngrams
 
 
 def get_ngram_stats_count(ngrams: List[Tuple[str, ...]], ngrams_order: OrderedSet[Tuple[str, ...]]) -> Tuple[int, ...]:

@@ -18,20 +18,19 @@ from text_selection.greedy_kld_export import \
     greedy_kld_uniform_ngrams_seconds_with_preselection
 from text_selection.selection import SelectionMode
 from text_selection.utils import DurationBoundary
-from text_utils import Language
-from text_utils.ipa2symb import IPAExtractionSettings
-from text_utils.text import (EngToIpaMode, text_normalize, text_to_ipa,
-                             text_to_symbols)
+from text_utils import (EngToIPAMode, Language, SymbolFormat, Symbols,
+                        clear_ipa_cache, remove_arcs, remove_stress,
+                        remove_tones, symbols_to_ipa, text_normalize,
+                        text_to_symbols)
+from text_utils.types import Symbol
 from tqdm import tqdm
 
 SentenceId = int
-Symbols = List[str]
 ReadingPassage = Symbols
 Representation = Symbols
 ReadingPassages = Dict[int, ReadingPassage]
 Representations = Dict[int, Representation]
-
-MERGE_STRESS = True
+SymbolPassages = Dict[int, Symbols]
 
 
 class PreparationTarget(IntEnum):
@@ -47,28 +46,28 @@ class Mode(IntEnum):
 
 @dataclass()
 class PreparationData:
+  reading_passages_format: SymbolFormat
   reading_passages_lang: Language
   reading_passages: ReadingPassages
+  representations_format: SymbolFormat
   representations_lang: Language
   representations: Representations
   selected: OrderedSet[SentenceId]
 
 
-def add_corpus_from_text(text: str, lang: Language, ipa_settings: Optional[IPAExtractionSettings]) -> PreparationData:
+def add_corpus_from_text(text: str, lang: Language, text_format: SymbolFormat) -> PreparationData:
   logger = getLogger(__name__)
   reading_passages: Dict[SentenceId, ReadingPassage] = {}
-  utterances = file_to_utterances(text, lang=lang)
+  utterances = file_to_utterances(text, lang, text_format)
 
   for utterance_id, utterance in enumerate(utterances):
-    if not is_sentence(utterance, lang):
+    if not is_sentence(utterance, lang, text_format):
       continue
 
     symbols = text_to_symbols(
       text=utterance,
       lang=lang,
-      ipa_settings=ipa_settings,
-      logger=logger,
-      merge_stress=MERGE_STRESS,
+      text_format=text_format,
     )
 
     reading_passages[utterance_id] = symbols
@@ -78,65 +77,98 @@ def add_corpus_from_text(text: str, lang: Language, ipa_settings: Optional[IPAEx
     f"{selected_percent*100:.2f}% ({len(reading_passages)}) of all {len(utterances)} utterances were sentences and thus selected.")
 
   result = PreparationData(
-    reading_passages_lang=lang,
     reading_passages=reading_passages,
+    reading_passages_lang=lang,
+    reading_passages_format=text_format,
     representations=reading_passages.copy(),
     representations_lang=lang,
+    representations_format=text_format,
     selected=OrderedSet(),
   )
 
   return result
 
 
-def normalize(data: PreparationData, target: PreparationTarget, ipa_settings: Optional[IPAExtractionSettings]) -> None:
+def normalize(data: PreparationData, target: PreparationTarget) -> None:
   logger = getLogger(__name__)
-  targets = []
+  targets: List[Tuple[SymbolPassages, Language, SymbolFormat]] = []
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
     logger.info("Normalizing reading passages...")
-    targets.append((data.reading_passages, data.reading_passages_lang))
+    targets.append((data.reading_passages, data.reading_passages_lang,
+                   data.reading_passages_format))
   if target == PreparationTarget.BOTH or PreparationTarget.REPRESENTATIONS:
     logger.info("Normalizing representations...")
-    targets.append((data.representations, data.representations_lang))
+    targets.append((data.representations, data.representations_lang, data.representations_format))
 
-  for target_data, target_lang in targets:
+  for target_data, target_lang, target_format in targets:
     for utterance_id, symbols in tqdm(target_data.items()):
-      text = ''.join(symbols)
-      normalized_text = text_normalize(text, target_lang, logger)
-      symbols = text_to_symbols(normalized_text, target_lang, ipa_settings,
-                                logger, merge_stress=MERGE_STRESS)
+      normalized_text = text_normalize(
+        text=''.join(symbols),
+        lang=target_lang,
+        text_format=target_format,
+      )
+
+      symbols = text_to_symbols(
+        text=normalized_text,
+        lang=target_lang,
+        text_format=target_format,
+      )
+
       target_data[utterance_id] = symbols
 
 
-def convert_to_ipa(data: PreparationData, target: PreparationTarget, ipa_settings: Optional[IPAExtractionSettings], mode: Optional[EngToIpaMode], replace_unknown_with: Optional[str], consider_ipa_annotations: bool, use_cache: Optional[bool]) -> None:
+def convert_to_ipa(data: PreparationData, target: PreparationTarget, mode: Optional[EngToIPAMode]) -> None:
   logger = getLogger(__name__)
-  targets = []
+  targets: List[Tuple[SymbolPassages, Language, SymbolFormat]] = []
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
     logger.info("Converting reading passages to IPA...")
-    targets.append((data.reading_passages, data.reading_passages_lang))
-    data.reading_passages_lang = Language.IPA
+    targets.append((data.reading_passages, data.reading_passages_lang,
+                   data.reading_passages_format))
+    data.reading_passages_format = SymbolFormat.PHONEMES_IPA
   if target == PreparationTarget.BOTH or PreparationTarget.REPRESENTATIONS:
     logger.info("Converting representations to IPA...")
-    targets.append((data.representations, data.representations_lang))
-    data.representations_lang = Language.IPA
+    targets.append((data.representations, data.representations_lang, data.representations_format))
+    data.representations_format = SymbolFormat.PHONEMES_IPA
 
-  for target_data, target_lang in targets:
-    if target_lang == Language.IPA:
-      logger.info("Text is already IPA.")
-      return
-
+  for target_data, target_lang, target_format in targets:
     for utterance_id, symbols in tqdm(target_data.items()):
-      text = ''.join(symbols)
-      ipa_text = text_to_ipa(
-        text=text,
+      new_symbols, new_format = symbols_to_ipa(
+        symbols=symbols,
+        symbols_format=target_format,
         lang=target_lang,
         mode=mode,
-        replace_unknown_with=replace_unknown_with,
-        use_cache=use_cache,
-        consider_ipa_annotations=consider_ipa_annotations,
-        logger=logger
+        consider_ipa_annotations=False,  # not useful
       )
-      new_symbols = text_to_symbols(ipa_text, Language.IPA, ipa_settings,
-                                    logger, merge_stress=MERGE_STRESS)
+
+      assert new_format == SymbolFormat.PHONEMES_IPA
+      target_data[utterance_id] = new_symbols
+
+  clear_ipa_cache()
+
+
+def change_ipa(data: PreparationData, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool) -> None:
+  logger = getLogger(__name__)
+  targets: List[SymbolPassages] = []
+  if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
+    logger.info("Changing reading passages...")
+    targets.append(data.reading_passages)
+  if target == PreparationTarget.BOTH or PreparationTarget.REPRESENTATIONS:
+    logger.info("Changing representations...")
+    targets.append(data.representations)
+
+  for target_data in targets:
+    for utterance_id, symbols in tqdm(target_data.items()):
+      new_symbols = symbols
+
+      if ignore_tones:
+        new_symbols = remove_tones(symbols)
+
+      if ignore_arcs:
+        new_symbols = remove_arcs(symbols)
+
+      if ignore_stress:
+        new_symbols = remove_stress(symbols)
+
       target_data[utterance_id] = new_symbols
 
 
@@ -148,7 +180,7 @@ def deselect_all_utterances(data: PreparationData):
   data.selected = OrderedSet()
 
 
-def _remove_utterances(utterance_ids: Set[int], data: PreparationData) -> None:
+def __remove_utterances(utterance_ids: Set[int], data: PreparationData) -> None:
   for remove_utterance_id in utterance_ids:
     data.reading_passages.pop(remove_utterance_id)
     data.representations.pop(remove_utterance_id)
@@ -162,12 +194,12 @@ def _remove_utterances_with_logging(utterance_ids: Set[int], data: PreparationDa
   for utterance_id in utterance_ids:
     utterance_repr = ''.join(data.reading_passages[utterance_id])
     logger.info(f"Ignore \"{utterance_repr}\" ({utterance_id}).")
-  _remove_utterances(utterance_ids, data)
+  __remove_utterances(utterance_ids, data)
   logger.info(
     f"Removed {len(utterance_ids)} of {old_len} utterances ({len(utterance_ids)/old_len*100:.2f}%) and obtained {len(data.representations)} utterances.")
 
 
-def get_single_target(data: PreparationData, target: PreparationTarget) -> Dict[int, Symbols]:
+def get_single_target(data: PreparationData, target: PreparationTarget) -> SymbolPassages:
   logger = getLogger(__name__)
   if target == PreparationTarget.BOTH:
     logger.error("Target BOTH is not supported in this case!")
@@ -318,8 +350,10 @@ def merge(data: List[PreparationData]) -> PreparationData:
   merged_data = PreparationData(
     reading_passages=dict(),
     reading_passages_lang=data[0].reading_passages_lang,
+    reading_passages_format=data[0].reading_passages_format,
     representations=dict(),
     representations_lang=data[0].representations_lang,
+    representations_format=data[0].representations_format,
     selected=OrderedSet(),
   )
 
@@ -327,6 +361,8 @@ def merge(data: List[PreparationData]) -> PreparationData:
   for data_to_merge in data:
     assert data_to_merge.reading_passages_lang == merged_data.reading_passages_lang
     assert data_to_merge.representations_lang == merged_data.representations_lang
+    assert data_to_merge.reading_passages_format == merged_data.reading_passages_format
+    assert data_to_merge.representations_format == merged_data.representations_format
     sentence_id_mapping = dict()
     for sentence_id, reading_passage_symbols in data_to_merge.reading_passages.items():
       representation_symbols = data_to_merge.representations[sentence_id]
@@ -342,7 +378,7 @@ def merge(data: List[PreparationData]) -> PreparationData:
   return merged_data
 
 
-def select_kld_ngrams_iterations(data: PreparationData, n_gram: int, iterations: int, ignore_symbols: Optional[Set[str]]):
+def select_kld_ngrams_iterations(data: PreparationData, n_gram: int, iterations: int, ignore_symbols: Optional[Set[Symbol]]):
   logger = getLogger(__name__)
   rest = OrderedDict({k: v for k, v in data.representations.items() if k not in data.selected})
   new_selected = greedy_kld_uniform_ngrams_iterations(
@@ -357,7 +393,7 @@ def select_kld_ngrams_iterations(data: PreparationData, n_gram: int, iterations:
   logger.info(f"Added {len(new_selected)} utterances to selection.")
 
 
-def select_kld_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: float, ignore_symbols: Set[str], boundary: DurationBoundary):
+def select_kld_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: float, ignore_symbols: Set[Symbol], boundary: DurationBoundary):
   logger = getLogger(__name__)
   selected_representations = OrderedDict(
     {k: v for k, v in data.representations.items() if k in data.selected})
@@ -403,7 +439,7 @@ def select_kld_ngrams_duration(data: PreparationData, n_gram: int, minutes: floa
 #   return filtered_utterance_indicies
 
 
-def select_greedy_ngrams_epochs(data: PreparationData, n_gram: int, epochs: int, ignore_symbols: Optional[Set[str]]):
+def select_greedy_ngrams_epochs(data: PreparationData, n_gram: int, epochs: int, ignore_symbols: Optional[Set[Symbol]]):
   logger = getLogger(__name__)
   rest = OrderedDict({k: v for k, v in data.representations.items() if k not in data.selected})
   new_selected = greedy_ngrams_epochs(
@@ -418,7 +454,7 @@ def select_greedy_ngrams_epochs(data: PreparationData, n_gram: int, epochs: int,
   logger.info(f"Added {len(new_selected)} utterances to selection.")
 
 
-def select_greedy_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: float, ignore_symbols: Optional[Set[str]], mode: SelectionMode):
+def select_greedy_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: float, ignore_symbols: Optional[Set[Symbol]], mode: SelectionMode):
   logger = getLogger(__name__)
   non_selected_reading_passages = OrderedDict(
     {k: v for k, v in data.reading_passages.items() if k not in data.selected})
