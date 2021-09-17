@@ -1,3 +1,4 @@
+from text_utils import change_ipa as change_ipa_method
 from collections import Counter, OrderedDict
 from dataclasses import dataclass
 from enum import IntEnum
@@ -146,7 +147,7 @@ def convert_to_ipa(data: PreparationData, target: PreparationTarget, mode: Optio
   clear_ipa_cache()
 
 
-def change_ipa(data: PreparationData, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool) -> None:
+def change_ipa(data: PreparationData, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, remove_space_around_punctuation: bool) -> None:
   logger = getLogger(__name__)
   targets: List[SymbolPassages] = []
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
@@ -158,16 +159,14 @@ def change_ipa(data: PreparationData, target: PreparationTarget, ignore_tones: b
 
   for target_data in targets:
     for utterance_id, symbols in tqdm(target_data.items()):
-      new_symbols = symbols
-
-      if ignore_tones:
-        new_symbols = remove_tones(symbols)
-
-      if ignore_arcs:
-        new_symbols = remove_arcs(symbols)
-
-      if ignore_stress:
-        new_symbols = remove_stress(symbols)
+      new_symbols = change_ipa_method(
+        symbols=symbols,
+        ignore_tones=ignore_tones,
+        ignore_arcs=ignore_arcs,
+        ignore_stress=ignore_stress,
+        break_n_thongs=break_n_thongs,
+        remove_space_around_punctuation=remove_space_around_punctuation,
+      )
 
       target_data[utterance_id] = new_symbols
 

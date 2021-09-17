@@ -280,7 +280,7 @@ def app_convert_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, targ
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_change_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_change_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, remove_space_around_punctuation: bool, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Changing IPA...")
   method = partial(
@@ -289,6 +289,8 @@ def app_change_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: 
     ignore_tones=ignore_tones,
     ignore_arcs=ignore_arcs,
     ignore_stress=ignore_stress,
+    break_n_thongs=break_n_thongs,
+    remove_space_around_punctuation=remove_space_around_punctuation,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
