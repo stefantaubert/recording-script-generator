@@ -1,6 +1,5 @@
 import re
 from collections import Counter
-from logging import getLogger
 from typing import List, Set
 
 import enchant

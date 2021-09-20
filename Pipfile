@@ -15,17 +15,18 @@ pytest = "*"
 pytest-xdist = "*"
 
 [packages]
+text-utils = {editable = true, path = "./../text-utils"}
+text-selection = {editable = true, path = "./../text-selection"}
+pronunciation_dict_parser = {editable = true, path = "./../pronunciation_dict_parser"}
+g2p_en = {editable = true, path = "./../g2p"}
+sentence2pronunciation = {editable = true, path = "./../sentence2pronunciation"}
+general-utils = {editable = true, path = "./../general-utils"}
 pandas = "*"
 tqdm = "*"
 numpy = "*"
 ordered-set = "*"
 pyenchant = "*"
 TextGrid = "*"
-text-utils = {editable = true, path = "./../text-utils"}
-text-selection = {editable = true, path = "./../text-selection"}
-pronunciation_dict_parser = {editable = true, path = "./../pronunciation_dict_parser"}
-g2p_en = {editable = true, path = "./../g2p"}
-sentence2pronunciation = {editable = true, path = "./../sentence2pronunciation"}
 
 [requires]
 python_version = "3.8"

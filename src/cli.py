@@ -1,9 +1,9 @@
 import os
 from argparse import ArgumentParser
-from math import inf
 from pathlib import Path
 from typing import Callable
 
+from general_utils import parse_set, parse_tuple_list
 from text_utils import EngToIPAMode, Language
 from text_utils.symbol_format import SymbolFormat
 
@@ -25,7 +25,6 @@ from recording_script_generator.globals import (DEFAULT_AVG_CHARS_PER_S,
                                                 DEFAULT_SEED,
                                                 DEFAULT_SPLIT_BOUNDARY_MAX_S,
                                                 DEFAULT_SPLIT_BOUNDARY_MIN_S)
-from recording_script_generator.utils import parse_set, parse_tuple_list
 
 BASE_DIR_VAR = "base_dir"
 

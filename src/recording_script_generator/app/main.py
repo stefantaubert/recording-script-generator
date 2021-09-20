@@ -4,6 +4,7 @@ from pathlib import Path
 from shutil import rmtree
 from typing import Callable, List, Optional, Set, Tuple
 
+from general_utils import load_obj, save_obj
 from recording_script_generator.core.export import (SortingMode,
                                                     df_to_consecutive_txt,
                                                     df_to_tex, df_to_txt,
@@ -29,7 +30,6 @@ from recording_script_generator.globals import (DEFAULT_AVG_CHARS_PER_S,
                                                 DEFAULT_SPLIT_BOUNDARY_MAX_S,
                                                 DEFAULT_SPLIT_BOUNDARY_MIN_S,
                                                 SEP)
-from recording_script_generator.utils import load_obj, read_text, save_obj
 from text_selection.selection import SelectionMode
 from text_utils import Language
 from text_utils.pronunciation.main import EngToIPAMode
@@ -120,7 +120,7 @@ def app_add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: s
     logger.error("File does not exist.")
     return
 
-  text = read_text(text_path)
+  text = text_path.read_text()
   app_add_corpus_from_text(base_dir, corpus_name, step_name, text, lang, text_format, overwrite)
 
 
@@ -193,6 +193,7 @@ def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorti
 def app_merge(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_corpus_name: str, out_step_name: str, overwrite: bool = False):
   logger = getLogger(__name__)
   logger.info(f"Merging multiple corpora...")
+  assert corpora_step_names is not None
 
   out_corpus_dir = get_corpus_dir(base_dir, out_corpus_name)
   if out_corpus_dir.exists() and not overwrite:
@@ -323,7 +324,7 @@ def app_select_from_tex(base_dir: Path, corpus_name: str, in_step_name: str, out
   step_dir = get_step_dir(corpus_dir, in_step_name)
   tex_path = get_tex_path(step_dir)
   assert tex_path.exists()
-  tex_content = read_text(tex_path)
+  tex_content = tex_path.read_text()
   method = partial(
     select_from_tex,
     tex=tex_content,
@@ -487,7 +488,7 @@ def app_generate_textgrid(base_dir: Path, corpus_name: str, step_name: str, read
   step_dir = get_step_dir(corpus_dir, step_name)
   tex_path = get_tex_path(step_dir)
   assert tex_path.exists()
-  tex_content = read_text(tex_path)
+  tex_content = tex_path.read_text()
 
   data = load_corpus(step_dir)
 

@@ -14,7 +14,7 @@ from recording_script_generator.app.main import (
     app_select_kld_ngrams_duration)
 from recording_script_generator.core.export import SortingMode
 from recording_script_generator.core.main import PreparationTarget
-from recording_script_generator.utils import read_text
+from general_utils import read_text
 from text_utils import EngToIPAMode, Language
 from text_utils.symbol_format import SymbolFormat
 
