@@ -11,8 +11,8 @@ from recording_script_generator.core.export import (SortingMode,
                                                     generate_textgrid,
                                                     get_reading_scripts)
 from recording_script_generator.core.main import (
-    PreparationData, PreparationTarget, add_corpus_from_text, change_ipa, change_text,
-    convert_to_ipa, deselect_all_utterances, merge, normalize,
+    PreparationData, PreparationTarget, add_corpus_from_text, change_ipa,
+    change_text, convert_to_ipa, deselect_all_utterances, merge, normalize,
     remove_deselected, remove_duplicate_utterances,
     remove_utterances_with_acronyms, remove_utterances_with_proper_names,
     remove_utterances_with_too_seldom_words,
@@ -294,7 +294,6 @@ def app_change_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: 
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
-
 
 
 def app_change_text(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, remove_space_around_punctuation: bool, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:

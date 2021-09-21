@@ -8,7 +8,7 @@ from text_utils import EngToIPAMode, Language
 from text_utils.symbol_format import SymbolFormat
 
 from recording_script_generator.app.main import (
-    app_add_corpus_from_text, app_add_corpus_from_text_file, app_change_ipa,
+    app_add_corpus_from_text, app_add_corpus_from_text_file, app_change_ipa, app_change_text,
     app_convert_to_ipa, app_deselect_all, app_generate_scripts,
     app_generate_textgrid, app_log_stats, app_merge, app_normalize,
     app_remove_deselected, app_remove_duplicate_utterances,
