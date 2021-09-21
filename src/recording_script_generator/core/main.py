@@ -1,4 +1,3 @@
-from text_utils import change_ipa as change_ipa_method
 from collections import Counter, OrderedDict
 from dataclasses import dataclass
 from enum import IntEnum
@@ -19,10 +18,11 @@ from text_selection.greedy_kld_export import \
     greedy_kld_uniform_ngrams_seconds_with_preselection
 from text_selection.selection import SelectionMode
 from text_selection.utils import DurationBoundary
-from text_utils import (EngToIPAMode, Language, SymbolFormat, Symbols,
-                        clear_ipa_cache, remove_arcs, remove_stress,
-                        remove_tones, symbols_to_ipa, text_normalize,
+from text_utils import EngToIPAMode, Language, SymbolFormat, Symbols
+from text_utils import change_ipa as change_ipa_method
+from text_utils import (clear_ipa_cache, symbols_to_ipa, text_normalize,
                         text_to_symbols)
+from text_utils.text import change_symbols
 from text_utils.types import Symbol
 from tqdm import tqdm
 
@@ -147,7 +147,7 @@ def convert_to_ipa(data: PreparationData, target: PreparationTarget, mode: Optio
   clear_ipa_cache()
 
 
-def change_ipa(data: PreparationData, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, remove_space_around_punctuation: bool) -> None:
+def change_ipa(data: PreparationData, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool) -> None:
   logger = getLogger(__name__)
   targets: List[SymbolPassages] = []
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
@@ -165,7 +165,27 @@ def change_ipa(data: PreparationData, target: PreparationTarget, ignore_tones: b
         ignore_arcs=ignore_arcs,
         ignore_stress=ignore_stress,
         break_n_thongs=break_n_thongs,
+      )
+
+      target_data[utterance_id] = new_symbols
+
+
+def change_text(data: PreparationData, target: PreparationTarget, remove_space_around_punctuation: bool) -> None:
+  logger = getLogger(__name__)
+  targets: List[Tuple[SymbolPassages, Language]] = []
+  if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
+    logger.info("Changing reading passages...")
+    targets.append((data.reading_passages, data.reading_passages_lang))
+  if target == PreparationTarget.BOTH or PreparationTarget.REPRESENTATIONS:
+    logger.info("Changing representations...")
+    targets.append((data.representations, data.representations_lang))
+
+  for target_data, target_lang in targets:
+    for utterance_id, symbols in tqdm(target_data.items()):
+      new_symbols = change_symbols(
+        symbols=symbols,
         remove_space_around_punctuation=remove_space_around_punctuation,
+        lang=target_lang,
       )
 
       target_data[utterance_id] = new_symbols

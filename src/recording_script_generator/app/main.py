@@ -11,7 +11,7 @@ from recording_script_generator.core.export import (SortingMode,
                                                     generate_textgrid,
                                                     get_reading_scripts)
 from recording_script_generator.core.main import (
-    PreparationData, PreparationTarget, add_corpus_from_text, change_ipa,
+    PreparationData, PreparationTarget, add_corpus_from_text, change_ipa, change_text,
     convert_to_ipa, deselect_all_utterances, merge, normalize,
     remove_deselected, remove_duplicate_utterances,
     remove_utterances_with_acronyms, remove_utterances_with_proper_names,
@@ -281,7 +281,7 @@ def app_convert_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, targ
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_change_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, remove_space_around_punctuation: bool, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_change_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Changing IPA...")
   method = partial(
@@ -291,6 +291,18 @@ def app_change_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: 
     ignore_arcs=ignore_arcs,
     ignore_stress=ignore_stress,
     break_n_thongs=break_n_thongs,
+  )
+
+  _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+
+
+
+def app_change_text(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, remove_space_around_punctuation: bool, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+  logger = getLogger(__name__)
+  logger.info("Changing IPA...")
+  method = partial(
+    change_text,
+    target=target,
     remove_space_around_punctuation=remove_space_around_punctuation,
   )
 

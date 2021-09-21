@@ -142,10 +142,20 @@ def init_change_ipa_parser(parser: ArgumentParser):
   parser.add_argument('--ignore_arcs', action='store_true')
   parser.add_argument('--ignore_stress', action='store_true')
   parser.add_argument('--break_n_thongs', action='store_true')
-  parser.add_argument('--remove_space_around_punctuation', action='store_true')
   parser.add_argument('--out_step_name', type=str, required=False)
   parser.add_argument('--overwrite', action='store_true')
   return app_change_ipa
+
+
+def init_change_text_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True)
+  parser.add_argument('--in_step_name', type=str, required=True)
+  parser.add_argument('--target', type=PreparationTarget.__getitem__,
+                      choices=PreparationTarget, required=True, help=TARGET_HELP)
+  parser.add_argument('--remove_space_around_punctuation', action='store_true')
+  parser.add_argument('--out_step_name', type=str, required=False)
+  parser.add_argument('--overwrite', action='store_true')
+  return app_change_text
 
 
 def init_select_from_tex_parser(parser: ArgumentParser):
@@ -350,6 +360,7 @@ def _init_parser():
   _add_parser_to(subparsers, "add-file", init_add_corpus_from_text_file_parser)
   _add_parser_to(subparsers, "add-text", init_add_corpus_from_text_parser)
   _add_parser_to(subparsers, "normalize", init_normalize_parser)
+  _add_parser_to(subparsers, "change-text", init_change_text_parser)
   _add_parser_to(subparsers, "to-ipa", init_convert_to_ipa_parser)
   _add_parser_to(subparsers, "change-ipa", init_change_ipa_parser)
   _add_parser_to(subparsers, "stats", init_log_stats_parser)
