@@ -1,7 +1,12 @@
+import math
 from collections import Counter, OrderedDict
+from concurrent.futures.process import ProcessPoolExecutor
 from dataclasses import dataclass
 from enum import IntEnum
+from functools import partial
 from logging import getLogger
+from multiprocessing import cpu_count
+from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
 import enchant
@@ -47,42 +52,82 @@ class Mode(IntEnum):
 
 @dataclass()
 class PreparationData:
+  language: Language
   reading_passages_format: SymbolFormat
-  reading_passages_lang: Language
   reading_passages: ReadingPassages
   representations_format: SymbolFormat
-  representations_lang: Language
   representations: Representations
   selected: OrderedSet[SentenceId]
 
 
-def add_corpus_from_text(text: str, lang: Language, text_format: SymbolFormat) -> PreparationData:
-  logger = getLogger(__name__)
-  reading_passages: Dict[SentenceId, ReadingPassage] = {}
+def get_sentences_from_text(text: str, lang: Language, text_format: SymbolFormat) -> Set[str]:
   utterances = file_to_utterances(text, lang, text_format)
+  sentences = []
 
-  for utterance_id, utterance in enumerate(utterances):
+  for utterance in utterances:
     if not is_sentence(utterance, lang, text_format):
       continue
+    sentences.append(utterance)
+  return sentences
 
-    symbols = text_to_symbols(
-      text=utterance,
-      lang=lang,
-      text_format=text_format,
-    )
 
-    reading_passages[utterance_id] = symbols
+MAX_THREAD_COUNT = cpu_count() - 1
+DEFAULT_CHUNK_SIZE_THREADS = 20
+print(f"Using {MAX_THREAD_COUNT} threads with {DEFAULT_CHUNK_SIZE_THREADS} chunks...")
 
-  selected_percent = len(reading_passages) / len(utterances)
-  logger.info(
-    f"{selected_percent*100:.2f}% ({len(reading_passages)}) of all {len(utterances)} utterances were sentences and thus selected.")
+
+def read_textfile(path: Path) -> str:
+  content = path.read_text()
+  content = content.replace("\n", " ")
+  return content
+
+
+def add_corpus_from_text_files(files: List[Path], lang: Language, text_format: SymbolFormat) -> PreparationData:
+  logger = getLogger(__name__)
+  logger.info("Reading text files...")
+  files=set(list(files)[:100])
+  with ProcessPoolExecutor(max_workers=MAX_THREAD_COUNT) as ex:
+    res = list(tqdm(ex.map(read_textfile, files, chunksize=DEFAULT_CHUNK_SIZE_THREADS), total=len(files)))
+  logger.info("Done.")
+
+  return add_corpus_from_texts(
+    texts=res,
+    lang=lang,
+    text_format=text_format,
+  )
+
+
+def add_corpus_from_texts(texts: List[str], lang: Language, text_format: SymbolFormat) -> PreparationData:
+  logger = getLogger(__name__)
+  method = partial(get_sentences_from_text, lang=lang, text_format=text_format)
+
+  with ProcessPoolExecutor(max_workers=MAX_THREAD_COUNT) as ex:
+    res: List[Set[str]] = list(
+      tqdm(ex.map(method, texts, chunksize=DEFAULT_CHUNK_SIZE_THREADS), total=len(texts)))
+
+  reading_passages: Dict[SentenceId, ReadingPassage] = {}
+  for text_sentences in res:
+    for text_sentence in text_sentences:
+      symbols = text_to_symbols(
+        text=text_sentence,
+        lang=lang,
+        text_format=text_format,
+      )
+
+      utterance_id = len(reading_passages)
+      reading_passages[utterance_id] = symbols
+
+  #     total_utterance_count += len(utterances)
+
+  # selected_percent = len(reading_passages) / total_utterance_count
+  # logger.info(
+  #   f"{selected_percent*100:.2f}% ({len(reading_passages)}) of all {total_utterance_count} utterances were sentences and thus selected.")
 
   result = PreparationData(
     reading_passages=reading_passages,
-    reading_passages_lang=lang,
+    language=lang,
     reading_passages_format=text_format,
     representations=reading_passages.copy(),
-    representations_lang=lang,
     representations_format=text_format,
     selected=OrderedSet(),
   )
@@ -92,26 +137,25 @@ def add_corpus_from_text(text: str, lang: Language, text_format: SymbolFormat) -
 
 def normalize(data: PreparationData, target: PreparationTarget) -> None:
   logger = getLogger(__name__)
-  targets: List[Tuple[SymbolPassages, Language, SymbolFormat]] = []
+  targets: List[Tuple[SymbolPassages, SymbolFormat]] = []
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
     logger.info("Normalizing reading passages...")
-    targets.append((data.reading_passages, data.reading_passages_lang,
-                   data.reading_passages_format))
+    targets.append((data.reading_passages, data.reading_passages_format))
   if target == PreparationTarget.BOTH or PreparationTarget.REPRESENTATIONS:
     logger.info("Normalizing representations...")
-    targets.append((data.representations, data.representations_lang, data.representations_format))
+    targets.append((data.representations, data.representations_format))
 
-  for target_data, target_lang, target_format in targets:
+  for target_data, target_format in targets:
     for utterance_id, symbols in tqdm(target_data.items()):
       normalized_text = text_normalize(
         text=''.join(symbols),
-        lang=target_lang,
+        lang=data.language,
         text_format=target_format,
       )
 
       symbols = text_to_symbols(
         text=normalized_text,
-        lang=target_lang,
+        lang=data.language,
         text_format=target_format,
       )
 
@@ -120,25 +164,24 @@ def normalize(data: PreparationData, target: PreparationTarget) -> None:
 
 def convert_to_ipa(data: PreparationData, target: PreparationTarget, mode: Optional[EngToIPAMode]) -> None:
   logger = getLogger(__name__)
-  targets: List[Tuple[SymbolPassages, Language, SymbolFormat]] = []
+  targets: List[Tuple[SymbolPassages, SymbolFormat]] = []
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
     logger.info("Converting reading passages to IPA...")
-    targets.append((data.reading_passages, data.reading_passages_lang,
-                   data.reading_passages_format))
+    targets.append((data.reading_passages, data.reading_passages_format))
     data.reading_passages_format = SymbolFormat.PHONEMES_IPA
   if target == PreparationTarget.BOTH or PreparationTarget.REPRESENTATIONS:
     logger.info("Converting representations to IPA...")
-    targets.append((data.representations, data.representations_lang, data.representations_format))
+    targets.append((data.representations, data.representations_format))
     data.representations_format = SymbolFormat.PHONEMES_IPA
 
-  for target_data, target_lang, target_format in targets:
+  for target_data, target_format in targets:
     for utterance_id, symbols in tqdm(target_data.items()):
       new_symbols, new_format = symbols_to_ipa(
         symbols=symbols,
         symbols_format=target_format,
-        lang=target_lang,
+        lang=data.language,
         mode=mode,
-        consider_ipa_annotations=False,  # not useful
+        consider_annotations=False,  # not useful
       )
 
       assert new_format == SymbolFormat.PHONEMES_IPA
@@ -147,7 +190,7 @@ def convert_to_ipa(data: PreparationData, target: PreparationTarget, mode: Optio
   clear_ipa_cache()
 
 
-def change_ipa(data: PreparationData, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool) -> None:
+def change_ipa(data: PreparationData, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, build_n_thongs: bool) -> None:
   logger = getLogger(__name__)
   targets: List[SymbolPassages] = []
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
@@ -165,6 +208,8 @@ def change_ipa(data: PreparationData, target: PreparationTarget, ignore_tones: b
         ignore_arcs=ignore_arcs,
         ignore_stress=ignore_stress,
         break_n_thongs=break_n_thongs,
+        build_n_thongs=build_n_thongs,
+        language=data.language,
       )
 
       target_data[utterance_id] = new_symbols
@@ -172,20 +217,20 @@ def change_ipa(data: PreparationData, target: PreparationTarget, ignore_tones: b
 
 def change_text(data: PreparationData, target: PreparationTarget, remove_space_around_punctuation: bool) -> None:
   logger = getLogger(__name__)
-  targets: List[Tuple[SymbolPassages, Language]] = []
+  targets: List[SymbolPassages] = []
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
     logger.info("Changing reading passages...")
-    targets.append((data.reading_passages, data.reading_passages_lang))
+    targets.append(data.reading_passages)
   if target == PreparationTarget.BOTH or PreparationTarget.REPRESENTATIONS:
     logger.info("Changing representations...")
-    targets.append((data.representations, data.representations_lang))
+    targets.append(data.representations)
 
-  for target_data, target_lang in targets:
+  for target_data in targets:
     for utterance_id, symbols in tqdm(target_data.items()):
       new_symbols = change_symbols(
         symbols=symbols,
         remove_space_around_punctuation=remove_space_around_punctuation,
-        lang=target_lang,
+        lang=data.language,
       )
 
       target_data[utterance_id] = new_symbols
@@ -229,17 +274,6 @@ def get_single_target(data: PreparationData, target: PreparationTarget) -> Symbo
   return data.representations
 
 
-def get_single_target_language(data: PreparationData, target: PreparationTarget) -> Language:
-  logger = getLogger(__name__)
-  if target == PreparationTarget.BOTH:
-    logger.error("Target BOTH is not supported in this case!")
-    raise Exception()
-  if target == PreparationTarget.READING_PASSAGES:
-    return data.reading_passages_lang
-  assert target == PreparationTarget.REPRESENTATIONS
-  return data.representations_lang
-
-
 def remove_deselected(data: PreparationData) -> None:
   remove = OrderedSet(data.reading_passages.keys()) - data.selected
 
@@ -273,8 +307,7 @@ def remove_duplicate_utterances(data: PreparationData, target: PreparationTarget
 
 def remove_utterances_with_proper_names(data: PreparationData, target: PreparationTarget) -> None:
   remove = OrderedSet()
-  target_lang = get_single_target_language(data, target)
-  if target_lang != Language.ENG:
+  if data.language != Language.ENG:
     logger = getLogger(__name__)
     logger.error("Language needs to be English!")
     raise Exception()
@@ -320,8 +353,7 @@ def remove_utterances_with_undesired_sentence_lengths(data: PreparationData, tar
 
 
 def remove_utterances_with_unknown_words(data: PreparationData, target: PreparationTarget, max_unknown_word_count: int) -> None:
-  target_lang = get_single_target_language(data, target)
-  if target_lang != Language.ENG:
+  if data.language != Language.ENG:
     logger = getLogger(__name__)
     logger.error("Language needs to be English!")
     raise Exception()
@@ -366,20 +398,20 @@ def remove_utterances_with_too_seldom_words(data: PreparationData, target: Prepa
 def merge(data: List[PreparationData]) -> PreparationData:
   assert len(data) > 0
 
+  first_entry = data[0]
+
   merged_data = PreparationData(
     reading_passages=dict(),
-    reading_passages_lang=data[0].reading_passages_lang,
-    reading_passages_format=data[0].reading_passages_format,
+    language=first_entry.language,
+    reading_passages_format=first_entry.reading_passages_format,
     representations=dict(),
-    representations_lang=data[0].representations_lang,
-    representations_format=data[0].representations_format,
+    representations_format=first_entry.representations_format,
     selected=OrderedSet(),
   )
 
   id_counter = 0
   for data_to_merge in data:
-    assert data_to_merge.reading_passages_lang == merged_data.reading_passages_lang
-    assert data_to_merge.representations_lang == merged_data.representations_lang
+    assert data_to_merge.language == merged_data.language
     assert data_to_merge.reading_passages_format == merged_data.reading_passages_format
     assert data_to_merge.representations_format == merged_data.representations_format
     sentence_id_mapping = dict()
@@ -523,7 +555,7 @@ def select_from_tex(data: PreparationData, tex: str) -> None:
       logger.info(
         f"Removed {len(remove_ids)} sentences from selection (100%).")
     else:
-      #ids = ','.join(list(map(str, list(sorted(remove_ids)))))
+      # ids = ','.join(list(map(str, list(sorted(remove_ids)))))
       logger.info(
         f"Removed {len(remove_ids)} sentences from selection ({len(remove_ids)/old_len*100:.2}%).")
     for removed_id in sorted(remove_ids):

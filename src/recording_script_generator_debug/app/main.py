@@ -2,10 +2,10 @@ from math import inf
 from pathlib import Path
 
 from recording_script_generator.app.main import (
-    app_add_corpus_from_text, app_convert_to_ipa, app_generate_scripts,
-    app_generate_textgrid, app_log_stats, app_merge, app_normalize,
-    app_remove_duplicate_utterances, app_remove_undesired_text,
-    app_remove_utterances_with_acronyms,
+    app_add_corpus_from_text, app_add_corpus_from_text_files,
+    app_convert_to_ipa, app_generate_scripts, app_generate_textgrid,
+    app_log_stats, app_merge, app_normalize, app_remove_duplicate_utterances,
+    app_remove_undesired_text, app_remove_utterances_with_acronyms,
     app_remove_utterances_with_proper_names,
     app_remove_utterances_with_too_seldom_words,
     app_remove_utterances_with_undesired_sentence_lengths,
@@ -14,7 +14,6 @@ from recording_script_generator.app.main import (
     app_select_kld_ngrams_duration)
 from recording_script_generator.core.export import SortingMode
 from recording_script_generator.core.main import PreparationTarget
-from general_utils import read_text
 from text_utils import EngToIPAMode, Language
 from text_utils.symbol_format import SymbolFormat
 
@@ -131,6 +130,27 @@ def main():
   base_dir = Path("out")
   corpus_name = "debug"
   step_name = "initial"
+
+  app_add_corpus_from_text_files(
+    base_dir=base_dir,
+    corpus_name=corpus_name,
+    lang=Language.ENG,
+    overwrite=True,
+    step_name=step_name,
+    text_dir=Path("/data/text_datasets/librispeech-lm-corpus/corpus"),
+    text_format=SymbolFormat.GRAPHEMES,
+  )
+
+  app_normalize(
+    base_dir=base_dir,
+    corpus_name=corpus_name,
+    in_step_name=step_name,
+    out_step_name=step_name + "_normalized",
+    overwrite=True,
+    target=PreparationTarget.BOTH,
+  )
+
+  return
 
   app_select_kld_ngrams_duration(
     base_dir=base_dir,

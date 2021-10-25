@@ -1,3 +1,4 @@
+import os
 from functools import partial
 from logging import getLogger
 from pathlib import Path
@@ -5,16 +6,19 @@ from shutil import rmtree
 from typing import Callable, List, Optional, Set, Tuple
 
 from general_utils import load_obj, save_obj
+from general_utils.main import (get_all_files_in_all_subfolders, get_filepaths,
+                                get_subfolders)
 from recording_script_generator.core.export import (SortingMode,
                                                     df_to_consecutive_txt,
                                                     df_to_tex, df_to_txt,
                                                     generate_textgrid,
                                                     get_reading_scripts)
 from recording_script_generator.core.main import (
-    PreparationData, PreparationTarget, add_corpus_from_text, change_ipa,
-    change_text, convert_to_ipa, deselect_all_utterances, merge, normalize,
-    remove_deselected, remove_duplicate_utterances,
-    remove_utterances_with_acronyms, remove_utterances_with_proper_names,
+    PreparationData, PreparationTarget, add_corpus_from_text_files,
+    add_corpus_from_texts, change_ipa, change_text, convert_to_ipa,
+    deselect_all_utterances, merge, normalize, remove_deselected,
+    remove_duplicate_utterances, remove_utterances_with_acronyms,
+    remove_utterances_with_proper_names,
     remove_utterances_with_too_seldom_words,
     remove_utterances_with_undesired_sentence_lengths,
     remove_utterances_with_undesired_text,
@@ -35,6 +39,7 @@ from text_utils import Language
 from text_utils.pronunciation.main import EngToIPAMode
 from text_utils.symbol_format import SymbolFormat
 from text_utils.types import Symbol
+from tqdm import tqdm
 
 DATA_FILE = "data.pkl"
 SELECTED_FILENAME = "selected.csv"
@@ -124,6 +129,43 @@ def app_add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: s
   app_add_corpus_from_text(base_dir, corpus_name, step_name, text, lang, text_format, overwrite)
 
 
+def app_add_corpus_from_text_files(base_dir: Path, corpus_name: str, step_name: str, text_dir: Path, lang: Language, text_format: SymbolFormat, overwrite: bool = False) -> None:
+  logger = getLogger(__name__)
+
+  if not text_dir.is_dir():
+    logger.error("Text folder does not exist.")
+    return
+
+  logger = getLogger(__name__)
+  logger.info("Adding corpus...")
+  corpus_dir = get_corpus_dir(base_dir, corpus_name)
+
+  if corpus_dir.exists() and not overwrite:
+    logger.info("Corpus already exists.")
+    return
+
+  all_files = get_all_files_in_all_subfolders(text_dir)
+  all_txt_files = {file for file in all_files if file.suffix.lower() == ".txt"}
+  logger.info(f"Detected {len(all_txt_files)} .txt files.")
+
+  result = add_corpus_from_text_files(
+    files=all_txt_files,
+    lang=lang,
+    text_format=text_format,
+  )
+
+  if corpus_dir.exists():
+    assert overwrite
+    rmtree(corpus_dir)
+    logger.info("Removed existing corpus.")
+
+  corpus_dir.mkdir(parents=True, exist_ok=False)
+  step_dir = get_step_dir(corpus_dir, step_name)
+  step_dir.mkdir(parents=False, exist_ok=False)
+  save_corpus(step_dir, result)
+  _save_scripts(step_dir, result, DEFAULT_SORTING_MODE)
+
+
 def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, text: str, lang: Language, text_format: SymbolFormat, overwrite: bool = False) -> None:
   logger = getLogger(__name__)
   logger.info("Adding corpus...")
@@ -133,7 +175,7 @@ def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, t
     logger.info("Corpus already exists.")
     return
 
-  result = add_corpus_from_text(
+  result = add_corpus_from_texts(
     text=text,
     lang=lang,
     text_format=text_format,
@@ -281,7 +323,7 @@ def app_convert_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, targ
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_change_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_change_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, build_n_thongs: bool, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Changing IPA...")
   method = partial(
@@ -291,6 +333,7 @@ def app_change_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: 
     ignore_arcs=ignore_arcs,
     ignore_stress=ignore_stress,
     break_n_thongs=break_n_thongs,
+    build_n_thongs=build_n_thongs,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)

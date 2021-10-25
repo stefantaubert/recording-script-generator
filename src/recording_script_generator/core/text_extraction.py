@@ -4,6 +4,7 @@ from typing import List, Set
 
 import enchant
 from text_utils import Language, SymbolFormat, text_to_sentences
+from tqdm import tqdm
 
 
 def file_to_utterances(content: str, lang: Language, text_format: SymbolFormat) -> List[str]:
