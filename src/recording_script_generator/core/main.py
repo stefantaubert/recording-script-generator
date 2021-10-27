@@ -1,4 +1,6 @@
+import logging
 import math
+import string
 from collections import Counter, OrderedDict
 from concurrent.futures.process import ProcessPoolExecutor
 from dataclasses import dataclass
@@ -16,6 +18,8 @@ from recording_script_generator.core.text_extraction import (
     get_minimum_frequency, get_non_dict_words_amount, is_sentence,
     strip_punctuation_words, words_contain_acronyms)
 from recording_script_generator.utils import detect_ids_from_tex
+from sentence2pronunciation import prepare_cache_mp
+from sentence2pronunciation.core import sentences2pronunciations_from_cache_mp
 from text_selection import greedy_kld_uniform_ngrams_iterations
 from text_selection.greedy_export import (greedy_ngrams_durations_advanced,
                                           greedy_ngrams_epochs)
@@ -25,8 +29,9 @@ from text_selection.selection import SelectionMode
 from text_selection.utils import DurationBoundary
 from text_utils import EngToIPAMode, Language, SymbolFormat, Symbols
 from text_utils import change_ipa as change_ipa_method
-from text_utils import (clear_ipa_cache, symbols_to_ipa, text_normalize,
-                        text_to_symbols)
+from text_utils import (prepare_symbols_to_ipa, symbols_join, symbols_to_ipa,
+                        text_normalize, text_to_symbols)
+from text_utils.pronunciation.main import get_eng_to_arpa_lookup_method
 from text_utils.text import change_symbols
 from text_utils.types import Symbol
 from tqdm import tqdm
@@ -85,7 +90,7 @@ def read_textfile(path: Path) -> str:
 def add_corpus_from_text_files(files: List[Path], lang: Language, text_format: SymbolFormat) -> PreparationData:
   logger = getLogger(__name__)
   logger.info("Reading text files...")
-  files=set(list(files)[:100])
+  files = set(list(files)[:100])
   with ProcessPoolExecutor(max_workers=MAX_THREAD_COUNT) as ex:
     res = list(tqdm(ex.map(read_textfile, files, chunksize=DEFAULT_CHUNK_SIZE_THREADS), total=len(files)))
   logger.info("Done.")
@@ -135,59 +140,127 @@ def add_corpus_from_texts(texts: List[str], lang: Language, text_format: SymbolF
   return result
 
 
+def normalize_func(utterance_id_symbols_tuple: Tuple[int, Symbols], lang: Language, text_format: SymbolFormat) -> Tuple[int, Symbols]:
+  utterance_id, symbols = utterance_id_symbols_tuple
+  symbols_str = ''.join(symbols)
+  result = text_normalize(
+    text=symbols_str,
+    text_format=text_format,
+    lang=lang,
+  )
+
+  sentences = text_to_symbols(
+    text=result,
+    lang=lang,
+    text_format=text_format,
+  )
+
+  return utterance_id, sentences
+
+
 def normalize(data: PreparationData, target: PreparationTarget) -> None:
   logger = getLogger(__name__)
   targets: List[Tuple[SymbolPassages, SymbolFormat]] = []
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
-    logger.info("Normalizing reading passages...")
     targets.append((data.reading_passages, data.reading_passages_format))
   if target == PreparationTarget.BOTH or PreparationTarget.REPRESENTATIONS:
-    logger.info("Normalizing representations...")
     targets.append((data.representations, data.representations_format))
 
   for target_data, target_format in targets:
-    for utterance_id, symbols in tqdm(target_data.items()):
-      normalized_text = text_normalize(
-        text=''.join(symbols),
-        lang=data.language,
-        text_format=target_format,
-      )
+    if target_format == PreparationTarget.READING_PASSAGES:
+      logger.info("Normalizing reading passages...")
+    elif target_format == PreparationTarget.REPRESENTATIONS:
+      logger.info("Normalizing representations...")
 
-      symbols = text_to_symbols(
-        text=normalized_text,
-        lang=data.language,
-        text_format=target_format,
-      )
+    method = partial(normalize_func, lang=data.language, text_format=target_format)
 
-      target_data[utterance_id] = symbols
+    with ProcessPoolExecutor(max_workers=MAX_THREAD_COUNT) as ex:
+      res: SymbolPassages = dict(
+        tqdm(ex.map(method, target_data.items(), chunksize=DEFAULT_CHUNK_SIZE_THREADS), total=len(target_data)))
+    logger.info("Updating existing data...")
+    target_data.update(res)
+    logger.info("Done.")
+
+
+# def convert_to_ipa_func(utterance_id_symbols_tuple: Tuple[int, Symbols], lang: Language, text_format: SymbolFormat, mode: Optional[EngToIPAMode]) -> Tuple[int, Symbols]:
+#   utterance_id, symbols = utterance_id_symbols_tuple
+#   new_symbols, new_format = symbols_to_ipa(
+#     symbols=symbols,
+#     symbols_format=text_format,
+#     lang=lang,
+#     mode=mode,
+#     consider_annotations=False,  # as it is not useful
+#   )
+
+#   assert new_format == SymbolFormat.PHONEMES_IPA
+#   return utterance_id, new_symbols
 
 
 def convert_to_ipa(data: PreparationData, target: PreparationTarget, mode: Optional[EngToIPAMode]) -> None:
   logger = getLogger(__name__)
   targets: List[Tuple[SymbolPassages, SymbolFormat]] = []
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
-    logger.info("Converting reading passages to IPA...")
     targets.append((data.reading_passages, data.reading_passages_format))
     data.reading_passages_format = SymbolFormat.PHONEMES_IPA
   if target == PreparationTarget.BOTH or PreparationTarget.REPRESENTATIONS:
-    logger.info("Converting representations to IPA...")
     targets.append((data.representations, data.representations_format))
     data.representations_format = SymbolFormat.PHONEMES_IPA
 
+  prn_logger = getLogger("text_utils.pronunciation.main")
+  prn_logger.setLevel(logging.WARNING)
   for target_data, target_format in targets:
-    for utterance_id, symbols in tqdm(target_data.items()):
-      new_symbols, new_format = symbols_to_ipa(
-        symbols=symbols,
-        symbols_format=target_format,
-        lang=data.language,
-        mode=mode,
-        consider_annotations=False,  # not useful
-      )
+    if target_format == PreparationTarget.READING_PASSAGES:
+      logger.info("Converting reading passages to IPA...")
+    elif target_format == PreparationTarget.REPRESENTATIONS:
+      logger.info("Converting representations to IPA...")
 
-      assert new_format == SymbolFormat.PHONEMES_IPA
-      target_data[utterance_id] = new_symbols
+    logger.info("Loading dictionary...")
+    prepare_symbols_to_ipa(
+      lang=data.language,
+      mode=mode,
+      symbols_format=target_format,
+    )
+    logger.info("Done.")
 
-  clear_ipa_cache()
+    logger.info("Preparing conversion...")
+    sentences = set(target_data.values())
+    cache = prepare_cache_mp(
+      sentences=sentences,
+      annotation_split_symbol=None,
+      chunksize=10000,
+      consider_annotation=False,
+      get_pronunciation=get_eng_to_arpa_lookup_method(),
+      ignore_case=True,
+      n_jobs=MAX_THREAD_COUNT,
+      split_on_hyphen=True,
+      trim_symbols=set(string.punctuation),
+    )
+    logger.info(f"Done. Retrieved {len(cache)} unique words (incl. punctuation).")
+
+    logger.info("Converting to ARPA...")
+    sentence_pronunciations = sentences2pronunciations_from_cache_mp(
+      sentences=sentences,
+      cache=cache,
+      annotation_split_symbol=None,
+      chunksize=10000,
+      consider_annotation=False,
+      ignore_case=True,
+      n_jobs=MAX_THREAD_COUNT,
+    )
+    logger.info("Done.")
+
+    # method = partial(convert_to_ipa_func, lang=data.language, text_format=target_format, mode=mode)
+
+    # logger.info("Converting...")
+    # with ProcessPoolExecutor(max_workers=MAX_THREAD_COUNT) as ex:
+    #   res: SymbolPassages = dict(
+    #     tqdm(ex.map(method, target_data.items(), chunksize=DEFAULT_CHUNK_SIZE_THREADS), total=len(target_data)))
+    logger.info("Updating existing data...")
+    for sentence_id, old_pronunciation in target_data.items():
+      target_data[sentence_id] = sentence_pronunciations[old_pronunciation]
+    # TODO
+    # target_data.update(res)
+    logger.info("Done.")
 
 
 def change_ipa(data: PreparationData, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, build_n_thongs: bool) -> None:

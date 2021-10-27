@@ -128,7 +128,6 @@ dmypy.json
 # Pyre type checker
 .pyre/
 .vscode/
-playground*
-*debug.py
+recording_script_generator_debug/
 out/
 tmp/

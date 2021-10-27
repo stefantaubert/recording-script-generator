@@ -287,17 +287,24 @@ def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_na
     logger.info("Already exists.")
     return
 
+  logger.info("Loading existing data...")
   data = load_corpus(in_step_dir)
+  logger.info("Done.")
 
   method(data)
 
   if out_step_dir.exists():
     assert overwrite
+    logger.info("Removing existing out dir...")
     rmtree(out_step_dir)
-    logger.info("Overwriting existing out dir.")
+    logger.info("Done.")
   out_step_dir.mkdir(parents=False, exist_ok=False)
+  logger.info("Saving corpus...")
   save_corpus(out_step_dir, data)
+  logger.info("Done.")
+  logger.info("Saving scripts...")
   _save_scripts(out_step_dir, data, DEFAULT_SORTING_MODE)
+  logger.info("Done.")
 
 
 def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
