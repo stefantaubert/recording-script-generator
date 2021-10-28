@@ -27,13 +27,11 @@ from text_selection.greedy_kld_export import \
     greedy_kld_uniform_ngrams_seconds_with_preselection
 from text_selection.selection import SelectionMode
 from text_selection.utils import DurationBoundary
-from text_utils import EngToIPAMode, Language, SymbolFormat, Symbols
+from text_utils import EngToIPAMode, Language, Symbol, SymbolFormat, Symbols
 from text_utils import change_ipa as change_ipa_method
-from text_utils import (prepare_symbols_to_ipa, symbols_join, symbols_to_ipa,
-                        text_normalize, text_to_symbols)
+from text_utils import (change_symbols, prepare_symbols_to_ipa, symbols_join,
+                        symbols_to_ipa, text_normalize, text_to_symbols)
 from text_utils.pronunciation.main import get_eng_to_arpa_lookup_method
-from text_utils.text import change_symbols
-from text_utils.types import Symbol
 from tqdm import tqdm
 
 SentenceId = int
