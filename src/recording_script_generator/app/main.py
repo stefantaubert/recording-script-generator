@@ -15,8 +15,8 @@ from recording_script_generator.core.export import (SortingMode,
                                                     get_reading_scripts)
 from recording_script_generator.core.main import (
     PreparationData, PreparationTarget, add_corpus_from_text_files,
-    add_corpus_from_texts, change_ipa, change_text, convert_to_ipa,
-    deselect_all_utterances, merge, normalize, remove_deselected,
+    add_corpus_from_texts, change_ipa, change_text, convert_eng_to_arpa,
+    deselect_all_utterances, map_to_ipa, merge, normalize, remove_deselected,
     remove_duplicate_utterances, remove_utterances_with_acronyms,
     remove_utterances_with_proper_names,
     remove_utterances_with_too_seldom_words,
@@ -70,10 +70,15 @@ def load_corpus(step_dir: Path) -> PreparationData:
 
 
 def save_corpus(step_dir: Path, corpus: PreparationData) -> None:
+  logger = getLogger(__name__)
+  logger.info("Saving corpus...")
+  step_dir.mkdir(parents=True, exist_ok=True)
   save_obj(
     path=step_dir / DATA_FILE,
     obj=corpus,
   )
+  logger.info("Done.")
+
   return None
 
 
@@ -97,6 +102,9 @@ def _save_stats_df(step_dir: Path, data: PreparationData) -> None:
 
 
 def _save_scripts(step_dir: Path, data: PreparationData, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[str]] = DEFAULT_IGNORE, parts_count: Optional[int] = None, take_per_part: Optional[int] = None) -> None:
+  logger = getLogger(__name__)
+  logger.info("Saving scripts...")
+
   selected_df, rest_df = get_reading_scripts(
     data=data,
     mode=sorting_mode,
@@ -113,6 +121,7 @@ def _save_scripts(step_dir: Path, data: PreparationData, sorting_mode: SortingMo
   (step_dir / REST_TXT_FILENAME).write_text(df_to_txt(rest_df))
   (step_dir / REST_TEX_FILENAME).write_text(df_to_tex(rest_df))
   (step_dir / REST_TEX_CONSEC_FILENAME).write_text(df_to_consecutive_txt(rest_df))
+  logger.info("Done.")
 
 
 def get_tex_path(step_dir: Path) -> Path:
@@ -144,6 +153,7 @@ def app_add_corpus_from_text_files(base_dir: Path, corpus_name: str, step_name: 
     logger.info("Corpus already exists.")
     return
 
+  logger.info("Detecting all .txt files...")
   all_files = get_all_files_in_all_subfolders(text_dir)
   all_txt_files = {file for file in all_files if file.suffix.lower() == ".txt"}
   logger.info(f"Detected {len(all_txt_files)} .txt files.")
@@ -156,14 +166,12 @@ def app_add_corpus_from_text_files(base_dir: Path, corpus_name: str, step_name: 
 
   if corpus_dir.exists():
     assert overwrite
+    logger.info("Removing existing corpus...")
     rmtree(corpus_dir)
-    logger.info("Removed existing corpus.")
+    logger.info("Done.")
 
-  corpus_dir.mkdir(parents=True, exist_ok=False)
   step_dir = get_step_dir(corpus_dir, step_name)
-  step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(step_dir, result)
-  _save_scripts(step_dir, result, DEFAULT_SORTING_MODE)
 
 
 def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, text: str, lang: Language, text_format: SymbolFormat, overwrite: bool = False) -> None:
@@ -190,7 +198,6 @@ def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, t
   step_dir = get_step_dir(corpus_dir, step_name)
   step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(step_dir, result)
-  _save_scripts(step_dir, result, DEFAULT_SORTING_MODE)
 
 
 def app_log_stats(base_dir: Path, corpus_name: str, step_name: str, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S) -> None:
@@ -265,7 +272,6 @@ def app_merge(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_cor
   out_step_dir = get_step_dir(out_corpus_dir, out_step_name)
   out_step_dir.mkdir(parents=False, exist_ok=False)
   save_corpus(out_step_dir, merged_data)
-  _save_scripts(out_step_dir, merged_data, DEFAULT_SORTING_MODE)
 
 
 def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str], overwrite: bool, method: Callable[[PreparationData], None]):
@@ -299,12 +305,7 @@ def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_na
     rmtree(out_step_dir)
     logger.info("Done.")
   out_step_dir.mkdir(parents=False, exist_ok=False)
-  logger.info("Saving corpus...")
   save_corpus(out_step_dir, data)
-  logger.info("Done.")
-  logger.info("Saving scripts...")
-  _save_scripts(out_step_dir, data, DEFAULT_SORTING_MODE)
-  logger.info("Done.")
 
 
 def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
@@ -318,13 +319,23 @@ def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, target: P
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_convert_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, mode: Optional[EngToIPAMode], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_convert_to_arpa(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
-  logger.info("Converting to IPA...")
+  logger.info("Converting to ARPA...")
   method = partial(
-    convert_to_ipa,
+    convert_eng_to_arpa,
     target=target,
-    mode=mode,
+  )
+
+  _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+
+
+def app_map_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+  logger = getLogger(__name__)
+  logger.info("Mapping to IPA...")
+  method = partial(
+    map_to_ipa,
+    target=target,
   )
 
   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)

@@ -8,8 +8,9 @@ from text_utils import EngToIPAMode, Language
 from text_utils.symbol_format import SymbolFormat
 
 from recording_script_generator.app.main import (
-    app_add_corpus_from_text, app_add_corpus_from_text_file, app_change_ipa, app_change_text,
-    app_convert_to_ipa, app_deselect_all, app_generate_scripts,
+    app_add_corpus_from_text, app_add_corpus_from_text_file,
+    app_add_corpus_from_text_files, app_change_ipa, app_change_text,
+    app_convert_to_arpa, app_deselect_all, app_generate_scripts,
     app_generate_textgrid, app_log_stats, app_merge, app_normalize,
     app_remove_deselected, app_remove_duplicate_utterances,
     app_remove_undesired_text, app_remove_utterances_with_acronyms,
@@ -60,6 +61,17 @@ def init_add_corpus_from_text_file_parser(parser: ArgumentParser):
   parser.add_argument('--overwrite', action='store_true')
   parser.set_defaults(ignore_arcs=True, ignore_tones=False)
   return app_add_corpus_from_text_file
+
+
+def init_add_corpus_from_text_files_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True)
+  parser.add_argument('--step_name', type=str, required=True)
+  parser.add_argument('--text_dir', type=Path, required=True)
+  parser.add_argument('--lang', choices=Language, type=Language.__getitem__)
+  parser.add_argument('--text_format', choices=SymbolFormat, type=SymbolFormat.__getitem__)
+  parser.add_argument('--overwrite', action='store_true')
+  parser.set_defaults()
+  return app_add_corpus_from_text_files
 
 
 def init_add_corpus_from_text_parser(parser: ArgumentParser):
@@ -122,15 +134,15 @@ def init_normalize_parser(parser: ArgumentParser):
   return app_normalize
 
 
-def init_convert_to_ipa_parser(parser: ArgumentParser):
+def init_convert_to_arpa_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True)
   parser.add_argument('--in_step_name', type=str, required=True)
   parser.add_argument('--target', type=PreparationTarget.__getitem__,
                       choices=PreparationTarget, required=True, help=TARGET_HELP)
-  parser.add_argument('--mode', choices=EngToIPAMode, type=EngToIPAMode.__getitem__, required=False)
+  #parser.add_argument('--mode', choices=EngToIPAMode, type=EngToIPAMode.__getitem__, required=False)
   parser.add_argument('--out_step_name', type=str, required=False)
   parser.add_argument('--overwrite', action='store_true')
-  return app_convert_to_ipa
+  return app_convert_to_arpa
 
 
 def init_change_ipa_parser(parser: ArgumentParser):
@@ -357,12 +369,12 @@ def init_generate_textgrid_parser(parser: ArgumentParser):
 def _init_parser():
   result = ArgumentParser()
   subparsers = result.add_subparsers(help='sub-command help')
-
   _add_parser_to(subparsers, "add-file", init_add_corpus_from_text_file_parser)
+  _add_parser_to(subparsers, "add-files", init_add_corpus_from_text_files_parser)
   _add_parser_to(subparsers, "add-text", init_add_corpus_from_text_parser)
   _add_parser_to(subparsers, "normalize", init_normalize_parser)
   _add_parser_to(subparsers, "change-text", init_change_text_parser)
-  _add_parser_to(subparsers, "to-ipa", init_convert_to_ipa_parser)
+  _add_parser_to(subparsers, "to-arpa", init_convert_to_arpa_parser)
   _add_parser_to(subparsers, "change-ipa", init_change_ipa_parser)
   _add_parser_to(subparsers, "stats", init_log_stats_parser)
   _add_parser_to(subparsers, "gen-scripts", init_generate_scripts_parser)

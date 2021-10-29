@@ -3,13 +3,15 @@ import math
 import string
 from collections import Counter, OrderedDict
 from concurrent.futures.process import ProcessPoolExecutor
+from concurrent.futures.thread import ThreadPoolExecutor
 from dataclasses import dataclass
 from enum import IntEnum
 from functools import partial
 from logging import getLogger
-from multiprocessing import cpu_count
+from multiprocessing import Manager, cpu_count
+from multiprocessing.managers import SyncManager
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, cast
 
 import enchant
 from ordered_set import OrderedSet
@@ -30,15 +32,19 @@ from text_selection.utils import DurationBoundary
 from text_utils import EngToIPAMode, Language, Symbol, SymbolFormat, Symbols
 from text_utils import change_ipa as change_ipa_method
 from text_utils import (change_symbols, prepare_symbols_to_ipa, symbols_join,
-                        symbols_to_ipa, text_normalize, text_to_symbols)
+                        symbols_map_arpa_to_ipa, symbols_to_ipa,
+                        text_normalize, text_to_symbols)
+from text_utils.pronunciation.G2p_cache import get_eng_g2p
 from text_utils.pronunciation.main import get_eng_to_arpa_lookup_method
+from text_utils.pronunciation.pronunciation_dict_cache import \
+    get_eng_pronunciation_dict_arpa
 from tqdm import tqdm
 
 SentenceId = int
 ReadingPassage = Symbols
 Representation = Symbols
-ReadingPassages = Dict[int, ReadingPassage]
-Representations = Dict[int, Representation]
+#ReadingPassages = Dict[int, ReadingPassage]
+#Representations = Dict[int, Representation]
 SymbolPassages = Dict[int, Symbols]
 
 
@@ -53,14 +59,51 @@ class Mode(IntEnum):
   DESELECT = 1
 
 
+# @dataclass()
+# class PreparationData:
+#   language: Language
+#   reading_passages_format: SymbolFormat
+#   reading_passages: ReadingPassages
+#   representations_format: SymbolFormat
+#   representations: Representations
+#   selected: OrderedSet[SentenceId]
+
+
 @dataclass()
-class PreparationData:
+class Passages:
+  entries: SymbolPassages
+  symbol_format: SymbolFormat
   language: Language
-  reading_passages_format: SymbolFormat
-  reading_passages: ReadingPassages
-  representations_format: SymbolFormat
-  representations: Representations
   selected: OrderedSet[SentenceId]
+
+@dataclass()
+class ReadingPassages(Passages):
+  pass
+
+DEFAULT_N_JOBS = cpu_count() - 1
+DEFAULT_CHUNK_SIZE_PROCESSES = 1000
+print(f"Using {DEFAULT_N_JOBS} threads with {DEFAULT_CHUNK_SIZE_PROCESSES} chunks...")
+
+
+def read_textfile(path: Path) -> str:
+  content = path.read_text()
+  content = content.replace("\n", " ")
+  return content
+
+
+def add_corpus_from_text_files(files: Set[Path], lang: Language, text_format: SymbolFormat) -> PreparationData:
+  logger = getLogger(__name__)
+  logger.info("Reading text files...")
+  #files = set(list(files)[:5])
+  with ThreadPoolExecutor(max_workers=DEFAULT_N_JOBS) as ex:
+    res = list(tqdm(ex.map(read_textfile, files), total=len(files)))
+  logger.info("Done.")
+
+  return add_corpus_from_texts(
+    texts=res,
+    lang=lang,
+    text_format=text_format,
+  )
 
 
 def get_sentences_from_text(text: str, lang: Language, text_format: SymbolFormat) -> Set[str]:
@@ -74,39 +117,16 @@ def get_sentences_from_text(text: str, lang: Language, text_format: SymbolFormat
   return sentences
 
 
-MAX_THREAD_COUNT = cpu_count() - 1
-DEFAULT_CHUNK_SIZE_THREADS = 20
-print(f"Using {MAX_THREAD_COUNT} threads with {DEFAULT_CHUNK_SIZE_THREADS} chunks...")
-
-
-def read_textfile(path: Path) -> str:
-  content = path.read_text()
-  content = content.replace("\n", " ")
-  return content
-
-
-def add_corpus_from_text_files(files: List[Path], lang: Language, text_format: SymbolFormat) -> PreparationData:
-  logger = getLogger(__name__)
-  logger.info("Reading text files...")
-  files = set(list(files)[:100])
-  with ProcessPoolExecutor(max_workers=MAX_THREAD_COUNT) as ex:
-    res = list(tqdm(ex.map(read_textfile, files, chunksize=DEFAULT_CHUNK_SIZE_THREADS), total=len(files)))
-  logger.info("Done.")
-
-  return add_corpus_from_texts(
-    texts=res,
-    lang=lang,
-    text_format=text_format,
-  )
-
-
-def add_corpus_from_texts(texts: List[str], lang: Language, text_format: SymbolFormat) -> PreparationData:
+def add_corpus_from_texts(texts: List[str], lang: Language, text_format: SymbolFormat) -> Tuple[Passages, Passages]:
   logger = getLogger(__name__)
   method = partial(get_sentences_from_text, lang=lang, text_format=text_format)
-
-  with ProcessPoolExecutor(max_workers=MAX_THREAD_COUNT) as ex:
+  logger.info("Detecting valid sentences...")
+  tqdm_steps = 4
+  chunksize = max(round(len(texts) / DEFAULT_N_JOBS / tqdm_steps), 1)
+  logger.info(f"Assigning {chunksize} files to each processor core.")
+  with ProcessPoolExecutor(max_workers=DEFAULT_N_JOBS) as ex:
     res: List[Set[str]] = list(
-      tqdm(ex.map(method, texts, chunksize=DEFAULT_CHUNK_SIZE_THREADS), total=len(texts)))
+      tqdm(ex.map(method, texts, chunksize=chunksize), total=len(texts)))
 
   reading_passages: Dict[SentenceId, ReadingPassage] = {}
   for text_sentences in res:
@@ -125,17 +145,22 @@ def add_corpus_from_texts(texts: List[str], lang: Language, text_format: SymbolF
   # selected_percent = len(reading_passages) / total_utterance_count
   # logger.info(
   #   f"{selected_percent*100:.2f}% ({len(reading_passages)}) of all {total_utterance_count} utterances were sentences and thus selected.")
-
-  result = PreparationData(
-    reading_passages=reading_passages,
+  logger.info("Done.")
+  
+  reading_passages = Passages(
+    entries=reading_passages,
     language=lang,
-    reading_passages_format=text_format,
-    representations=reading_passages.copy(),
-    representations_format=text_format,
     selected=OrderedSet(),
+    symbol_format=text_format,
   )
+  
+  representations = deepcopy(reading_passages)
 
   return result
+from copy import deepcopy
+
+def return_input_too(inp: Any, method: Callable[[Any], Any]) -> Tuple[Any, Any]:
+  return inp, method(inp)
 
 
 def normalize_func(utterance_id_symbols_tuple: Tuple[int, Symbols], lang: Language, text_format: SymbolFormat) -> Tuple[int, Symbols]:
@@ -163,7 +188,7 @@ def normalize(data: PreparationData, target: PreparationTarget) -> None:
     targets.append((data.reading_passages, data.reading_passages_format))
   if target == PreparationTarget.BOTH or PreparationTarget.REPRESENTATIONS:
     targets.append((data.representations, data.representations_format))
-
+  # maybe check if both data is same and then only do one and assign to other
   for target_data, target_format in targets:
     if target_format == PreparationTarget.READING_PASSAGES:
       logger.info("Normalizing reading passages...")
@@ -172,9 +197,9 @@ def normalize(data: PreparationData, target: PreparationTarget) -> None:
 
     method = partial(normalize_func, lang=data.language, text_format=target_format)
 
-    with ProcessPoolExecutor(max_workers=MAX_THREAD_COUNT) as ex:
+    with ProcessPoolExecutor(max_workers=DEFAULT_N_JOBS) as ex:
       res: SymbolPassages = dict(
-        tqdm(ex.map(method, target_data.items(), chunksize=DEFAULT_CHUNK_SIZE_THREADS), total=len(target_data)))
+        tqdm(ex.map(method, target_data.items(), chunksize=DEFAULT_CHUNK_SIZE_PROCESSES), total=len(target_data)))
     logger.info("Updating existing data...")
     target_data.update(res)
     logger.info("Done.")
@@ -193,8 +218,48 @@ def normalize(data: PreparationData, target: PreparationTarget) -> None:
 #   assert new_format == SymbolFormat.PHONEMES_IPA
 #   return utterance_id, new_symbols
 
+def convert_eng_passages_to_arpa(data: SymbolPassages) -> None:
+  logger = getLogger(__name__)
+  logger.info("Loading dictionaries...")
+  get_eng_g2p()
+  get_eng_pronunciation_dict_arpa()
+  logger.info("Done.")
 
-def convert_to_ipa(data: PreparationData, target: PreparationTarget, mode: Optional[EngToIPAMode]) -> None:
+  logger.info("Preparing conversion...")
+  sentences = set(data.values())
+  cache = prepare_cache_mp(
+    sentences=sentences,
+    annotation_split_symbol=None,
+    chunksize=10000,
+    consider_annotation=False,
+    get_pronunciation=get_eng_to_arpa_lookup_method(),
+    ignore_case=True,
+    n_jobs=DEFAULT_N_JOBS,
+    split_on_hyphen=True,
+    trim_symbols=set(string.punctuation),
+  )
+  logger.info(f"Done. Retrieved {len(cache)} unique words (incl. punctuation).")
+
+  logger.info("Converting to ARPA...")
+  sentence_pronunciations = sentences2pronunciations_from_cache_mp(
+    sentences=sentences,
+    cache=cache,
+    annotation_split_symbol=None,
+    chunksize=10000,
+    consider_annotation=False,
+    ignore_case=True,
+    n_jobs=DEFAULT_N_JOBS,
+  )
+  logger.info("Done.")
+
+  # Inplace to reduce memory
+  logger.info("Updating existing data...")
+  for sentence_id, old_pronunciation in data.items():
+    data[sentence_id] = sentence_pronunciations[old_pronunciation]
+  logger.info("Done.")
+
+
+def convert_eng_to_arpa(data: PreparationData, target: PreparationTarget) -> None:
   logger = getLogger(__name__)
   targets: List[Tuple[SymbolPassages, SymbolFormat]] = []
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
@@ -208,57 +273,48 @@ def convert_to_ipa(data: PreparationData, target: PreparationTarget, mode: Optio
   prn_logger.setLevel(logging.WARNING)
   for target_data, target_format in targets:
     if target_format == PreparationTarget.READING_PASSAGES:
-      logger.info("Converting reading passages to IPA...")
+      logger.info("Converting reading passages to ARPA...")
+    elif target_format == PreparationTarget.REPRESENTATIONS:
+      logger.info("Converting representations to ARPA...")
+    convert_eng_passages_to_arpa(target_data)
+
+
+def map_to_tup_ipa(tup: Tuple[int, Symbols]) -> Tuple[int, Symbols]:
+  utterance_id, arpa_symbols = tup
+  ipa_symbols = symbols_map_arpa_to_ipa(
+    arpa_symbols=arpa_symbols,
+    ignore={},
+    replace_unknown=False,
+    replace_unknown_with=None,
+  )
+  return utterance_id, ipa_symbols
+
+
+def map_passages_to_ipa(passages: SymbolPassages):
+  with ProcessPoolExecutor(max_workers=DEFAULT_N_JOBS) as ex:
+    res: SymbolPassages = dict(
+      tqdm(ex.map(map_to_tup_ipa, passages.items(),
+           chunksize=DEFAULT_CHUNK_SIZE_PROCESSES), total=len(passages))
+    )
+  passages.update(res)
+
+
+def map_to_ipa(data: PreparationData, target: PreparationTarget) -> None:
+  logger = getLogger(__name__)
+  targets: List[Tuple[SymbolPassages, SymbolFormat]] = []
+  if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
+    targets.append((data.reading_passages, data.reading_passages_format))
+    data.reading_passages_format = SymbolFormat.PHONEMES_IPA
+  if target == PreparationTarget.BOTH or PreparationTarget.REPRESENTATIONS:
+    targets.append((data.representations, data.representations_format))
+    data.representations_format = SymbolFormat.PHONEMES_IPA
+
+  for target_data, target_format in targets:
+    if target_format == PreparationTarget.READING_PASSAGES:
+      logger.info("Mapping reading passages to IPA...")
     elif target_format == PreparationTarget.REPRESENTATIONS:
       logger.info("Converting representations to IPA...")
-
-    logger.info("Loading dictionary...")
-    prepare_symbols_to_ipa(
-      lang=data.language,
-      mode=mode,
-      symbols_format=target_format,
-    )
-    logger.info("Done.")
-
-    logger.info("Preparing conversion...")
-    sentences = set(target_data.values())
-    cache = prepare_cache_mp(
-      sentences=sentences,
-      annotation_split_symbol=None,
-      chunksize=10000,
-      consider_annotation=False,
-      get_pronunciation=get_eng_to_arpa_lookup_method(),
-      ignore_case=True,
-      n_jobs=MAX_THREAD_COUNT,
-      split_on_hyphen=True,
-      trim_symbols=set(string.punctuation),
-    )
-    logger.info(f"Done. Retrieved {len(cache)} unique words (incl. punctuation).")
-
-    logger.info("Converting to ARPA...")
-    sentence_pronunciations = sentences2pronunciations_from_cache_mp(
-      sentences=sentences,
-      cache=cache,
-      annotation_split_symbol=None,
-      chunksize=10000,
-      consider_annotation=False,
-      ignore_case=True,
-      n_jobs=MAX_THREAD_COUNT,
-    )
-    logger.info("Done.")
-
-    # method = partial(convert_to_ipa_func, lang=data.language, text_format=target_format, mode=mode)
-
-    # logger.info("Converting...")
-    # with ProcessPoolExecutor(max_workers=MAX_THREAD_COUNT) as ex:
-    #   res: SymbolPassages = dict(
-    #     tqdm(ex.map(method, target_data.items(), chunksize=DEFAULT_CHUNK_SIZE_THREADS), total=len(target_data)))
-    logger.info("Updating existing data...")
-    for sentence_id, old_pronunciation in target_data.items():
-      target_data[sentence_id] = sentence_pronunciations[old_pronunciation]
-    # TODO
-    # target_data.update(res)
-    logger.info("Done.")
+    map_passages_to_ipa(target_data)
 
 
 def change_ipa(data: PreparationData, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, build_n_thongs: bool) -> None:
@@ -393,16 +449,37 @@ def remove_utterances_with_proper_names(data: PreparationData, target: Preparati
   _remove_utterances_with_logging(remove, data)
 
 
+def check_utterance_contain_acronyms(utterance_tuple: Tuple[int, Symbols]) -> Tuple[int, bool]:
+  utterance_id, utterance = utterance_tuple
+  utterance = ''.join(utterance)
+  words = utterance.split(" ")
+  words_non_punctuation = strip_punctuation_words(words)
+
+  result = words_contain_acronyms(words_non_punctuation)
+  return utterance_id, result
+
+
 def remove_utterances_with_acronyms(data: PreparationData, target: PreparationTarget) -> None:
   remove = OrderedSet()
+  logger = getLogger(__name__)
   target_data = get_single_target(data, target)
-  for utterance_id, utterance_symbols in target_data.items():
-    utterance = ''.join(utterance_symbols)
-    words = utterance.split(" ")
-    words_non_punctuation = strip_punctuation_words(words)
+  tqdm_steps = 4
+  chunksize = min(round(len(target_data) / DEFAULT_N_JOBS / tqdm_steps), 100)
+  chunksize = 1
+  logger.info(f"Assigning {chunksize} utterances to each processor core.")
 
-    if words_contain_acronyms(words_non_punctuation):
-      remove.add(utterance_id)
+  with Manager() as manager:
+    manager = cast(SyncManager, manager)
+
+    cache = manager.dict(target_data.items())
+
+    with ProcessPoolExecutor(max_workers=DEFAULT_N_JOBS) as ex:
+      res: Dict[int, bool] = dict(
+          tqdm(ex.map(check_utterance_contain_acronyms, cache, chunksize=chunksize), total=len(cache)))
+
+  for utterance_id, dont_include in tqdm(res.items()):
+    if dont_include:
+      remove.add(target_data[utterance_id])
 
   _remove_utterances_with_logging(remove, data)
 
