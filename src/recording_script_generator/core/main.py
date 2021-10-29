@@ -4,6 +4,7 @@ import string
 from collections import Counter, OrderedDict
 from concurrent.futures.process import ProcessPoolExecutor
 from concurrent.futures.thread import ThreadPoolExecutor
+from copy import deepcopy
 from dataclasses import dataclass
 from enum import IntEnum
 from functools import partial
@@ -11,7 +12,8 @@ from logging import getLogger
 from multiprocessing import Manager, cpu_count
 from multiprocessing.managers import SyncManager
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, cast
+from typing import (Any, Callable, Dict, Generic, List, Optional, Set, Tuple,
+                    cast, overload)
 
 import enchant
 from ordered_set import OrderedSet
@@ -41,17 +43,11 @@ from text_utils.pronunciation.pronunciation_dict_cache import \
 from tqdm import tqdm
 
 SentenceId = int
-ReadingPassage = Symbols
-Representation = Symbols
+# ReadingPassage = Symbols
+# Representation = Symbols
 #ReadingPassages = Dict[int, ReadingPassage]
 #Representations = Dict[int, Representation]
 SymbolPassages = Dict[int, Symbols]
-
-
-class PreparationTarget(IntEnum):
-  READING_PASSAGES = 0
-  REPRESENTATIONS = 1
-  BOTH = 2
 
 
 class Mode(IntEnum):
@@ -68,17 +64,23 @@ class Mode(IntEnum):
 #   representations: Representations
 #   selected: OrderedSet[SentenceId]
 
-
 @dataclass()
-class Passages:
-  entries: SymbolPassages
-  symbol_format: SymbolFormat
+class Metadata():
   language: Language
   selected: OrderedSet[SentenceId]
 
-@dataclass()
+
+class Passages(Dict[int, Symbols]):
+  symbol_format: SymbolFormat
+
+
 class ReadingPassages(Passages):
   pass
+
+
+class Representations(Passages):
+  pass
+
 
 DEFAULT_N_JOBS = cpu_count() - 1
 DEFAULT_CHUNK_SIZE_PROCESSES = 1000
@@ -91,7 +93,7 @@ def read_textfile(path: Path) -> str:
   return content
 
 
-def add_corpus_from_text_files(files: Set[Path], lang: Language, text_format: SymbolFormat) -> PreparationData:
+def add_corpus_from_text_files(files: Set[Path], lang: Language, text_format: SymbolFormat) -> Tuple[ReadingPassages, Representations]:
   logger = getLogger(__name__)
   logger.info("Reading text files...")
   #files = set(list(files)[:5])
@@ -117,7 +119,7 @@ def get_sentences_from_text(text: str, lang: Language, text_format: SymbolFormat
   return sentences
 
 
-def add_corpus_from_texts(texts: List[str], lang: Language, text_format: SymbolFormat) -> Tuple[Passages, Passages]:
+def add_corpus_from_texts(texts: List[str], lang: Language, text_format: SymbolFormat) -> Tuple[Metadata, ReadingPassages, Representations]:
   logger = getLogger(__name__)
   method = partial(get_sentences_from_text, lang=lang, text_format=text_format)
   logger.info("Detecting valid sentences...")
@@ -128,7 +130,7 @@ def add_corpus_from_texts(texts: List[str], lang: Language, text_format: SymbolF
     res: List[Set[str]] = list(
       tqdm(ex.map(method, texts, chunksize=chunksize), total=len(texts)))
 
-  reading_passages: Dict[SentenceId, ReadingPassage] = {}
+  passages: Dict[SentenceId, Symbols] = {}
   for text_sentences in res:
     for text_sentence in text_sentences:
       symbols = text_to_symbols(
@@ -137,8 +139,8 @@ def add_corpus_from_texts(texts: List[str], lang: Language, text_format: SymbolF
         text_format=text_format,
       )
 
-      utterance_id = len(reading_passages)
-      reading_passages[utterance_id] = symbols
+      utterance_id = len(passages)
+      passages[utterance_id] = symbols
 
   #     total_utterance_count += len(utterances)
 
@@ -146,18 +148,20 @@ def add_corpus_from_texts(texts: List[str], lang: Language, text_format: SymbolF
   # logger.info(
   #   f"{selected_percent*100:.2f}% ({len(reading_passages)}) of all {total_utterance_count} utterances were sentences and thus selected.")
   logger.info("Done.")
-  
-  reading_passages = Passages(
-    entries=reading_passages,
+
+  reading_passages = ReadingPassages(passages)
+  reading_passages.symbol_format = text_format
+
+  representations = Representations(passages)
+  representations.symbol_format = text_format
+
+  meta = Metadata(
     language=lang,
     selected=OrderedSet(),
-    symbol_format=text_format,
   )
-  
-  representations = deepcopy(reading_passages)
 
-  return result
-from copy import deepcopy
+  return meta, reading_passages, representations
+
 
 def return_input_too(inp: Any, method: Callable[[Any], Any]) -> Tuple[Any, Any]:
   return inp, method(inp)
@@ -181,28 +185,19 @@ def normalize_func(utterance_id_symbols_tuple: Tuple[int, Symbols], lang: Langua
   return utterance_id, sentences
 
 
-def normalize(data: PreparationData, target: PreparationTarget) -> None:
+def normalize(data: Passages, metadata: Metadata) -> None:
   logger = getLogger(__name__)
-  targets: List[Tuple[SymbolPassages, SymbolFormat]] = []
-  if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
-    targets.append((data.reading_passages, data.reading_passages_format))
-  if target == PreparationTarget.BOTH or PreparationTarget.REPRESENTATIONS:
-    targets.append((data.representations, data.representations_format))
   # maybe check if both data is same and then only do one and assign to other
-  for target_data, target_format in targets:
-    if target_format == PreparationTarget.READING_PASSAGES:
-      logger.info("Normalizing reading passages...")
-    elif target_format == PreparationTarget.REPRESENTATIONS:
-      logger.info("Normalizing representations...")
+  logger.info("Normalizing...")
 
-    method = partial(normalize_func, lang=data.language, text_format=target_format)
+  method = partial(normalize_func, lang=metadata.language, text_format=data.symbol_format)
 
-    with ProcessPoolExecutor(max_workers=DEFAULT_N_JOBS) as ex:
-      res: SymbolPassages = dict(
-        tqdm(ex.map(method, target_data.items(), chunksize=DEFAULT_CHUNK_SIZE_PROCESSES), total=len(target_data)))
-    logger.info("Updating existing data...")
-    target_data.update(res)
-    logger.info("Done.")
+  with ProcessPoolExecutor(max_workers=DEFAULT_N_JOBS) as ex:
+    res: SymbolPassages = dict(
+      tqdm(ex.map(method, data.entries.items(), chunksize=DEFAULT_CHUNK_SIZE_PROCESSES), total=len(data.entries)))
+  logger.info("Updating existing data...")
+  data.entries.update(res)
+  logger.info("Done.")
 
 
 # def convert_to_ipa_func(utterance_id_symbols_tuple: Tuple[int, Symbols], lang: Language, text_format: SymbolFormat, mode: Optional[EngToIPAMode]) -> Tuple[int, Symbols]:
@@ -259,7 +254,7 @@ def convert_eng_passages_to_arpa(data: SymbolPassages) -> None:
   logger.info("Done.")
 
 
-def convert_eng_to_arpa(data: PreparationData, target: PreparationTarget) -> None:
+def convert_eng_to_arpa(metadata: Metadata, data: Passages) -> None:
   logger = getLogger(__name__)
   targets: List[Tuple[SymbolPassages, SymbolFormat]] = []
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
@@ -299,7 +294,7 @@ def map_passages_to_ipa(passages: SymbolPassages):
   passages.update(res)
 
 
-def map_to_ipa(data: PreparationData, target: PreparationTarget) -> None:
+def map_to_ipa(metadata: Metadata, data: Passages) -> None:
   logger = getLogger(__name__)
   targets: List[Tuple[SymbolPassages, SymbolFormat]] = []
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
@@ -317,7 +312,7 @@ def map_to_ipa(data: PreparationData, target: PreparationTarget) -> None:
     map_passages_to_ipa(target_data)
 
 
-def change_ipa(data: PreparationData, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, build_n_thongs: bool) -> None:
+def change_ipa(metadata: Metadata, data: Passages, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, build_n_thongs: bool) -> None:
   logger = getLogger(__name__)
   targets: List[SymbolPassages] = []
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
@@ -342,7 +337,7 @@ def change_ipa(data: PreparationData, target: PreparationTarget, ignore_tones: b
       target_data[utterance_id] = new_symbols
 
 
-def change_text(data: PreparationData, target: PreparationTarget, remove_space_around_punctuation: bool) -> None:
+def change_text(metadata: Metadata, data: Passages, remove_space_around_punctuation: bool) -> None:
   logger = getLogger(__name__)
   targets: List[SymbolPassages] = []
   if target == PreparationTarget.BOTH or PreparationTarget.READING_PASSAGES:
@@ -363,15 +358,15 @@ def change_text(data: PreparationData, target: PreparationTarget, remove_space_a
       target_data[utterance_id] = new_symbols
 
 
-def select_all_utterances(data: PreparationData):
+def select_all_utterances(metadata: Metadata, data: Passages):
   data.selected |= OrderedSet(data.reading_passages.keys())
 
 
-def deselect_all_utterances(data: PreparationData):
+def deselect_all_utterances(metadata: Metadata, data: Passages):
   data.selected = OrderedSet()
 
 
-def __remove_utterances(utterance_ids: Set[int], data: PreparationData) -> None:
+def __remove_utterances(utterance_ids: Set[int], metadata: Metadata, data: Passages) -> None:
   for remove_utterance_id in utterance_ids:
     data.reading_passages.pop(remove_utterance_id)
     data.representations.pop(remove_utterance_id)
@@ -379,7 +374,7 @@ def __remove_utterances(utterance_ids: Set[int], data: PreparationData) -> None:
       data.selected.remove(remove_utterance_id)
 
 
-def _remove_utterances_with_logging(utterance_ids: Set[int], data: PreparationData) -> None:
+def _remove_utterances_with_logging(utterance_ids: Set[int], metadata: Metadata, data: Passages) -> None:
   logger = getLogger(__name__)
   old_len = len(data.representations)
   for utterance_id in utterance_ids:
@@ -390,7 +385,7 @@ def _remove_utterances_with_logging(utterance_ids: Set[int], data: PreparationDa
     f"Removed {len(utterance_ids)} of {old_len} utterances ({len(utterance_ids)/old_len*100:.2f}%) and obtained {len(data.representations)} utterances.")
 
 
-def get_single_target(data: PreparationData, target: PreparationTarget) -> SymbolPassages:
+def get_single_target(metadata: Metadata, data: Passages) -> SymbolPassages:
   logger = getLogger(__name__)
   if target == PreparationTarget.BOTH:
     logger.error("Target BOTH is not supported in this case!")
@@ -401,13 +396,13 @@ def get_single_target(data: PreparationData, target: PreparationTarget) -> Symbo
   return data.representations
 
 
-def remove_deselected(data: PreparationData) -> None:
+def remove_deselected(metadata: Metadata, data: Passages) -> None:
   remove = OrderedSet(data.reading_passages.keys()) - data.selected
 
   _remove_utterances_with_logging(remove, data)
 
 
-def remove_utterances_with_undesired_text(data: PreparationData, target: PreparationTarget, undesired: Set[str]) -> None:
+def remove_utterances_with_undesired_text(metadata: Metadata, data: Passages, undesired: Set[str]) -> None:
   remove = OrderedSet()
   target_data = get_single_target(data, target)
   for utterance_id, utterance_symbols in target_data.items():
@@ -418,7 +413,7 @@ def remove_utterances_with_undesired_text(data: PreparationData, target: Prepara
   _remove_utterances_with_logging(remove, data)
 
 
-def remove_duplicate_utterances(data: PreparationData, target: PreparationTarget) -> None:
+def remove_duplicate_utterances(metadata: Metadata, data: Passages) -> None:
   remove = OrderedSet()
   already_exist: Set[Tuple[str, ...]] = set()
   target_data = get_single_target(data, target)
@@ -432,7 +427,7 @@ def remove_duplicate_utterances(data: PreparationData, target: PreparationTarget
   _remove_utterances_with_logging(remove, data)
 
 
-def remove_utterances_with_proper_names(data: PreparationData, target: PreparationTarget) -> None:
+def remove_utterances_with_proper_names(metadata: Metadata, data: Passages) -> None:
   remove = OrderedSet()
   if data.language != Language.ENG:
     logger = getLogger(__name__)
@@ -459,32 +454,27 @@ def check_utterance_contain_acronyms(utterance_tuple: Tuple[int, Symbols]) -> Tu
   return utterance_id, result
 
 
-def remove_utterances_with_acronyms(data: PreparationData, target: PreparationTarget) -> None:
+def remove_utterances_with_acronyms(metadata: Metadata, data: Passages) -> None:
   remove = OrderedSet()
   logger = getLogger(__name__)
-  target_data = get_single_target(data, target)
   tqdm_steps = 4
-  chunksize = min(round(len(target_data) / DEFAULT_N_JOBS / tqdm_steps), 100)
+  chunksize = min(round(len(data) / DEFAULT_N_JOBS / tqdm_steps), 100)
   chunksize = 1
   logger.info(f"Assigning {chunksize} utterances to each processor core.")
 
-  with Manager() as manager:
-    manager = cast(SyncManager, manager)
 
-    cache = manager.dict(target_data.items())
-
-    with ProcessPoolExecutor(max_workers=DEFAULT_N_JOBS) as ex:
-      res: Dict[int, bool] = dict(
-          tqdm(ex.map(check_utterance_contain_acronyms, cache, chunksize=chunksize), total=len(cache)))
+  with ProcessPoolExecutor(max_workers=DEFAULT_N_JOBS) as ex:
+    res: Dict[int, bool] = dict(
+        tqdm(ex.map(check_utterance_contain_acronyms, data.items(), chunksize=chunksize), total=len(data)))
 
   for utterance_id, dont_include in tqdm(res.items()):
     if dont_include:
-      remove.add(target_data[utterance_id])
+      remove.add(data[utterance_id])
 
   _remove_utterances_with_logging(remove, data)
 
 
-def remove_utterances_with_undesired_sentence_lengths(data: PreparationData, target: PreparationTarget, min_word_count: Optional[int], max_word_count: Optional[int]) -> None:
+def remove_utterances_with_undesired_sentence_lengths(metadata: Metadata, data: Passages, min_word_count: Optional[int], max_word_count: Optional[int]) -> None:
   remove = OrderedSet()
   target_data = get_single_target(data, target)
   for utterance_id, utterance_symbols in target_data.items():
@@ -500,7 +490,7 @@ def remove_utterances_with_undesired_sentence_lengths(data: PreparationData, tar
   _remove_utterances_with_logging(remove, data)
 
 
-def remove_utterances_with_unknown_words(data: PreparationData, target: PreparationTarget, max_unknown_word_count: int) -> None:
+def remove_utterances_with_unknown_words(metadata: Metadata, data: Passages, max_unknown_word_count: int) -> None:
   if data.language != Language.ENG:
     logger = getLogger(__name__)
     logger.error("Language needs to be English!")
@@ -521,7 +511,7 @@ def remove_utterances_with_unknown_words(data: PreparationData, target: Preparat
   _remove_utterances_with_logging(remove, data)
 
 
-def remove_utterances_with_too_seldom_words(data: PreparationData, target: PreparationTarget, min_occurrence_count: int) -> None:
+def remove_utterances_with_too_seldom_words(metadata: Metadata, data: Passages, min_occurrence_count: int) -> None:
   remove = OrderedSet()
   stripped_words: Dict[int, List[str]] = {}
   target_data = get_single_target(data, target)
@@ -543,7 +533,7 @@ def remove_utterances_with_too_seldom_words(data: PreparationData, target: Prepa
   _remove_utterances_with_logging(remove, data)
 
 
-def merge(data: List[PreparationData]) -> PreparationData:
+def merge(data: List[Tuple[Metadata, ReadingPassages, Representations]]) -> Tuple[Metadata, ReadingPassages, Representations]:
   assert len(data) > 0
 
   first_entry = data[0]
@@ -577,7 +567,7 @@ def merge(data: List[PreparationData]) -> PreparationData:
   return merged_data
 
 
-def select_kld_ngrams_iterations(data: PreparationData, n_gram: int, iterations: int, ignore_symbols: Optional[Set[Symbol]]):
+def select_kld_ngrams_iterations(metadata: Metadata, data: Passages, n_gram: int, iterations: int, ignore_symbols: Optional[Set[Symbol]]):
   logger = getLogger(__name__)
   rest = OrderedDict({k: v for k, v in data.representations.items() if k not in data.selected})
   new_selected = greedy_kld_uniform_ngrams_iterations(
@@ -592,7 +582,7 @@ def select_kld_ngrams_iterations(data: PreparationData, n_gram: int, iterations:
   logger.info(f"Added {len(new_selected)} utterances to selection.")
 
 
-def select_kld_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: float, ignore_symbols: Set[Symbol], boundary: DurationBoundary):
+def select_kld_ngrams_duration(metadata: Metadata, data: Passages, n_gram: int, minutes: float, reading_speed_chars_per_s: float, ignore_symbols: Set[Symbol], boundary: DurationBoundary):
   logger = getLogger(__name__)
   selected_representations = OrderedDict(
     {k: v for k, v in data.representations.items() if k in data.selected})
@@ -638,7 +628,7 @@ def select_kld_ngrams_duration(data: PreparationData, n_gram: int, minutes: floa
 #   return filtered_utterance_indicies
 
 
-def select_greedy_ngrams_epochs(data: PreparationData, n_gram: int, epochs: int, ignore_symbols: Optional[Set[Symbol]]):
+def select_greedy_ngrams_epochs(metadata: Metadata, data: Passages, n_gram: int, epochs: int, ignore_symbols: Optional[Set[Symbol]]):
   logger = getLogger(__name__)
   rest = OrderedDict({k: v for k, v in data.representations.items() if k not in data.selected})
   new_selected = greedy_ngrams_epochs(
@@ -653,7 +643,7 @@ def select_greedy_ngrams_epochs(data: PreparationData, n_gram: int, epochs: int,
   logger.info(f"Added {len(new_selected)} utterances to selection.")
 
 
-def select_greedy_ngrams_duration(data: PreparationData, n_gram: int, minutes: float, reading_speed_chars_per_s: float, ignore_symbols: Optional[Set[Symbol]], mode: SelectionMode):
+def select_greedy_ngrams_duration(metadata: Metadata, data: Passages, n_gram: int, minutes: float, reading_speed_chars_per_s: float, ignore_symbols: Optional[Set[Symbol]], mode: SelectionMode):
   logger = getLogger(__name__)
   non_selected_reading_passages = OrderedDict(
     {k: v for k, v in data.reading_passages.items() if k not in data.selected})
@@ -676,7 +666,7 @@ def select_greedy_ngrams_duration(data: PreparationData, n_gram: int, minutes: f
   logger.info(f"Added {len(new_selected)} utterances to selection ({selected_duration:.2f}min).")
 
 
-def select_from_tex(data: PreparationData, tex: str) -> None:
+def select_from_tex(metadata: Metadata, data: Passages, tex: str) -> None:
   logger = getLogger(__name__)
   ids_in_tex = detect_ids_from_tex(tex)
 

@@ -1,4 +1,5 @@
 import os
+from enum import IntEnum
 from functools import partial
 from logging import getLogger
 from pathlib import Path
@@ -14,11 +15,11 @@ from recording_script_generator.core.export import (SortingMode,
                                                     generate_textgrid,
                                                     get_reading_scripts)
 from recording_script_generator.core.main import (
-    PreparationData, PreparationTarget, add_corpus_from_text_files,
-    add_corpus_from_texts, change_ipa, change_text, convert_eng_to_arpa,
-    deselect_all_utterances, map_to_ipa, merge, normalize, remove_deselected,
-    remove_duplicate_utterances, remove_utterances_with_acronyms,
-    remove_utterances_with_proper_names,
+    Metadata, Passages, ReadingPassages, Representations,
+    add_corpus_from_text_files, add_corpus_from_texts, change_ipa, change_text,
+    convert_eng_to_arpa, deselect_all_utterances, map_to_ipa, merge, normalize,
+    remove_deselected, remove_duplicate_utterances,
+    remove_utterances_with_acronyms, remove_utterances_with_proper_names,
     remove_utterances_with_too_seldom_words,
     remove_utterances_with_undesired_sentence_lengths,
     remove_utterances_with_undesired_text,
@@ -41,7 +42,10 @@ from text_utils.symbol_format import SymbolFormat
 from text_utils.types import Symbol
 from tqdm import tqdm
 
-DATA_FILE = "data.pkl"
+READING_PASSAGES_DATA_FILE = "reading_passages.pkl"
+REPRESENTATIONS_DATA_FILE = "representations.pkl"
+METADATA_DATA_FILE = "metadata.pkl"
+# DATA_FILE = "data.pkl"
 SELECTED_FILENAME = "selected.csv"
 SELECTED_TXT_FILENAME = "selected.txt"
 SELECTED_TXT_CONSEC_FILENAME = "selected_consecutive.txt"
@@ -56,6 +60,12 @@ REST_TEX_FILENAME = "rest.tex"
 REST_TEX_CONSEC_FILENAME = "rest_consecutive.tex"
 
 
+class PreparationTarget(IntEnum):
+  READING_PASSAGES = 0
+  REPRESENTATIONS = 1
+  BOTH = 2
+
+
 def get_corpus_dir(base_dir: Path, corpus_name: str) -> Path:
   return base_dir / corpus_name
 
@@ -64,25 +74,61 @@ def get_step_dir(corpus_dir: Path, step_name: str) -> Path:
   return corpus_dir / step_name
 
 
-def load_corpus(step_dir: Path) -> PreparationData:
-  res = load_obj(step_dir / DATA_FILE)
+def load_reading_passages(step_dir: Path) -> ReadingPassages:
+  res = load_obj(step_dir / READING_PASSAGES_DATA_FILE)
   return res
 
 
-def save_corpus(step_dir: Path, corpus: PreparationData) -> None:
+def load_representations(step_dir: Path) -> Representations:
+  res = load_obj(step_dir / REPRESENTATIONS_DATA_FILE)
+  return res
+
+
+def load_metadata(step_dir: Path) -> Metadata:
+  res = load_obj(step_dir / METADATA_DATA_FILE)
+  return res
+
+
+def save_reading_passages(step_dir: Path, reading_passages: ReadingPassages) -> None:
   logger = getLogger(__name__)
-  logger.info("Saving corpus...")
+  logger.info("Saving reading passages...")
   step_dir.mkdir(parents=True, exist_ok=True)
   save_obj(
-    path=step_dir / DATA_FILE,
-    obj=corpus,
+    path=step_dir / READING_PASSAGES_DATA_FILE,
+    obj=reading_passages,
   )
   logger.info("Done.")
 
   return None
 
 
-def _save_stats_df(step_dir: Path, data: PreparationData) -> None:
+def save_representations(step_dir: Path, representations: Representations) -> None:
+  logger = getLogger(__name__)
+  logger.info("Saving representations...")
+  step_dir.mkdir(parents=True, exist_ok=True)
+  save_obj(
+    path=step_dir / REPRESENTATIONS_DATA_FILE,
+    obj=representations,
+  )
+  logger.info("Done.")
+
+  return None
+
+
+def save_metadata(step_dir: Path, metadata: Metadata) -> None:
+  logger = getLogger(__name__)
+  logger.info("Saving metadata...")
+  step_dir.mkdir(parents=True, exist_ok=True)
+  save_obj(
+    path=step_dir / METADATA_DATA_FILE,
+    obj=metadata,
+  )
+  logger.info("Done.")
+
+  return None
+
+
+def _save_stats_df(step_dir: Path, metadata: Metadata, data: Passages) -> None:
   logger = getLogger(__name__)
   logger.info("Getting 1-gram stats...")
   one_gram_repr_stats = get_n_gram_stats_df(data.representations, data.selected, n=1)
@@ -101,7 +147,7 @@ def _save_stats_df(step_dir: Path, data: PreparationData) -> None:
   logger.info("Done.")
 
 
-def _save_scripts(step_dir: Path, data: PreparationData, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[str]] = DEFAULT_IGNORE, parts_count: Optional[int] = None, take_per_part: Optional[int] = None) -> None:
+def _save_scripts(step_dir: Path, metadata: Metadata, data: Passages, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[str]] = DEFAULT_IGNORE, parts_count: Optional[int] = None, take_per_part: Optional[int] = None) -> None:
   logger = getLogger(__name__)
   logger.info("Saving scripts...")
 
@@ -158,7 +204,7 @@ def app_add_corpus_from_text_files(base_dir: Path, corpus_name: str, step_name: 
   all_txt_files = {file for file in all_files if file.suffix.lower() == ".txt"}
   logger.info(f"Detected {len(all_txt_files)} .txt files.")
 
-  result = add_corpus_from_text_files(
+  reading_passages, representations, metadata = add_corpus_from_text_files(
     files=all_txt_files,
     lang=lang,
     text_format=text_format,
@@ -171,7 +217,9 @@ def app_add_corpus_from_text_files(base_dir: Path, corpus_name: str, step_name: 
     logger.info("Done.")
 
   step_dir = get_step_dir(corpus_dir, step_name)
-  save_corpus(step_dir, result)
+  save_metadata(step_dir, metadata)
+  save_reading_passages(step_dir, reading_passages)
+  save_representations(step_dir, representations)
 
 
 def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, text: str, lang: Language, text_format: SymbolFormat, overwrite: bool = False) -> None:
@@ -183,7 +231,7 @@ def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, t
     logger.info("Corpus already exists.")
     return
 
-  result = add_corpus_from_texts(
+  reading_passages, representations, metadata = add_corpus_from_texts(
     text=text,
     lang=lang,
     text_format=text_format,
@@ -191,13 +239,14 @@ def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, t
 
   if corpus_dir.exists():
     assert overwrite
+    logger.info("Removing existing corpus...")
     rmtree(corpus_dir)
     logger.info("Removed existing corpus.")
 
-  corpus_dir.mkdir(parents=True, exist_ok=False)
   step_dir = get_step_dir(corpus_dir, step_name)
-  step_dir.mkdir(parents=False, exist_ok=False)
-  save_corpus(step_dir, result)
+  save_metadata(step_dir, metadata)
+  save_reading_passages(step_dir, reading_passages)
+  save_representations(step_dir, representations)
 
 
 def app_log_stats(base_dir: Path, corpus_name: str, step_name: str, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S) -> None:
@@ -274,7 +323,7 @@ def app_merge(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_cor
   save_corpus(out_step_dir, merged_data)
 
 
-def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str], overwrite: bool, method: Callable[[PreparationData], None]):
+def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str], overwrite: bool, method: Callable[[Metadata, Passages], None]):
   logger = getLogger(__name__)
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
   in_step_dir = get_step_dir(corpus_dir, in_step_name)
@@ -293,19 +342,39 @@ def _alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_na
     logger.info("Already exists.")
     return
 
-  logger.info("Loading existing data...")
-  data = load_corpus(in_step_dir)
-  logger.info("Done.")
+  targets = []
+  if target == PreparationTarget.BOTH:
+    targets.append(PreparationTarget.READING_PASSAGES)
+    targets.append(PreparationTarget.REPRESENTATIONS)
+  else:
+    targets.append(target)
 
-  method(data)
+  for i, prep_target in enumerate(targets):
+    metadata = load_metadata(in_step_dir)
+    if prep_target == PreparationTarget.READING_PASSAGES:
+      data = load_reading_passages(in_step_dir)
+    elif prep_target == PreparationTarget.REPRESENTATIONS:
+      data = load_representations(in_step_dir)
+    else:
+      assert False
 
-  if out_step_dir.exists():
-    assert overwrite
-    logger.info("Removing existing out dir...")
-    rmtree(out_step_dir)
-    logger.info("Done.")
-  out_step_dir.mkdir(parents=False, exist_ok=False)
-  save_corpus(out_step_dir, data)
+    method(metadata, data)
+
+    on_first_prep_target = i == 0
+    if on_first_prep_target and out_step_dir.exists():
+      assert overwrite
+      logger.info("Removing existing out dir...")
+      rmtree(out_step_dir)
+      logger.info("Done.")
+    out_step_dir.mkdir(parents=True, exist_ok=True)
+
+    save_metadata(out_step_dir, metadata)
+    if prep_target == PreparationTarget.READING_PASSAGES:
+      save_reading_passages(out_step_dir, data)
+    elif prep_target == PreparationTarget.REPRESENTATIONS:
+      save_representations(out_step_dir, data)
+    else:
+      assert False
 
 
 def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
@@ -452,12 +521,8 @@ def app_remove_utterances_with_proper_names(base_dir: Path, corpus_name: str, in
 def app_remove_utterances_with_acronyms(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing utterances with acronyms...")
-  method = partial(
-    remove_utterances_with_acronyms,
-    target=target,
-  )
-
-  _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  _alter_data(base_dir, corpus_name, in_step_name, target,
+              out_step_name, overwrite, remove_utterances_with_acronyms)
 
 
 def app_remove_utterances_with_undesired_sentence_lengths(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, min_word_count: Optional[int] = None, max_word_count: Optional[int] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:

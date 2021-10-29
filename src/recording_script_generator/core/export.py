@@ -8,10 +8,7 @@ from typing import Set, Tuple
 
 from ordered_set import OrderedSet
 from pandas import DataFrame
-from recording_script_generator.core.main import (PreparationData,
-                                                  ReadingPassage,
-                                                  ReadingPassages,
-                                                  Representation)
+from recording_script_generator.core.main import Metadata, Passages, ReadingPassages, Representations
 from recording_script_generator.utils import detect_ids_from_tex
 from text_selection import greedy_kld_uniform_ngrams_default
 from text_selection.greedy_kld_export import greedy_kld_uniform_ngrams_parts
@@ -35,7 +32,7 @@ def number_prepend_zeros(n: int, max_n: int) -> str:
   return res
 
 
-def get_df_from_reading_passages(reading_passages: OrderedDictType[int, Tuple[ReadingPassage, Representation]]) -> DataFrame:
+def get_df_from_reading_passages(reading_passages: OrderedDictType[int, Tuple[ReadingPassages, Representations]]) -> DataFrame:
   df = DataFrame(
     data=[(
       k,
@@ -49,7 +46,7 @@ def get_df_from_reading_passages(reading_passages: OrderedDictType[int, Tuple[Re
   return df
 
 
-def get_keys_custom_sort(data: PreparationData, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> OrderedSet[int]:
+def get_keys_custom_sort(metadata: Metadata, data: Passages, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> OrderedSet[int]:
 
   selected_reading_passages = OrderedDict({k: data.reading_passages[k] for k in data.selected})
 
@@ -104,7 +101,7 @@ def get_keys_custom_sort(data: PreparationData, mode: SortingMode, seed: Optiona
   raise Exception()
 
 
-def get_reading_scripts(data: PreparationData, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> Tuple[DataFrame, DataFrame]:
+def get_reading_scripts(metadata: Metadata, data: Passages, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> Tuple[DataFrame, DataFrame]:
   keys_sorted = get_keys_custom_sort(
     data=data,
     mode=mode,
@@ -153,7 +150,7 @@ def df_to_tex(df: DataFrame, use_hint_on_question_and_exclamation: bool = True) 
   return result
 
 
-def generate_textgrid(data: PreparationData, tex: str, reading_speed_chars_per_s: float) -> TextGrid:
+def generate_textgrid(metadata: Metadata, data: Passages, tex: str, reading_speed_chars_per_s: float) -> TextGrid:
   ids_in_tex = detect_ids_from_tex(tex)
   grid = TextGrid(
     name="reading passages",
