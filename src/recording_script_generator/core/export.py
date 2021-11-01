@@ -1,16 +1,15 @@
 import random
 from collections import OrderedDict
 from enum import IntEnum
-from logging import getLogger
 from typing import Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Set, Tuple
 
 from ordered_set import OrderedSet
 from pandas import DataFrame
-from recording_script_generator.core.main import (ReadingPassages,
-                                                  Representations, Selection,
-                                                  Utterances)
+from recording_script_generator.core.types import (ReadingPassages,
+                                                   Representations, Selection,
+                                                   UtteranceId)
 from recording_script_generator.utils import detect_ids_from_tex
 from text_selection import greedy_kld_uniform_ngrams_default
 from text_selection.greedy_kld_export import greedy_kld_uniform_ngrams_parts
@@ -48,9 +47,8 @@ def get_df_from_reading_passages(reading_passages: OrderedDictType[int, Tuple[Re
   return df
 
 
-def get_keys_custom_sort(metadata: Selection, data: Utterances, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> OrderedSet[int]:
-
-  selected_reading_passages = OrderedDict({k: data.reading_passages[k] for k in data.selected})
+def get_keys_custom_sort(selection: Selection, reading_passages: ReadingPassages, representations: Representations, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> OrderedSet[UtteranceId]:
+  selected_reading_passages = OrderedDict({k: reading_passages[k] for k in selection})
 
   if mode == SortingMode.RANDOM:
     assert seed is not None
@@ -75,7 +73,7 @@ def get_keys_custom_sort(metadata: Selection, data: Utterances, mode: SortingMod
     keys_sorted_by_index = OrderedSet(list(sorted(selected_reading_passages.keys())))
     return keys_sorted_by_index
 
-  selected_representations = OrderedDict({k: data.representations[k] for k in data.selected})
+  selected_representations = OrderedDict({k: representations[k] for k in selection})
 
   if mode == SortingMode.KLD:
     assert ignore_symbols is not None
@@ -103,9 +101,11 @@ def get_keys_custom_sort(metadata: Selection, data: Utterances, mode: SortingMod
   raise Exception()
 
 
-def get_reading_scripts(metadata: Selection, data: Utterances, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> Tuple[DataFrame, DataFrame]:
+def get_reading_scripts(selection: Selection, reading_passages: ReadingPassages, representations: Representations, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> Tuple[DataFrame, DataFrame]:
   keys_sorted = get_keys_custom_sort(
-    data=data,
+    selection=selection,
+    reading_passages=reading_passages,
+    representations=representations,
     mode=mode,
     seed=seed,
     ignore_symbols=ignore_symbols,
@@ -114,11 +114,11 @@ def get_reading_scripts(metadata: Selection, data: Utterances, mode: SortingMode
   )
 
   selected = OrderedDict(
-    {k: (data.reading_passages[k], data.representations[k])
+    {k: (reading_passages[k], representations[k])
      for k in keys_sorted})
   rest = OrderedDict(
-    {k: (data.reading_passages[k], data.representations[k])
-     for k in data.reading_passages if k not in keys_sorted})
+    {k: (reading_passages[k], representations[k])
+     for k in reading_passages if k not in keys_sorted})
 
   selected_df = get_df_from_reading_passages(selected)
   rest_df = get_df_from_reading_passages(rest)
@@ -152,7 +152,7 @@ def df_to_tex(df: DataFrame, use_hint_on_question_and_exclamation: bool = True) 
   return result
 
 
-def generate_textgrid(metadata: Selection, data: Utterances, tex: str, reading_speed_chars_per_s: float) -> TextGrid:
+def generate_textgrid(reading_passages: ReadingPassages, representations: Representations, tex: str, reading_speed_chars_per_s: float) -> TextGrid:
   ids_in_tex = detect_ids_from_tex(tex)
   grid = TextGrid(
     name="reading passages",
@@ -177,11 +177,11 @@ def generate_textgrid(metadata: Selection, data: Utterances, tex: str, reading_s
 
   last_time = 0
   for read_id in ids_in_tex:
-    duration = len(data.reading_passages[read_id]) / reading_speed_chars_per_s
+    duration = len(reading_passages[read_id]) / reading_speed_chars_per_s
     min_time = last_time
     max_time = last_time + duration
 
-    graphemes = ''.join(data.reading_passages[read_id])
+    graphemes = ''.join(reading_passages[read_id])
     graphemes_interval = Interval(
       minTime=min_time,
       maxTime=max_time,
@@ -189,7 +189,7 @@ def generate_textgrid(metadata: Selection, data: Utterances, tex: str, reading_s
     )
     graphemes_tier.addInterval(graphemes_interval)
 
-    phonemes = ''.join(data.representations[read_id])
+    phonemes = ''.join(representations[read_id])
     phonemes_interval = Interval(
       minTime=min_time,
       maxTime=max_time,

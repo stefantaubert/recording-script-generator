@@ -7,7 +7,11 @@ from typing import Tuple
 import numpy as np
 from ordered_set import OrderedSet
 from pandas import DataFrame
-from recording_script_generator.core.main import Selection, Utterances, UtteranceId
+from recording_script_generator.core.main import (Selection, UtteranceId,
+                                                  Utterances)
+from recording_script_generator.core.types import (ReadingPassages,
+                                                   Representations, Selection,
+                                                   UtteranceId)
 from text_utils import Symbols, get_ngrams
 
 
@@ -26,7 +30,7 @@ def get_ngram_stats_percent(ngram_stats_count: Tuple[int, ...]) -> Tuple[float, 
   return ngram_stats_percent
 
 
-def get_n_gram_stats_df(data: Dict[UtteranceId, Symbols], selected: OrderedSet[UtteranceId], n: int) -> DataFrame:
+def get_n_gram_stats_df(utterances: Utterances, selection: Selection, n: int) -> DataFrame:
   columns = [
     f"{n}-gram",
     "Selected #",
@@ -37,16 +41,16 @@ def get_n_gram_stats_df(data: Dict[UtteranceId, Symbols], selected: OrderedSet[U
     "Total %",
   ]
 
-  if len(data) == 0:
+  if len(utterances) == 0:
     empty_stats_df = DataFrame(data=[], columns=columns)
     return empty_stats_df
 
-  selected = [utterance_symbols for utterance_id,
-              utterance_symbols in data.items() if utterance_id in selected]
+  selection = [utterance_symbols for utterance_id,
+               utterance_symbols in utterances.items() if utterance_id in selection]
   not_selected = [utterance_symbols for utterance_id,
-                  utterance_symbols in data.items() if utterance_id not in selected]
+                  utterance_symbols in utterances.items() if utterance_id not in selection]
 
-  selected_n_grams = [n_gram for utterance_symbols in selected
+  selected_n_grams = [n_gram for utterance_symbols in selection
                       for n_gram in get_ngrams(utterance_symbols, n=n)]
   not_selected_n_grams = [n_gram for utterance_symbols in not_selected
                           for n_gram in get_ngrams(utterance_symbols, n=n)]
@@ -61,7 +65,7 @@ def get_n_gram_stats_df(data: Dict[UtteranceId, Symbols], selected: OrderedSet[U
   not_selected_n_grams_count = get_ngram_stats_count(not_selected_n_grams, total_n_grams_ordered)
   not_selected_n_grams_percent = get_ngram_stats_percent(not_selected_n_grams_count)
 
-  data = np.array([
+  utterances = np.array([
     all_n_grams_str,
     selected_n_grams_count,
     not_selected_n_grams_count,
@@ -71,7 +75,7 @@ def get_n_gram_stats_df(data: Dict[UtteranceId, Symbols], selected: OrderedSet[U
     total_n_grams_percent
   ]).T
 
-  n_gram_stats_df = DataFrame(data=data, columns=columns)
+  n_gram_stats_df = DataFrame(data=utterances, columns=columns)
 
   return n_gram_stats_df
 
@@ -114,11 +118,11 @@ def get_utterance_duration_distribution(utterance_durations: List[float]) -> Ord
   return duration_distribution
 
 
-def _log_distribution(distribution: OrderedDictType[int, float]) -> None:
+def __log_distribution(distribution: OrderedDictType[int, float]) -> None:
   logger = getLogger(__name__)
   total_length = sum([step_duration * step_occurrences for step_duration,
                      step_occurrences in distribution.items()])
-  total_count = sum(distribution.values())
+  # total_count = sum(distribution.values())
   current_summed_occurrences = 0
   current_summed_lengths = 0
   for step_duration, step_occurrences in distribution.items():
@@ -129,14 +133,14 @@ def _log_distribution(distribution: OrderedDictType[int, float]) -> None:
     logger.info(f"{step_duration:.0f}s: {step_occurrences} ({current_length/total_length*100:.2f}%) ({current_summed_lengths/total_length*100:.2f}%)")
 
 
-def log_general_stats(selection: Selection, data: Utterances, avg_chars_per_s: float) -> None:
+def log_general_stats(selection: Selection, reading_passages: ReadingPassages, representations: Representations, avg_chars_per_s: float) -> None:
   assert avg_chars_per_s > 0
   logger = getLogger(__name__)
 
   selected = OrderedDict(
-    {k: (v, data.representations[k]) for k, v in data.reading_passages.items() if k in data.selected})
+    {k: (v, representations[k]) for k, v in reading_passages.items() if k in selection})
   not_selected = OrderedDict(
-    {k: (v, data.representations[k]) for k, v in data.reading_passages.items() if k not in data.selected})
+    {k: (v, representations[k]) for k, v in reading_passages.items() if k not in selection})
 
   selected_read_chars_len = len([x for (read, rep) in selected.values() for x in read])
   rest_read_chars_len = len([x for (read, rep) in not_selected.values() for x in read])
@@ -155,11 +159,11 @@ def log_general_stats(selection: Selection, data: Utterances, avg_chars_per_s: f
 
   if len(selected_durations_s_distribution) > 0:
     logger.info("Duration distribution for selected utterances:")
-    _log_distribution(selected_durations_s_distribution)
+    __log_distribution(selected_durations_s_distribution)
 
   if len(non_selected_durations_s_distribution) > 0:
     logger.info("Duration distribution for non-selected utterances:")
-    _log_distribution(non_selected_durations_s_distribution)
+    __log_distribution(non_selected_durations_s_distribution)
 
   logger.info(
     f"Selected: {len(selected)} entries / {selected_read_chars_len} chars / ca. {selected_read_chars_len/avg_chars_per_s/60:.2f}min / ca. {selected_read_chars_len/avg_chars_per_s/60/60:.2f}h")
