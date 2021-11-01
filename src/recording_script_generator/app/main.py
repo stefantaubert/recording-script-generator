@@ -3,6 +3,7 @@ from functools import partial
 from logging import getLogger
 from pathlib import Path
 from shutil import rmtree
+from time import perf_counter
 from typing import Callable, List, Optional, Set, Tuple
 
 from general_utils import load_obj, save_obj
@@ -71,12 +72,20 @@ def get_step_dir(corpus_dir: Path, step_name: str) -> Path:
 
 
 def load_reading_passages(step_dir: Path) -> ReadingPassages:
+  logger = getLogger(__name__)
+  logger.info("Loading reading passages...")
+  start = perf_counter()
   res = load_obj(step_dir / READING_PASSAGES_DATA_FILE)
+  logger.info(f"Done. Loaded {len(res)} reading passages in {perf_counter() - start:.2f}s.")
   return res
 
 
 def load_representations(step_dir: Path) -> Representations:
+  logger = getLogger(__name__)
+  logger.info("Loading representations...")
+  start = perf_counter()
   res = load_obj(step_dir / REPRESENTATIONS_DATA_FILE)
+  logger.info(f"Done. Loaded {len(res)} representations in {perf_counter() - start:.2f}s.")
   return res
 
 
@@ -88,12 +97,13 @@ def load_selection(step_dir: Path) -> Selection:
 def save_reading_passages(step_dir: Path, reading_passages: ReadingPassages) -> None:
   logger = getLogger(__name__)
   logger.info("Saving reading passages...")
+  start = perf_counter()
   step_dir.mkdir(parents=True, exist_ok=True)
   save_obj(
     path=step_dir / READING_PASSAGES_DATA_FILE,
     obj=reading_passages,
   )
-  logger.info("Done.")
+  logger.info(f"Done. Saved {len(reading_passages)} reading passages in {perf_counter() - start:.2f}s.")
 
   return None
 
@@ -101,12 +111,13 @@ def save_reading_passages(step_dir: Path, reading_passages: ReadingPassages) -> 
 def save_representations(step_dir: Path, representations: Representations) -> None:
   logger = getLogger(__name__)
   logger.info("Saving representations...")
+  start = perf_counter()
   step_dir.mkdir(parents=True, exist_ok=True)
   save_obj(
     path=step_dir / REPRESENTATIONS_DATA_FILE,
     obj=representations,
   )
-  logger.info("Done.")
+  logger.info(f"Done. Saved {len(representations)} representations in {perf_counter() - start:.2f}s.")
 
   return None
 
@@ -598,11 +609,12 @@ def app_select_greedy_ngrams_epochs(base_dir: Path, corpus_name: str, in_step_na
 def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with Greedy...")
-  
+
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
   in_step_dir = get_step_dir(corpus_dir, in_step_name)
   reading_passages = load_reading_passages(in_step_dir)
-  utterance_durations_s = get_utterance_durations_based_on_symbols(reading_passages, reading_speed_chars_per_s)
+  utterance_durations_s = get_utterance_durations_based_on_symbols(
+    reading_passages, reading_speed_chars_per_s)
 
   method = partial(
     select_greedy_ngrams_duration,
@@ -613,7 +625,7 @@ def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_
     utterance_durations_s=utterance_durations_s,
     mode=SelectionMode.SHORTEST,
   )
-  
+
   target = PreparationTarget.REPRESENTATIONS
   __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
@@ -621,16 +633,17 @@ def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_
 def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Set[Symbol] = DEFAULT_IGNORE, boundary_min_s: float = DEFAULT_SPLIT_BOUNDARY_MIN_S, boundary_max_s: float = DEFAULT_SPLIT_BOUNDARY_MAX_S, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with KLD...")
-  
+
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
   in_step_dir = get_step_dir(corpus_dir, in_step_name)
   reading_passages = load_reading_passages(in_step_dir)
-  utterance_durations_s = get_utterance_durations_based_on_symbols(reading_passages, reading_speed_chars_per_s)
+  utterance_durations_s = get_utterance_durations_based_on_symbols(
+    reading_passages, reading_speed_chars_per_s)
 
   method = partial(
     select_kld_ngrams_duration,
     n_gram=n_gram,
-    minutes=minutes, 
+    minutes=minutes,
     ignore_symbols=ignore_symbols,
     utterance_durations_s=utterance_durations_s,
     boundary=(boundary_min_s, boundary_max_s),

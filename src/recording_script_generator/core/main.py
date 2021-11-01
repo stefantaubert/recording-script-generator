@@ -5,14 +5,18 @@ from concurrent.futures.process import ProcessPoolExecutor
 from concurrent.futures.thread import ThreadPoolExecutor
 from enum import IntEnum
 from functools import partial
+from itertools import islice, zip_longest
 from logging import getLogger
 from multiprocessing import cpu_count
 from pathlib import Path
+from time import perf_counter
+from timeit import timeit
 from typing import Any, Callable, Dict, List, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Set, Tuple
 
 import enchant
+import numpy as np
 from ordered_set import OrderedSet
 from recording_script_generator.core.text_extraction import (
     contains_eng_proper_names, contains_undesired_text, file_to_utterances,
@@ -120,9 +124,11 @@ def add_corpus_from_texts(texts: List[str], lang: Language, text_format: SymbolF
 
   return selection, reading_passages, representations
 
-def remove_non_existent_utterances(utterances: Utterances, target: Utterances)-> None:
+
+def remove_non_existent_utterances(utterances: Utterances, target: Utterances) -> None:
   utterance_ids_to_remove = set(target.keys()) - set(utterances.keys())
   __remove_utterances_with_logging(utterance_ids_to_remove, target)
+
 
 def return_input_too(inp: Any, method: Callable[[Any], Any]) -> Tuple[Any, Any]:
   return inp, method(inp)
@@ -292,16 +298,22 @@ def __remove_utterances_with_logging(utterance_ids: Set[UtteranceId], utterances
     return
 
   assert len(utterances) > 0
-  old_count_utterances = len(utterances)
+  old_count = len(utterances)
+  log_count = 10
+  for utterance_id in list(utterance_ids)[:log_count]:
+    utterance_str = ''.join(utterances[utterance_id])
+    logger.info(f"Removing \"{utterance_str}\" ({utterance_id})...")
+
+  if len(utterance_ids) > log_count:
+    logger.info(f"Removing {len(utterance_ids) - log_count} further utterance(s)...")
 
   for utterance_id in utterance_ids:
-    utterance_str = ''.join(utterances[utterance_id])
-    logger.info(f"Removed \"{utterance_str}\" ({utterance_id}).")
+    utterances.pop(utterance_id)
 
-  new_count_utterances = len(utterances)
+  new_count = len(utterances)
 
   logger.info(
-      f"Removed {new_count_utterances} of {old_count_utterances} utterances ({new_count_utterances/old_count_utterances*100:.2f}%) and obtained {new_count_utterances} utterances.")
+      f"Removed {old_count - new_count} of {old_count} utterances ({(old_count - new_count)/old_count*100:.2f}%) and obtained {new_count} utterances.")
 
 
 def __remove_utterances_from_selection_with_logging(utterance_ids: Set[UtteranceId], selection: Selection) -> None:
@@ -310,14 +322,14 @@ def __remove_utterances_from_selection_with_logging(utterance_ids: Set[Utterance
     logger.info("Nothing to deselect.")
     return
 
-  old_count_selection = len(selection)
+  old_count = len(selection)
 
   selection -= utterance_ids
 
-  new_count_selection = len(selection)
+  new_count = len(selection)
 
   logger.info(
-      f"Deselected {old_count_selection - new_count_selection} of {old_count_selection} utterances ({new_count_selection/old_count_selection*100:.2f}%) and obtained a selection of {new_count_selection} utterances.")
+      f"Deselected {old_count - new_count} of {old_count} utterances ({(old_count - new_count)/old_count*100:.2f}%) and obtained a selection of {new_count} utterances.")
 
 
 def remove_utterances_with_undesired_text(utterances: Utterances, selection: Selection, undesired: Set[str]) -> None:
@@ -368,21 +380,60 @@ def __check_utterance_contain_acronyms(utterance_tuple: Tuple[int, Symbols]) -> 
   return utterance_id, result
 
 
+def group_elements(lst, chunk_size):
+  lst = iter(lst)
+  return iter(lambda: tuple(islice(lst, chunk_size)), ())
+
+
+def get_chunked_dict_keys(dictionary: OrderedDictType[Any, Any], chunk_size: int) -> OrderedSet[Any]:
+  logger = getLogger(__name__)
+  logger.info("Creating chunks...")
+  now = perf_counter()
+  keys = OrderedSet(dictionary.keys())
+  #key_chunks = [keys[i:i + chunk_size] for i in tqdm(range(0, len(keys), chunk_size))]
+  iterator = iter(keys)
+  result = list(iter(lambda: list(islice(iterator, chunk_size)), list()))
+  duration = perf_counter() - now
+  logger.info(f"Done. Duration: {duration:.2f}s.")
+  return result
+
+  # return key_chunks
+
+
+def get_chunk(utterances: Utterances, chunked_keys: OrderedSet[UtteranceId]) -> Utterances:
+  logger = getLogger(__name__)
+  now = perf_counter()
+  logger.info("Getting chunk...")
+  result = Utterances({k: utterances[k] for k in chunked_keys})
+  result.language = utterances.language
+  result.symbol_format = utterances.symbol_format
+  duration = perf_counter() - now
+  logger.info(f"Done. Duration: {duration:.2f}s.")
+  return result
+
+
 def remove_utterances_with_acronyms(utterances: Utterances, selection: Selection) -> None:
   logger = getLogger(__name__)
-  tqdm_steps = 4
-  chunksize = min(round(len(utterances) / DEFAULT_N_JOBS / tqdm_steps), 100)
-  chunksize = 1
-  logger.info(f"Assigning {chunksize} utterances to each processor core.")
+  outer_chunk_size = 5000000
+  mp_steps = 3
+  chunksize = round(outer_chunk_size / DEFAULT_N_JOBS / mp_steps)
+  logger.info(f"Assigning {chunksize} utterances to {DEFAULT_N_JOBS} processor cores.")
+  remove: OrderedSet[UtteranceId] = OrderedSet()
+  logger.info("Chunking utterances...")
+  chunked_keys = get_chunked_dict_keys(utterances, chunk_size=outer_chunk_size)
+  logger.info("Done.")
+  for chunk_nr, keys_chunk in tqdm(enumerate(chunked_keys, start=1)):
+    logger.info(f"Running chunk {chunk_nr} of {len(chunked_keys)}...")
+    chunk_utterances = get_chunk(utterances, keys_chunk)
+    with ProcessPoolExecutor(max_workers=DEFAULT_N_JOBS) as ex:
+      res: Dict[int, bool] = dict(
+          tqdm(ex.map(__check_utterance_contain_acronyms, chunk_utterances.items(), chunksize=chunksize), total=len(chunk_utterances)))
 
-  with ProcessPoolExecutor(max_workers=DEFAULT_N_JOBS) as ex:
-    res: Dict[int, bool] = dict(
-        tqdm(ex.map(__check_utterance_contain_acronyms, utterances.items(), chunksize=chunksize), total=len(utterances)))
-
-  remove: OrderedSet[UtteranceId] = OrderedSet(
-    [utterance_id for utterance_id, dont_include in res.items() if dont_include]
-  )
-
+    chunk_remove: OrderedSet[UtteranceId] = OrderedSet(
+      [utterance_id for utterance_id, dont_include in res.items() if dont_include]
+    )
+    remove |= chunk_remove
+    logger.info(f"Done with chunk {chunk_nr}.")
   __remove_utterances_and_selection_with_logging(remove, utterances, selection)
 
 
