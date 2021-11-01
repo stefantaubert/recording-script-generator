@@ -630,7 +630,7 @@ def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_nam
   method = partial(
     select_kld_ngrams_duration,
     n_gram=n_gram,
-    minutes=minutes,
+    minutes=minutes, 
     ignore_symbols=ignore_symbols,
     utterance_durations_s=utterance_durations_s,
     boundary=(boundary_min_s, boundary_max_s),
