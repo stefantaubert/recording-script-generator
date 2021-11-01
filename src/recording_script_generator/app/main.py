@@ -15,9 +15,11 @@ from recording_script_generator.core.export import (SortingMode,
 from recording_script_generator.core.main import (
     ReadingPassages, Representations, Selection, Utterances,
     add_corpus_from_text_files, add_corpus_from_texts, change_ipa, change_text,
-    convert_eng_passages_to_arpa, deselect_all_utterances, map_passages_to_ipa,
-    merge, normalize, remove_deselected, remove_duplicate_utterances,
-    remove_utterances_with_acronyms, remove_utterances_with_proper_names,
+    convert_eng_passages_to_arpa, deselect_all_utterances,
+    get_utterance_durations_based_on_symbols, map_passages_to_ipa, merge,
+    normalize, remove_deselected, remove_duplicate_utterances,
+    remove_non_existent_utterances, remove_utterances_with_acronyms,
+    remove_utterances_with_proper_names,
     remove_utterances_with_too_seldom_words,
     remove_utterances_with_undesired_sentence_lengths,
     remove_utterances_with_undesired_text,
@@ -397,6 +399,23 @@ def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, target: Pr
     else:
       assert False
 
+    if target == PreparationTarget.BOTH:
+      pass
+    elif target == PreparationTarget.REPRESENTATIONS:
+      logger.info("Updating reading passages...")
+      reading_passages = load_reading_passages(in_step_dir)
+      remove_non_existent_utterances(utterances, reading_passages)
+      save_reading_passages(out_step_dir, reading_passages)
+      logger.info("Done.")
+    elif target == PreparationTarget.READING_PASSAGES:
+      logger.info("Updating representations...")
+      representations = load_representations(in_step_dir)
+      remove_non_existent_utterances(utterances, representations)
+      save_representations(out_step_dir, representations)
+      logger.info("Done.")
+    else:
+      assert False
+
 
 def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
@@ -579,29 +598,41 @@ def app_select_greedy_ngrams_epochs(base_dir: Path, corpus_name: str, in_step_na
 def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with Greedy...")
+  
+  corpus_dir = get_corpus_dir(base_dir, corpus_name)
+  in_step_dir = get_step_dir(corpus_dir, in_step_name)
+  reading_passages = load_reading_passages(in_step_dir)
+  utterance_durations_s = get_utterance_durations_based_on_symbols(reading_passages, reading_speed_chars_per_s)
+
   method = partial(
     select_greedy_ngrams_duration,
     n_gram=n_gram,
     ignore_symbols=ignore_symbols,
     minutes=minutes,
     reading_speed_chars_per_s=reading_speed_chars_per_s,
+    utterance_durations_s=utterance_durations_s,
     mode=SelectionMode.SHORTEST,
   )
-
+  
   target = PreparationTarget.REPRESENTATIONS
-
   __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
 def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Set[Symbol] = DEFAULT_IGNORE, boundary_min_s: float = DEFAULT_SPLIT_BOUNDARY_MIN_S, boundary_max_s: float = DEFAULT_SPLIT_BOUNDARY_MAX_S, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with KLD...")
+  
+  corpus_dir = get_corpus_dir(base_dir, corpus_name)
+  in_step_dir = get_step_dir(corpus_dir, in_step_name)
+  reading_passages = load_reading_passages(in_step_dir)
+  utterance_durations_s = get_utterance_durations_based_on_symbols(reading_passages, reading_speed_chars_per_s)
+
   method = partial(
     select_kld_ngrams_duration,
     n_gram=n_gram,
     minutes=minutes,
-    reading_speed_chars_per_s=reading_speed_chars_per_s,
     ignore_symbols=ignore_symbols,
+    utterance_durations_s=utterance_durations_s,
     boundary=(boundary_min_s, boundary_max_s),
   )
 

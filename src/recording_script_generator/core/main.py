@@ -120,6 +120,9 @@ def add_corpus_from_texts(texts: List[str], lang: Language, text_format: SymbolF
 
   return selection, reading_passages, representations
 
+def remove_non_existent_utterances(utterances: Utterances, target: Utterances)-> None:
+  utterance_ids_to_remove = set(target.keys()) - set(utterances.keys())
+  __remove_utterances_with_logging(utterance_ids_to_remove, target)
 
 def return_input_too(inp: Any, method: Callable[[Any], Any]) -> Tuple[Any, Any]:
   return inp, method(inp)
