@@ -7,7 +7,7 @@ from typing import Tuple
 import numpy as np
 from ordered_set import OrderedSet
 from pandas import DataFrame
-from recording_script_generator.core.main import Metadata, Passages, SentenceId
+from recording_script_generator.core.main import Selection, Utterances, UtteranceId
 from text_utils import Symbols, get_ngrams
 
 
@@ -26,7 +26,7 @@ def get_ngram_stats_percent(ngram_stats_count: Tuple[int, ...]) -> Tuple[float, 
   return ngram_stats_percent
 
 
-def get_n_gram_stats_df(data: Dict[SentenceId, Symbols], selected: OrderedSet[SentenceId], n: int) -> DataFrame:
+def get_n_gram_stats_df(data: Dict[UtteranceId, Symbols], selected: OrderedSet[UtteranceId], n: int) -> DataFrame:
   columns = [
     f"{n}-gram",
     "Selected #",
@@ -129,7 +129,7 @@ def _log_distribution(distribution: OrderedDictType[int, float]) -> None:
     logger.info(f"{step_duration:.0f}s: {step_occurrences} ({current_length/total_length*100:.2f}%) ({current_summed_lengths/total_length*100:.2f}%)")
 
 
-def log_general_stats(metadata: Metadata, data: Passages, avg_chars_per_s: float) -> None:
+def log_general_stats(selection: Selection, data: Utterances, avg_chars_per_s: float) -> None:
   assert avg_chars_per_s > 0
   logger = getLogger(__name__)
 
