@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Callable
 
 from general_utils import parse_set, parse_tuple_list
-from text_utils import EngToIPAMode, Language
+from text_utils import Language
 from text_utils.symbol_format import SymbolFormat
 
 from recording_script_generator.app.main import (
@@ -174,6 +174,8 @@ def init_select_from_tex_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True)
   parser.add_argument('--in_step_name', type=str, required=True)
   parser.add_argument('--out_step_name', type=str, required=False)
+  parser.add_argument('--target', type=PreparationTarget.__getitem__,
+                      choices=PreparationTarget, required=True, help=TARGET_HELP)
   parser.add_argument('--overwrite', action='store_true')
   return app_select_from_tex
 
@@ -303,6 +305,8 @@ def init_select_greedy_ngrams_epochs_parser(parser: ArgumentParser):
                       help=OUT_STEP_NAME_HELP)
   parser.add_argument('--overwrite', action='store_true',
                       help=OVERWRITE_HELP)
+  parser.add_argument('--target', type=PreparationTarget.__getitem__,
+                      choices=PreparationTarget, required=True, help=TARGET_HELP)
   return _app_select_greedy_ngrams_epochs_cli
 
 

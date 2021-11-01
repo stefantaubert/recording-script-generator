@@ -1,4 +1,3 @@
-import os
 from enum import IntEnum
 from functools import partial
 from logging import getLogger
@@ -7,8 +6,7 @@ from shutil import rmtree
 from typing import Callable, List, Optional, Set, Tuple
 
 from general_utils import load_obj, save_obj
-from general_utils.main import (get_all_files_in_all_subfolders, get_filepaths,
-                                get_subfolders)
+from general_utils.main import get_all_files_in_all_subfolders
 from recording_script_generator.core.export import (SortingMode,
                                                     df_to_consecutive_txt,
                                                     df_to_tex, df_to_txt,
@@ -17,30 +15,26 @@ from recording_script_generator.core.export import (SortingMode,
 from recording_script_generator.core.main import (
     ReadingPassages, Representations, Selection, Utterances,
     add_corpus_from_text_files, add_corpus_from_texts, change_ipa, change_text,
-    convert_eng_to_arpa, deselect_all_utterances, map_to_ipa, merge, normalize,
-    remove_deselected, remove_duplicate_utterances,
+    convert_eng_passages_to_arpa, deselect_all_utterances, map_passages_to_ipa,
+    merge, normalize, remove_deselected, remove_duplicate_utterances,
     remove_utterances_with_acronyms, remove_utterances_with_proper_names,
     remove_utterances_with_too_seldom_words,
     remove_utterances_with_undesired_sentence_lengths,
     remove_utterances_with_undesired_text,
     remove_utterances_with_unknown_words, select_all_utterances,
     select_from_tex, select_greedy_ngrams_duration,
-    select_greedy_ngrams_epochs, select_kld_ngrams_duration,
-    select_kld_ngrams_iterations)
+    select_greedy_ngrams_epochs, select_kld_ngrams_duration)
 from recording_script_generator.core.stats import (get_n_gram_stats_df,
                                                    log_general_stats)
 from recording_script_generator.globals import (DEFAULT_AVG_CHARS_PER_S,
                                                 DEFAULT_IGNORE, DEFAULT_SEED,
-                                                DEFAULT_SORTING_MODE,
                                                 DEFAULT_SPLIT_BOUNDARY_MAX_S,
                                                 DEFAULT_SPLIT_BOUNDARY_MIN_S,
                                                 SEP)
 from text_selection.selection import SelectionMode
 from text_utils import Language
-from text_utils.pronunciation.main import EngToIPAMode
 from text_utils.symbol_format import SymbolFormat
 from text_utils.types import Symbol
-from tqdm import tqdm
 
 READING_PASSAGES_DATA_FILE = "reading_passages.pkl"
 REPRESENTATIONS_DATA_FILE = "representations.pkl"
@@ -128,37 +122,40 @@ def save_selection(step_dir: Path, selection: Selection) -> None:
   return None
 
 
-def _save_stats_df(step_dir: Path, selection: Selection, data: Utterances) -> None:
+def _save_stats_df(step_dir: Path, selection: Selection, representations: Representations) -> None:
   logger = getLogger(__name__)
   logger.info("Getting 1-gram stats...")
-  one_gram_repr_stats = get_n_gram_stats_df(data.representations, data.selected, n=1)
+  one_gram_repr_stats = get_n_gram_stats_df(representations, selection, n=1)
   one_gram_repr_stats.to_csv(step_dir / ONE_GRAM_STATS_CSV_FILENAME,
                              sep=SEP, header=True, index=False)
 
   logger.info("Getting 2-gram stats...")
-  two_gram_repr_stats = get_n_gram_stats_df(data.representations, data.selected, n=2)
+  two_gram_repr_stats = get_n_gram_stats_df(representations, selection, n=2)
   two_gram_repr_stats.to_csv(step_dir / TWO_GRAM_STATS_CSV_FILENAME,
                              sep=SEP, header=True, index=False)
 
   logger.info("Getting 3-gram stats...")
-  three_gram_repr_stats = get_n_gram_stats_df(data.representations, data.selected, n=3)
+  three_gram_repr_stats = get_n_gram_stats_df(representations, selection, n=3)
   three_gram_repr_stats.to_csv(step_dir / THREE_GRAM_STATS_CSV_FILENAME,
                                sep=SEP, header=True, index=False)
   logger.info("Done.")
 
 
-def _save_scripts(step_dir: Path, selection: Selection, data: Utterances, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[str]] = DEFAULT_IGNORE, parts_count: Optional[int] = None, take_per_part: Optional[int] = None) -> None:
+def _save_scripts(step_dir: Path, reading_passages: ReadingPassages, representations: Representations, selection: Selection, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[str]] = DEFAULT_IGNORE, parts_count: Optional[int] = None, take_per_part: Optional[int] = None) -> None:
   logger = getLogger(__name__)
   logger.info("Saving scripts...")
 
   selected_df, rest_df = get_reading_scripts(
-    data=data,
+    reading_passages=reading_passages,
+    representations=representations,
+    selection=selection,
     mode=sorting_mode,
     seed=seed,
     ignore_symbols=ignore_symbols,
     parts_count=parts_count,
     take_per_part=take_per_part,
   )
+
   selected_df.to_csv(step_dir / SELECTED_FILENAME, sep=SEP, header=True, index=False)
   rest_df.to_csv(step_dir / REST_FILENAME, sep=SEP, header=True, index=False)
   (step_dir / SELECTED_TXT_FILENAME).write_text(df_to_txt(selected_df))
@@ -232,7 +229,7 @@ def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, t
     return
 
   selection, reading_passages, representations = add_corpus_from_texts(
-    text=text,
+    texts=[text],
     lang=lang,
     text_format=text_format,
   )
@@ -263,10 +260,18 @@ def app_log_stats(base_dir: Path, corpus_name: str, step_name: str, reading_spee
     logger.info("Step does not exist.")
     return
 
-  data = load_corpus(step_dir)
+  selection = load_selection(step_dir)
+  reading_passages = load_reading_passages(step_dir)
+  representations = load_representations(step_dir)
 
-  log_general_stats(data, reading_speed_chars_per_s)
-  _save_stats_df(step_dir, data)
+  log_general_stats(
+    reading_passages=reading_passages,
+    representations=representations,
+    selection=selection,
+    avg_chars_per_s=reading_speed_chars_per_s,
+  )
+
+  _save_stats_df(step_dir, selection, representations)
 
 
 def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[Symbol]] = DEFAULT_IGNORE, parts_count: Optional[int] = None, take_per_part: Optional[int] = None) -> None:
@@ -283,9 +288,21 @@ def app_generate_scripts(base_dir: Path, corpus_name: str, step_name: str, sorti
     logger.info("Step does not exist.")
     return
 
-  data = load_corpus(step_dir)
+  selection = load_selection(step_dir)
+  reading_passages = load_reading_passages(step_dir)
+  representations = load_representations(step_dir)
 
-  _save_scripts(step_dir, data, sorting_mode, seed, ignore_symbols, parts_count, take_per_part)
+  _save_scripts(
+    reading_passages=reading_passages,
+    representations=representations,
+    selection=selection,
+    step_dir=step_dir,
+    sorting_mode=sorting_mode,
+    seed=seed,
+    ignore_symbols=ignore_symbols,
+    parts_count=parts_count,
+    take_per_part=take_per_part,
+  )
 
 
 def app_merge(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_corpus_name: str, out_step_name: str, overwrite: bool = False):
@@ -307,10 +324,13 @@ def app_merge(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_cor
       logger.error("In step dir does not exist!")
       return
 
-    data = load_corpus(in_step_dir)
-    data_to_merge.append(data)
+    selection = load_selection(in_step_dir)
+    reading_passages = load_reading_passages(in_step_dir)
+    representations = load_representations(in_step_dir)
 
-  merged_data = merge(data_to_merge)
+    data_to_merge.append((selection, reading_passages, representations))
+
+  merged_selection, merged_reading_passages, merged_representations = merge(data_to_merge)
 
   if out_corpus_dir.exists():
     assert overwrite
@@ -319,8 +339,9 @@ def app_merge(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_cor
 
   out_corpus_dir.mkdir(parents=True, exist_ok=False)
   out_step_dir = get_step_dir(out_corpus_dir, out_step_name)
-  out_step_dir.mkdir(parents=False, exist_ok=False)
-  save_corpus(out_step_dir, merged_data)
+  save_selection(out_step_dir, merged_selection)
+  save_reading_passages(out_step_dir, merged_reading_passages)
+  save_representations(out_step_dir, merged_representations)
 
 
 def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str], overwrite: bool, method: Callable[[Utterances, Selection], None]):
@@ -380,34 +401,21 @@ def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, target: Pr
 def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Normalizing...")
-  method = partial(
-    normalize,
-    target=target,
-  )
-
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, normalize)
 
 
 def app_convert_to_arpa(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Converting to ARPA...")
-  method = partial(
-    convert_eng_to_arpa,
-    target=target,
-  )
-
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  __alter_data(base_dir, corpus_name, in_step_name, target,
+               out_step_name, overwrite, convert_eng_passages_to_arpa)
 
 
 def app_map_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Mapping to IPA...")
-  method = partial(
-    map_to_ipa,
-    target=target,
-  )
-
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  __alter_data(base_dir, corpus_name, in_step_name, target,
+               out_step_name, overwrite, map_passages_to_ipa)
 
 
 def app_change_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, build_n_thongs: bool, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
@@ -415,7 +423,6 @@ def app_change_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: 
   logger.info("Changing IPA...")
   method = partial(
     change_ipa,
-    target=target,
     ignore_tones=ignore_tones,
     ignore_arcs=ignore_arcs,
     ignore_stress=ignore_stress,
@@ -423,7 +430,7 @@ def app_change_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: 
     build_n_thongs=build_n_thongs,
   )
 
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
 def app_change_text(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, remove_space_around_punctuation: bool, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
@@ -431,34 +438,29 @@ def app_change_text(base_dir: Path, corpus_name: str, in_step_name: str, target:
   logger.info("Changing IPA...")
   method = partial(
     change_text,
-    target=target,
     remove_space_around_punctuation=remove_space_around_punctuation,
   )
 
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
 def app_select_all(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting all...")
-  method = partial(
-    select_all_utterances,
-  )
-
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  target = PreparationTarget.REPRESENTATIONS
+  __alter_data(base_dir, corpus_name, in_step_name, target,
+               out_step_name, overwrite, select_all_utterances)
 
 
 def app_deselect_all(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Deselecting all...")
-  method = partial(
-    deselect_all_utterances,
-  )
-
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  target = PreparationTarget.REPRESENTATIONS
+  __alter_data(base_dir, corpus_name, in_step_name, target,
+               out_step_name, overwrite, deselect_all_utterances)
 
 
-def app_select_from_tex(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_select_from_tex(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting from tex...")
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
@@ -471,17 +473,15 @@ def app_select_from_tex(base_dir: Path, corpus_name: str, in_step_name: str, out
     tex=tex_content,
   )
 
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
 def app_remove_deselected(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing deselected...")
-  method = partial(
-    remove_deselected,
-  )
-
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  target = PreparationTarget.REPRESENTATIONS
+  __alter_data(base_dir, corpus_name, in_step_name, target,
+               out_step_name, overwrite, remove_deselected)
 
 
 def app_remove_undesired_text(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, undesired: Set[Symbol], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
@@ -489,40 +489,31 @@ def app_remove_undesired_text(base_dir: Path, corpus_name: str, in_step_name: st
   logger.info("Removing undesired text...")
   method = partial(
     remove_utterances_with_undesired_text,
-    target=target,
     undesired=undesired,
   )
 
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
 def app_remove_duplicate_utterances(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing duplicate utterances...")
-  method = partial(
-    remove_duplicate_utterances,
-    target=target,
-  )
-
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  __alter_data(base_dir, corpus_name, in_step_name, target,
+               out_step_name, overwrite, remove_duplicate_utterances)
 
 
 def app_remove_utterances_with_proper_names(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing utterances with proper names...")
-  method = partial(
-    remove_utterances_with_proper_names,
-    target=target,
-  )
-
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name,
+               overwrite, remove_utterances_with_proper_names)
 
 
 def app_remove_utterances_with_acronyms(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing utterances with acronyms...")
   __alter_data(base_dir, corpus_name, in_step_name, target,
-              out_step_name, overwrite, remove_utterances_with_acronyms)
+               out_step_name, overwrite, remove_utterances_with_acronyms)
 
 
 def app_remove_utterances_with_undesired_sentence_lengths(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, min_word_count: Optional[int] = None, max_word_count: Optional[int] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
@@ -530,12 +521,11 @@ def app_remove_utterances_with_undesired_sentence_lengths(base_dir: Path, corpus
   logger.info("Removing utterances with undesired word counts...")
   method = partial(
     remove_utterances_with_undesired_sentence_lengths,
-    target=target,
     min_word_count=min_word_count,
     max_word_count=max_word_count,
   )
 
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
 def app_remove_utterances_with_unknown_words(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, max_unknown_word_count: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
@@ -543,11 +533,10 @@ def app_remove_utterances_with_unknown_words(base_dir: Path, corpus_name: str, i
   logger.info("Removing utterances with to many unknown words...")
   method = partial(
     remove_utterances_with_unknown_words,
-    target=target,
     max_unknown_word_count=max_unknown_word_count,
   )
 
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
 def app_remove_utterances_with_too_seldom_words(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, min_occurrence_count: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
@@ -555,14 +544,13 @@ def app_remove_utterances_with_too_seldom_words(base_dir: Path, corpus_name: str
   logger.info("Removing utterances with too seldom words...")
   method = partial(
     remove_utterances_with_too_seldom_words,
-    target=target,
     min_occurrence_count=min_occurrence_count,
   )
 
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
-def app_select_greedy_ngrams_epochs(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, epochs: int, ignore_symbols: Optional[Set[Symbol]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_select_greedy_ngrams_epochs(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, epochs: int, ignore_symbols: Optional[Set[Symbol]], target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with Greedy...")
   method = partial(
@@ -572,7 +560,7 @@ def app_select_greedy_ngrams_epochs(base_dir: Path, corpus_name: str, in_step_na
     ignore_symbols=ignore_symbols,
   )
 
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
 # def app_select_kld_ngrams_iterations(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, iterations: int, ignore_symbols: Optional[Set[str]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
@@ -588,7 +576,7 @@ def app_select_greedy_ngrams_epochs(base_dir: Path, corpus_name: str, in_step_na
 #   _alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Optional[Set[Symbol]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with Greedy...")
   method = partial(
@@ -600,7 +588,9 @@ def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_
     mode=SelectionMode.SHORTEST,
   )
 
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  target = PreparationTarget.REPRESENTATIONS
+
+  __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
 def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Set[Symbol] = DEFAULT_IGNORE, boundary_min_s: float = DEFAULT_SPLIT_BOUNDARY_MIN_S, boundary_max_s: float = DEFAULT_SPLIT_BOUNDARY_MAX_S, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
@@ -615,7 +605,8 @@ def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_nam
     boundary=(boundary_min_s, boundary_max_s),
   )
 
-  __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
+  target = PreparationTarget.REPRESENTATIONS
+  __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
 def app_generate_textgrid(base_dir: Path, corpus_name: str, step_name: str, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S) -> None:
@@ -627,10 +618,12 @@ def app_generate_textgrid(base_dir: Path, corpus_name: str, step_name: str, read
   assert tex_path.exists()
   tex_content = tex_path.read_text()
 
-  data = load_corpus(step_dir)
+  reading_passages = load_reading_passages(step_dir)
+  representations = load_representations(step_dir)
 
   grid = generate_textgrid(
-    data=data,
+    reading_passages=reading_passages,
+    representations=representations,
     tex=tex_content,
     reading_speed_chars_per_s=reading_speed_chars_per_s,
   )
