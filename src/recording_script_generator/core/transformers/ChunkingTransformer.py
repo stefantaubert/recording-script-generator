@@ -45,6 +45,8 @@ class ChunkingTransformer():
 
   def transform(self, utterances: Utterances, chunksize: int) -> List[Utterances]:
     logger = getLogger(__name__)
+    if len(utterances) <= chunksize:
+      return [utterances]
     logger.info("Chunking utterances...")
     chunked_keys = get_chunked_dict_keys(utterances, chunk_size=chunksize)
     logger.info("Done.")

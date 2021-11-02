@@ -1,7 +1,7 @@
 from enum import IntEnum
 from functools import partial
 from logging import getLogger
-from multiprocessing import cpu_count
+from multiprocessing import Manager, cpu_count
 from pathlib import Path
 from shutil import rmtree
 from time import perf_counter
@@ -28,7 +28,8 @@ from recording_script_generator.core.main import (
     remove_utterances_with_unknown_words, select_all_utterances,
     select_from_tex, select_greedy_ngrams_duration,
     select_greedy_ngrams_epochs, select_kld_ngrams_duration)
-from recording_script_generator.core.preprocessing_pipeline import do_pipeline
+from recording_script_generator.core.preprocessing_pipeline import (
+    do_pipeline, do_pipeline_v2)
 from recording_script_generator.core.stats import (get_n_gram_stats_df,
                                                    log_general_stats)
 from recording_script_generator.globals import (DEFAULT_AVG_CHARS_PER_S,
@@ -362,14 +363,28 @@ def app_merge(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_cor
   save_representations(out_step_dir, merged_representations)
 
 
-def app_do_pipeline(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: str, chunksize: int, n_jobs: int, overwrite: bool) -> None:
+def app_do_pipeline(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: str, chunksize_inner: int, chunksize_outer: int, n_jobs: int, overwrite: bool) -> None:
   logger = getLogger(__name__)
   method = partial(
     do_pipeline,
     n_jobs=n_jobs,
-    chunksize=chunksize,
+    chunksize_outer=chunksize_outer,
+    chunksize_inner=chunksize_inner,
   )
 
+  __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
+
+
+def app_do_pipeline_v2(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: str, chunksize_inner: int, chunksize_outer: int, n_jobs: int, overwrite: bool) -> None:
+  logger = getLogger(__name__)
+  method = partial(
+    do_pipeline_v2,
+    n_jobs=n_jobs,
+    language=Language.ENG,
+    symbol_format=SymbolFormat.GRAPHEMES,
+    chunksize_inner=chunksize_inner,
+  )
+  
   __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
