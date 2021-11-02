@@ -56,10 +56,11 @@ def read_textfile(path: Path) -> str:
   return content
 
 
-def add_corpus_from_text_files(files: Set[Path], lang: Language, text_format: SymbolFormat) -> Tuple[Selection, ReadingPassages, Representations]:
+def add_corpus_from_text_files(files: Set[Path], lang: Language, text_format: SymbolFormat, limit: Optional[int]) -> Tuple[Selection, ReadingPassages, Representations]:
   logger = getLogger(__name__)
   logger.info("Reading text files...")
-  #files = set(list(files)[:5])
+  if limit is not None:
+    files = set(list(files)[:limit])
   with ThreadPoolExecutor(max_workers=DEFAULT_N_JOBS) as ex:
     res = list(tqdm(ex.map(read_textfile, files), total=len(files)))
   logger.info("Done.")
@@ -380,11 +381,6 @@ def __check_utterance_contain_acronyms(utterance_tuple: Tuple[int, Symbols]) -> 
   return utterance_id, result
 
 
-def group_elements(lst, chunk_size):
-  lst = iter(lst)
-  return iter(lambda: tuple(islice(lst, chunk_size)), ())
-
-
 def get_chunked_dict_keys(dictionary: OrderedDictType[Any, Any], chunk_size: int) -> OrderedSet[Any]:
   logger = getLogger(__name__)
   logger.info("Creating chunks...")
@@ -422,6 +418,7 @@ def remove_utterances_with_acronyms(utterances: Utterances, selection: Selection
   logger.info("Chunking utterances...")
   chunked_keys = get_chunked_dict_keys(utterances, chunk_size=outer_chunk_size)
   logger.info("Done.")
+
   for chunk_nr, keys_chunk in tqdm(enumerate(chunked_keys, start=1)):
     logger.info(f"Running chunk {chunk_nr} of {len(chunked_keys)}...")
     chunk_utterances = get_chunk(utterances, keys_chunk)

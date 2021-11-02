@@ -1,6 +1,7 @@
 from enum import IntEnum
 from functools import partial
 from logging import getLogger
+from multiprocessing import cpu_count
 from pathlib import Path
 from shutil import rmtree
 from time import perf_counter
@@ -27,6 +28,7 @@ from recording_script_generator.core.main import (
     remove_utterances_with_unknown_words, select_all_utterances,
     select_from_tex, select_greedy_ngrams_duration,
     select_greedy_ngrams_epochs, select_kld_ngrams_duration)
+from recording_script_generator.core.preprocessing_pipeline import do_pipeline
 from recording_script_generator.core.stats import (get_n_gram_stats_df,
                                                    log_general_stats)
 from recording_script_generator.globals import (DEFAULT_AVG_CHARS_PER_S,
@@ -103,7 +105,8 @@ def save_reading_passages(step_dir: Path, reading_passages: ReadingPassages) -> 
     path=step_dir / READING_PASSAGES_DATA_FILE,
     obj=reading_passages,
   )
-  logger.info(f"Done. Saved {len(reading_passages)} reading passages in {perf_counter() - start:.2f}s.")
+  logger.info(
+    f"Done. Saved {len(reading_passages)} reading passages in {perf_counter() - start:.2f}s.")
 
   return None
 
@@ -117,7 +120,8 @@ def save_representations(step_dir: Path, representations: Representations) -> No
     path=step_dir / REPRESENTATIONS_DATA_FILE,
     obj=representations,
   )
-  logger.info(f"Done. Saved {len(representations)} representations in {perf_counter() - start:.2f}s.")
+  logger.info(
+    f"Done. Saved {len(representations)} representations in {perf_counter() - start:.2f}s.")
 
   return None
 
@@ -194,7 +198,7 @@ def app_add_corpus_from_text_file(base_dir: Path, corpus_name: str, step_name: s
   app_add_corpus_from_text(base_dir, corpus_name, step_name, text, lang, text_format, overwrite)
 
 
-def app_add_corpus_from_text_files(base_dir: Path, corpus_name: str, step_name: str, text_dir: Path, lang: Language, text_format: SymbolFormat, overwrite: bool = False) -> None:
+def app_add_corpus_from_text_files(base_dir: Path, corpus_name: str, step_name: str, text_dir: Path, lang: Language, text_format: SymbolFormat, limit: Optional[int], overwrite: bool = False) -> None:
   logger = getLogger(__name__)
 
   if not text_dir.is_dir():
@@ -218,6 +222,7 @@ def app_add_corpus_from_text_files(base_dir: Path, corpus_name: str, step_name: 
     files=all_txt_files,
     lang=lang,
     text_format=text_format,
+    limit=limit,
   )
 
   if corpus_dir.exists():
@@ -355,6 +360,17 @@ def app_merge(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_cor
   save_selection(out_step_dir, merged_selection)
   save_reading_passages(out_step_dir, merged_reading_passages)
   save_representations(out_step_dir, merged_representations)
+
+
+def app_do_pipeline(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: str, chunksize: int, n_jobs: int, overwrite: bool) -> None:
+  logger = getLogger(__name__)
+  method = partial(
+    do_pipeline,
+    n_jobs=n_jobs,
+    chunksize=chunksize,
+  )
+
+  __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
 def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str], overwrite: bool, method: Callable[[Utterances, Selection], None]):

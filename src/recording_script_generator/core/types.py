@@ -1,5 +1,6 @@
 from enum import IntEnum
 from typing import OrderedDict as OrderedDictType
+from typing import Tuple
 
 from ordered_set import OrderedSet
 from text_utils import Language, Symbol, SymbolFormat, Symbols
@@ -11,6 +12,8 @@ class Mode(IntEnum):
 
 
 UtteranceId = int
+
+Utterance = Tuple[UtteranceId, Symbols]
 
 
 class Utterances(OrderedDictType[UtteranceId, Symbols]):
