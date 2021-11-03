@@ -1,13 +1,18 @@
 import itertools
+import multiprocessing
+import sys
+import traceback
 from collections import OrderedDict
 from concurrent.futures import Future
 from concurrent.futures.process import ProcessPoolExecutor
 from functools import partial
 from logging import getLogger
-from multiprocessing import Manager, managers, synchronize
+from multiprocessing import Manager, Pool, managers, synchronize
 from multiprocessing.managers import SyncManager
+from multiprocessing.pool import RemoteTraceback
+from multiprocessing.sharedctypes import RawValue
 from sys import getsizeof
-from time import sleep
+from time import perf_counter, sleep
 from typing import Any, Dict, List, Tuple, cast
 
 from recording_script_generator.core.estimators.AcronymEstimator import \
@@ -30,7 +35,7 @@ from tqdm import tqdm
 
 def chunk_pipeline_v2(utterance_id: UtteranceId, utterances: Utterances, language: Language, symbol_format: SymbolFormat):
   logger = getLogger(__name__)
-
+  assert utterance_id in utterances
   symbols = utterances[utterance_id]
   utterance = utterance_id, symbols
   #logger.info(f"start: {utterance_id}")
@@ -46,6 +51,36 @@ def chunk_pipeline_v2(utterance_id: UtteranceId, utterances: Utterances, languag
   remove = False
 
   remove = acronym_estimator.estimate(utterance)
+
+  #logger.info(f"end: {utterance_id}")
+  utterance_id, _ = utterance
+  return utterance_id, remove
+
+
+utterances: Dict[UtteranceId, Symbols]
+
+
+def chunk_pipeline_v3(utterance_id: UtteranceId, language: Language, symbol_format: SymbolFormat):
+  # logger = getLogger(__name__)
+  global utterances
+  assert utterance_id in utterances
+  symbols = utterances[utterance_id]
+  utterance = utterance_id, symbols
+  #logger.info(f"start: {utterance_id}")
+  #utterances = Utterances(zip(*chunk))
+  #utterances.language = language
+  #utterances.symbol_format = symbol_format
+
+  #logger.info("restored input")
+  # sleep(3)
+
+  acronym_estimator = AcronymEstimator()
+  #remove_transformer = RemoveTransformer()
+  remove = False
+
+  remove = acronym_estimator.estimate(utterance)
+  del acronym_estimator
+  del symbols
 
   #logger.info(f"end: {utterance_id}")
   utterance_id, _ = utterance
@@ -84,6 +119,24 @@ def _get_chunks(*iterables, chunksize):
     yield chunk
 
 
+def handle_error(exception: Exception) -> None:
+  logger = getLogger(__name__)
+  #tb = sys.exc_info()
+  # traceback.print_stack()
+  # print(traceback.format_exc())
+  logger.exception(exception)
+  remote_traceback = cast(RemoteTraceback, exception.__cause__)
+  logger.info(remote_traceback.tb)
+  pass
+
+
+def init_pool(utts: Utterances):
+  global utterances
+  utterances = utts
+  # print(utts[0])
+  pass
+
+
 def do_pipeline_v2(utterances: Dict[UtteranceId, Symbols], selection: Selection, language: Language, symbol_format: SymbolFormat, n_jobs: int, chunksize_inner: int):
   logger = getLogger(__name__)
   acronym_estimator = AcronymEstimator()
@@ -97,15 +150,58 @@ def do_pipeline_v2(utterances: Dict[UtteranceId, Symbols], selection: Selection,
   remove_transformer.fit()
   dechunking_tranformer.fit()
   remove_selection_transformer.fit()
-  logger.info(f"Size of utterances: {getsizeof(utterances)}")
+
+  logger.info(f"Size of utterances: {getsizeof(utterances)/1024**3:.2f} Gb")
+
+  method = partial(
+    chunk_pipeline_v3,
+    language=language,
+    symbol_format=symbol_format
+  )
+
+  keys = utterances.keys()
+
+  transformed_utterances = dict()
+
+  with Pool(
+      processes=n_jobs,
+      initializer=init_pool,
+      initargs=(utterances,),
+      maxtasksperchild=1,
+    ) as pool:
+    start = perf_counter()
+    # transformed_utterances: List[Any] = dict(tqdm(
+    #   pool.imap_unordered(method, keys, chunksize=chunksize_inner),
+    #   total=len(keys),
+    # ))
+
+    with tqdm(total=len(keys)) as pbar:
+      iterator = pool.imap_unordered(method, keys, chunksize=chunksize_inner)
+      for utterance_id, include in iterator:
+        transformed_utterances[utterance_id] = include
+        pbar.update()
+    logger.info(f"Duration: {perf_counter() - start:.2f}s")
+
+  with ProcessPoolExecutor(max_workers=n_jobs, initializer=init_pool, initargs=(utterances,)) as ex:
+    start = perf_counter()
+    transformed_utterances: Dict[UtteranceId, Symbols] = dict(tqdm(
+      ex.map(method, keys, chunksize=chunksize_inner),
+      total=len(keys),
+    ))
+    logger.info(f"Duration: {perf_counter() - start:.2f}s")
+
   with Manager() as manager:
     manager = cast(SyncManager, manager)
     # ignore order
     #x = manager.list(list(utterances.items()))
-    d = manager.dict({k: v for k, v in utterances.items()})
-    #manager.Array()
-    logger.info(f"Size of utterances in manager: {getsizeof(d)}")
-    del utterances
+    logger.info("Preparing multiprocessing...")
+    start = perf_counter()
+    #d = manager.dict({k: v for k, v in utterances.items()})
+    d = manager.dict(utterances)
+
+    logger.info(f"Duration: {perf_counter() - start:.2f}s")
+    # manager.Array()
+    #del utterances
 
     method = partial(
       chunk_pipeline_v2,
@@ -114,13 +210,44 @@ def do_pipeline_v2(utterances: Dict[UtteranceId, Symbols], selection: Selection,
       symbol_format=symbol_format
     )
 
-    utterance_ids = list(d.keys())
+    # utterance_ids = list(d.keys())
+
+    transformed_utterances = list()
+
+    with Pool(processes=n_jobs, initializer=init_pool, initargs=(utterances,)) as pool:
+      start = perf_counter()
+
+      transformed_utterances: List[Any] = list(tqdm(
+        pool.imap_unordered(method, d.keys(), chunksize=chunksize_inner),
+        total=len(d),
+      ))
+      logger.info(f"Duration: {perf_counter() - start:.2f}s")
 
     with ProcessPoolExecutor(max_workers=n_jobs) as ex:
-      transformed_utterances: List[Any] = dict(tqdm(
-        ex.map(method, utterance_ids, chunksize=chunksize_inner),
-        total=len(utterance_ids)
+      start = perf_counter()
+      transformed_utterances: List[Any] = list(tqdm(
+        ex.map(method, d.keys(), chunksize=chunksize_inner),
+        total=len(d)
       ))
+      logger.info(f"Duration: {perf_counter() - start:.2f}s")
+
+      # map_result = pool.map_async(
+      #   func=method,
+      #   iterable=d.keys(),
+      #   chunksize=chunksize_inner,
+      #     error_callback=handle_error
+      # )
+      # logger.info("All started...")
+      # map_result.wait()
+      # transformed_utterances = map_result.get()
+
+      # logger.info(transformed_utterances)
+      # with tqdm(total=len(d)) as pbar:
+      #   iterator = pool.imap_unordered(method, d.keys(), chunksize=chunksize_inner)
+      #   for utterance_id, include in iterator:
+      #     transformed_utterances[utterance_id] = include
+      #     pbar.update()
+      # x = transformed_utterances
     return transformed_utterances
 
 
