@@ -13,14 +13,10 @@ from typing import Any, Dict, List, Tuple, cast
 
 from recording_script_generator.core.estimators.AcronymEstimator import \
     AcronymEstimator
-from recording_script_generator.core.transformers.ChunkingTransformer import \
-    ChunkingTransformer
-from recording_script_generator.core.transformers.DechunkingTransformer import \
-    DechunkingTransformer
 from recording_script_generator.core.transformers.RemoveSelectionTransformer import \
     RemoveSelectionTransformer
-from recording_script_generator.core.transformers.RemoveTransformer import \
-    RemoveTransformer
+from recording_script_generator.core.transformers.RemoveUtterancesTransformer import \
+    RemoveUtterancesTransformer
 from recording_script_generator.core.types import (Selection, Utterance,
                                                    UtteranceId, Utterances)
 from text_utils.language import Language
@@ -62,14 +58,10 @@ def init_pool(utts: Utterances):
 def do_pipeline(utterances: Utterances, selection: Selection, n_jobs: int, chunksize: int, maxtasksperchild: int):
   logger = getLogger(__name__)
   acronym_estimator = AcronymEstimator()
-  remove_transformer = RemoveTransformer()
-  chunking_transformer = ChunkingTransformer()
-  dechunking_tranformer = DechunkingTransformer()
+  remove_transformer = RemoveUtterancesTransformer()
   remove_selection_transformer = RemoveSelectionTransformer()
 
-  chunking_transformer.fit()
   remove_transformer.fit()
-  dechunking_tranformer.fit()
   remove_selection_transformer.fit()
 
   logger.info(f"Size of utterances in memory: {getsizeof(utterances)/1024**3:.2f} Gb")

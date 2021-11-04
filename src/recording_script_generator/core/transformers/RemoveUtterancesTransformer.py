@@ -36,7 +36,7 @@ def remove_utterances_with_logging(utterance_ids: Set[UtteranceId], utterances: 
   return result
 
 
-class RemoveTransformer():
+class RemoveUtterancesTransformer():
   def fit(self):
     pass
 
