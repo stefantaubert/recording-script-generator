@@ -4,6 +4,7 @@ from logging import getLogger
 from multiprocessing import Manager, cpu_count
 from pathlib import Path
 from shutil import rmtree
+from sys import getsizeof
 from time import perf_counter
 from typing import Callable, List, Optional, Set, Tuple
 
@@ -14,11 +15,13 @@ from recording_script_generator.core.export import (SortingMode,
                                                     df_to_tex, df_to_txt,
                                                     generate_textgrid,
                                                     get_reading_scripts)
-from recording_script_generator.core.main import (
-    ReadingPassages, Representations, Selection, Utterances,
-    add_corpus_from_text_files, add_corpus_from_texts,
-    get_utterance_durations_based_on_symbols, merge)
-from recording_script_generator.core.preprocessing_pipeline import do_pipeline
+from recording_script_generator.core.main import (ReadingPassages,
+                                                  Representations, Selection,
+                                                  Utterances,
+                                                  add_corpus_from_text_files,
+                                                  add_corpus_from_texts, merge)
+from recording_script_generator.core.preprocessing_pipeline import (
+    do_pipeline_prepare, do_pipeline_select)
 from recording_script_generator.core.stats import (get_n_gram_stats_df,
                                                    log_general_stats)
 from recording_script_generator.core.types import Utterance, UtteranceId
@@ -70,6 +73,7 @@ def load_reading_passages(step_dir: Path) -> ReadingPassages:
   start = perf_counter()
   res = load_obj(step_dir / READING_PASSAGES_DATA_FILE)
   logger.info(f"Done. Loaded {len(res)} reading passages in {perf_counter() - start:.2f}s.")
+  logger.info(f"Size of reading passages in memory: {getsizeof(res)/1024**3:.2f} Gb")
   return res
 
 
@@ -79,6 +83,7 @@ def load_representations(step_dir: Path) -> Representations:
   start = perf_counter()
   res = load_obj(step_dir / REPRESENTATIONS_DATA_FILE)
   logger.info(f"Done. Loaded {len(res)} representations in {perf_counter() - start:.2f}s.")
+  logger.info(f"Size of representations in memory: {getsizeof(res)/1024**3:.2f} Gb")
   return res
 
 
@@ -353,15 +358,26 @@ def app_merge(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_cor
   save_representations(out_step_dir, merged_representations)
 
 
-def app_do_pipeline(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: str, chunksize: int, maxtasksperchild: int, n_jobs: int, overwrite: bool) -> None:
+def app_do_pipeline_prepare(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: str, chunksize: int, maxtasksperchild: int, n_jobs: int, overwrite: bool) -> None:
   method = partial(
-    do_pipeline,
+    do_pipeline_prepare,
     n_jobs=n_jobs,
     chunksize=chunksize,
     maxtasksperchild=maxtasksperchild,
   )
 
-  __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
+  __execute_pipeline(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
+
+
+def app_do_pipeline_select(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: str, chunksize: int, maxtasksperchild: int, n_jobs: int, overwrite: bool) -> None:
+  method = partial(
+    do_pipeline_select,
+    n_jobs=n_jobs,
+    chunksize=chunksize,
+    maxtasksperchild=maxtasksperchild,
+  )
+
+  __execute_pipeline(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
 def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str], overwrite: bool, method: Callable[[Utterances, Selection], Tuple[Utterances, Selection]]):
@@ -411,7 +427,7 @@ def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, target: Pr
 
     save_selection(out_step_dir, selection)
     del selection
-    
+
     if prep_target == PreparationTarget.READING_PASSAGES:
       save_reading_passages(out_step_dir, utterances)
     elif prep_target == PreparationTarget.REPRESENTATIONS:
@@ -420,7 +436,7 @@ def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, target: Pr
       assert False
     keys = utterances.keys()
     del utterances
-    
+
     if target == PreparationTarget.BOTH:
       pass
     elif target == PreparationTarget.REPRESENTATIONS:
@@ -437,6 +453,44 @@ def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, target: Pr
       logger.info("Done.")
     else:
       assert False
+
+
+def __execute_pipeline(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str], overwrite: bool, method: Callable[[Utterances, Selection], Tuple[Utterances, Selection]]):
+  logger = getLogger(__name__)
+  corpus_dir = get_corpus_dir(base_dir, corpus_name)
+  in_step_dir = get_step_dir(corpus_dir, in_step_name)
+  if out_step_name is None:
+    out_step_dir = in_step_dir
+  else:
+    out_step_dir = get_step_dir(corpus_dir, out_step_name)
+
+  if not corpus_dir.exists():
+    logger.info("Corpus dir does not exists.")
+    return
+  if not in_step_dir.exists():
+    logger.info("In dir not exists.")
+    return
+  if out_step_dir.exists() and not overwrite:
+    logger.info("Already exists.")
+    return
+
+  selection = load_selection(in_step_dir)
+  reading_passages = load_reading_passages(in_step_dir)
+  representations = load_representations(in_step_dir)
+
+  reading_passages, representations, selection = method(
+    reading_passages, representations, selection)
+
+  if out_step_dir.exists():
+    assert overwrite
+    logger.info("Removing existing out dir...")
+    rmtree(out_step_dir)
+    logger.info("Done.")
+  out_step_dir.mkdir(parents=True, exist_ok=True)
+
+  save_selection(out_step_dir, selection)
+  save_reading_passages(out_step_dir, reading_passages)
+  save_representations(out_step_dir, representations)
 
 
 def sync_utterances(utterances: Utterances, keys: Set[UtteranceId]) -> None:

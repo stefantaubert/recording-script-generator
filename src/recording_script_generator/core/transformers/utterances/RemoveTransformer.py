@@ -12,11 +12,10 @@ class RemoveTransformer():
   def transform(self, utterances: Utterances, remove: Set[UtteranceId]) -> Utterances:
     # todo maybe check are valid utterance_ids
     logger = getLogger(__name__)
+    result = deepcopy(utterances)
     if len(utterances) == 0 or len(remove) == 0:
       logger.info("Nothing to remove.")
-      return
-
-    result = deepcopy(utterances)
+      return result
 
     assert len(result) > 0
     old_count = len(result)

@@ -1,27 +1,22 @@
-from collections import OrderedDict
-from concurrent.futures import Future
-from concurrent.futures.process import ProcessPoolExecutor
-from functools import partial
 from logging import getLogger
-from multiprocessing import Manager, Pool
-from multiprocessing.managers import SyncManager
+from math import inf
 from multiprocessing.pool import RemoteTraceback
-from multiprocessing.sharedctypes import RawValue
 from sys import getsizeof
-from time import perf_counter, sleep
-from typing import Any, Dict, List, Tuple, cast
+from typing import Dict, cast
 
 from recording_script_generator.core.estimators.selection import *
 from recording_script_generator.core.estimators.utterances import *
+from recording_script_generator.core.transformers.selection.AddTransformer import \
+    AddTransformer
+from recording_script_generator.core.transformers.selection.SelectTransformer import \
+    SelectTransformer
 from recording_script_generator.core.transformers.utterances import (
     ArpaToIpaTransformer, ChangeIpaTransformer, ChangeTextTransformer,
     EngToArpaTransformer, NormalizeTransformer, RemoveTransformer)
-from recording_script_generator.core.types import (Selection, Utterance,
-                                                   UtteranceId, Utterances)
-from text_utils.language import Language
-from text_utils.symbol_format import SymbolFormat
-from text_utils.types import SymbolId, Symbols
-from tqdm import tqdm
+from recording_script_generator.core.types import (ReadingPassages,
+                                                   Representations, Selection,
+                                                   Utterance, UtteranceId,
+                                                   Utterances)
 
 
 def handle_error(exception: Exception) -> None:
@@ -35,87 +30,177 @@ def handle_error(exception: Exception) -> None:
   pass
 
 
-def do_pipeline(utterances: Utterances, selection: Selection, n_jobs: int, chunksize: int, maxtasksperchild: int):
+def do_pipeline_prepare(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_jobs: int, chunksize: int, maxtasksperchild: int):
   logger = getLogger(__name__)
-
-  logger.info(f"Size of utterances in memory: {getsizeof(utterances)/1024**3:.2f} Gb")
 
   step = AcronymEstimator()
   step.fit(n_jobs, maxtasksperchild, chunksize)
-  remove = step.estimate(utterances)
+  remove = step.estimate(representations)
 
   step = RemoveTransformer()
   step.fit()
-  utterances = step.transform(utterances, remove)
+  representations = step.transform(representations, remove)
 
   step = NormalizeTransformer()
   step.fit()
-  utterances = step.transform(utterances)
+  representations = step.transform(representations)
 
   step = DuplicateEstimator()
   step.fit()
-  remove = step.estimate(utterances)
+  remove = step.estimate(representations)
 
   step = RemoveTransformer()
   step.fit()
-  utterances = step.transform(utterances, remove)
+  representations = step.transform(representations, remove)
 
   step = UnfrequentWordCountEstimator()
   step.fit(2, n_jobs, maxtasksperchild, chunksize)
-  remove = step.estimate(utterances)
+  remove = step.estimate(representations)
 
   step = RemoveTransformer()
   step.fit()
-  utterances = step.transform(utterances, remove)
+  representations = step.transform(representations, remove)
 
   step = ProperNameEstimator()
   step.fit(n_jobs, maxtasksperchild, chunksize)
-  remove = step.estimate(utterances)
+  remove = step.estimate(representations)
 
   step = RemoveTransformer()
   step.fit()
-  utterances = step.transform(utterances, remove)
+  representations = step.transform(representations, remove)
 
   step = UndesiredTextEstimator()
   undesired = set("/ \\ - : @ ; * % \" ( ) [ ] { } quote oswald ye hath pp.".split(" "))
   step.fit(undesired, n_jobs, maxtasksperchild, chunksize)
-  remove = step.estimate(utterances)
+  remove = step.estimate(representations)
 
   step = RemoveTransformer()
   step.fit()
-  utterances = step.transform(utterances, remove)
+  representations = step.transform(representations, remove)
 
   step = WordCountEstimator()
   step.fit(3, None, n_jobs, maxtasksperchild, chunksize)
-  remove = step.estimate(utterances)
+  remove = step.estimate(representations)
 
   step = RemoveTransformer()
   step.fit()
-  utterances = step.transform(utterances, remove)
+  representations = step.transform(representations, remove)
 
   step = UnknownWordEstimator()
   step.fit(0, n_jobs, maxtasksperchild, chunksize)
-  remove = step.estimate(utterances)
+  remove = step.estimate(representations)
 
   step = RemoveTransformer()
   step.fit()
-  utterances = step.transform(utterances, remove)
+  representations = step.transform(representations, remove)
 
   step = EngToArpaTransformer()
-  step.fit(utterances, n_jobs, chunksize)
-  utterances = step.transform(utterances)
+  step.fit(representations, n_jobs, chunksize)
+  representations = step.transform(representations)
 
   step = UndesiredTextEstimator()
   undesired = {"'"}
   step.fit(undesired, n_jobs, maxtasksperchild, chunksize)
-  remove = step.estimate(utterances)
+  remove = step.estimate(representations)
 
   step = RemoveTransformer()
   step.fit()
-  utterances = step.transform(utterances, remove)
+  representations = step.transform(representations, remove)
 
   step = ArpaToIpaTransformer()
   step.fit(n_jobs, chunksize)
-  utterances = step.transform(utterances)
+  representations = step.transform(representations)
 
-  return utterances, selection
+  # Sync reading passages
+  step = RemoveTransformer()
+  step.fit()
+  remove = reading_passages.keys() - representations.keys()
+  reading_passages = step.transform(reading_passages, remove)
+
+  return reading_passages, representations, selection
+
+
+def do_pipeline_select(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_jobs: int, chunksize: int, maxtasksperchild: int):
+  logger = getLogger(__name__)
+
+  logger.info(f"Size of utterances in memory: {getsizeof(representations)/1024**3:.2f} Gb")
+
+  utterance_durations_s = get_utterance_durations_based_on_symbols(
+    reading_passages, reading_speed_symbols_per_s=14)
+
+  # get selected
+  step = DeselectedEstimator()
+  step.fit()
+  deselected = step.estimate(selection, representations)
+
+  step = RemoveTransformer()
+  step.fit()
+  deselected_utterances = step.transform(representations, selection)
+  selected_utterances = step.transform(representations, deselected)
+
+  step = KldDurationEstimator()
+  step.fit(n_gram=1, minutes=10, ignore_symbols=" ", boundary=(8, inf))
+  add = step.estimate(deselected_utterances, selected_utterances, utterance_durations_s)
+
+  step = AddTransformer()
+  step.fit()
+  selection = step.transform(selection, add, representations)
+
+  step = DeselectedEstimator()
+  step.fit()
+  deselected = step.estimate(selection, representations)
+
+  step = RemoveTransformer()
+  step.fit()
+  deselected_utterances = step.transform(representations, selection)
+  selected_utterances = step.transform(representations, deselected)
+
+  step = KldDurationEstimator()
+  step.fit(n_gram=1, minutes=13, ignore_symbols=" ", boundary=(4, 8))
+  add = step.estimate(deselected_utterances, selected_utterances, utterance_durations_s)
+
+  step = AddTransformer()
+  step.fit()
+  selection = step.transform(selection, add, representations)
+
+  step = DeselectedEstimator()
+  step.fit()
+  deselected = step.estimate(selection, representations)
+
+  step = RemoveTransformer()
+  step.fit()
+  deselected_utterances = step.transform(representations, selection)
+  selected_utterances = step.transform(representations, deselected)
+
+  step = KldDurationEstimator()
+  step.fit(n_gram=1, minutes=10, ignore_symbols=" ", boundary=(0, 4))
+  add = step.estimate(deselected_utterances, selected_utterances, utterance_durations_s)
+
+  step = AddTransformer()
+  step.fit()
+  selection = step.transform(selection, add, representations)
+
+  # Remove non-selected utterances
+
+  step = DeselectedEstimator()
+  step.fit()
+  deselected = step.estimate(selection, representations)
+
+  step = RemoveTransformer()
+  step.fit()
+  representations = step.transform(representations, deselected)
+
+  # Sync reading passages
+
+  remove = reading_passages.keys() - representations.keys()
+  reading_passages = step.transform(reading_passages, remove)
+
+  return reading_passages, representations, selection
+
+
+def get_utterance_durations_based_on_symbols(utterances: Utterances, reading_speed_symbols_per_s: float) -> Dict[UtteranceId, float]:
+  durations = {
+    utterance_id: len(symbols) / reading_speed_symbols_per_s
+    for utterance_id, symbols in utterances.items()
+  }
+  return durations

@@ -142,11 +142,3 @@ def merge(data: List[Tuple[Selection, ReadingPassages, Representations]]) -> Tup
 #       filtered_utterance_indicies.add(utterance_id)
 
 #   return filtered_utterance_indicies
-
-
-def get_utterance_durations_based_on_symbols(utterances: Utterances, reading_speed_symbols_per_s: float) -> Dict[UtteranceId, float]:
-  durations = {
-    utterance_id: len(symbols) / reading_speed_symbols_per_s
-    for utterance_id, symbols in utterances.items()
-  }
-  return durations
