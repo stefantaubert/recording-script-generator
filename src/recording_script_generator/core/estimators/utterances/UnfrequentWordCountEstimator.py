@@ -1,4 +1,5 @@
 from collections import Counter
+from logging import getLogger
 from typing import Dict, List, Optional, Set
 
 from ordered_set import OrderedSet
@@ -18,13 +19,15 @@ def get_minimum_frequency(words: List[str], word_frequencies: Counter) -> int:
 
 
 class UnfrequentWordCountEstimator():
-  def fit(self, min_occurrence_count: Optional[int], n_jobs: int, maxtasksperchild: Optional[int], chunksize: int):
+  def fit(self, min_occurrence_count: int, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int):
     self.n_jobs = n_jobs
     self.maxtasksperchild = maxtasksperchild
     self.chunksize = chunksize
     self.min_occurrence_count = min_occurrence_count
 
   def estimate(self, utterances: Utterances) -> Set[UtteranceId]:
+    logger = getLogger(__name__)
+    logger.info("Detecting unfrequend words...")
     stripped_words: Dict[int, List[str]] = {}
     for utterance_id, utterance_symbols in utterances.items():
       utterance = ''.join(utterance_symbols)

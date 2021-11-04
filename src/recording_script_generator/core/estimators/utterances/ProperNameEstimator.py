@@ -27,6 +27,8 @@ class ProperNameEstimator(UtteranceEstimatorBase):
     super().fit(n_jobs, maxtasksperchild, chunksize)
 
   def estimate(self, utterances: Utterances) -> Set[UtteranceId]:
+    logger = getLogger(__name__)
+    logger.info("Detecting proper names...")
     if utterances.language != Language.ENG:
       logger = getLogger(__name__)
       logger.error("Language needs to be English!")

@@ -1,3 +1,4 @@
+from logging import getLogger
 from typing import Set
 
 from ordered_set import OrderedSet
@@ -29,6 +30,8 @@ class DuplicateEstimator():
     pass
 
   def estimate(self, utterances: Utterances) -> Set[UtteranceId]:
+    logger = getLogger(__name__)
+    logger.info("Detecting duplicate utterances...")
     result = OrderedSet()
     already_exist: Set[Symbols] = set()
     for utterance_id, utterance_symbols in tqdm(utterances.items()):

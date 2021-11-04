@@ -11,27 +11,17 @@ from sys import getsizeof
 from time import perf_counter, sleep
 from typing import Any, Dict, List, Tuple, cast
 
+from recording_script_generator.core.estimators.selection import *
+from recording_script_generator.core.estimators.utterances import *
+from recording_script_generator.core.transformers.utterances import (
+    ArpaToIpaTransformer, ChangeIpaTransformer, ChangeTextTransformer,
+    EngToArpaTransformer, NormalizeTransformer, RemoveTransformer)
 from recording_script_generator.core.types import (Selection, Utterance,
                                                    UtteranceId, Utterances)
 from text_utils.language import Language
 from text_utils.symbol_format import SymbolFormat
 from text_utils.types import SymbolId, Symbols
 from tqdm import tqdm
-
-utterances: Dict[UtteranceId, Symbols]
-
-
-def chunk_pipeline(utterance_id: UtteranceId):
-  # logger = getLogger(__name__)
-  global utterances
-  assert utterance_id in utterances
-  symbols = utterances[utterance_id]
-  utterance = utterance_id, symbols
-  #acronym_estimator = AcronymEstimator()
-  #remove = acronym_estimator.estimate(utterance)
-  remove = True
-  utterance_id, _ = utterance
-  return utterance_id, remove
 
 
 def handle_error(exception: Exception) -> None:
@@ -45,58 +35,87 @@ def handle_error(exception: Exception) -> None:
   pass
 
 
-def init_pool(utts: Utterances):
-  global utterances
-  utterances = utts
-
-
 def do_pipeline(utterances: Utterances, selection: Selection, n_jobs: int, chunksize: int, maxtasksperchild: int):
   logger = getLogger(__name__)
-  acronym_estimator = Any  # AcronymEstimator()
-  remove_transformer = Any  # RemoveUtterancesTransformer()
-  remove_selection_transformer = Any  # RemoveSelectionTransformer()
-
-  remove_transformer.fit()
-  remove_selection_transformer.fit()
 
   logger.info(f"Size of utterances in memory: {getsizeof(utterances)/1024**3:.2f} Gb")
 
-  acronym_estimator.fit(
-    n_jobs=n_jobs,
-    maxtasksperchild=maxtasksperchild,
-    chunksize=chunksize,
-  )
+  step = AcronymEstimator()
+  step.fit(n_jobs, maxtasksperchild, chunksize)
+  remove = step.estimate(utterances)
 
-  result = acronym_estimator.estimate(utterances)
+  step = RemoveTransformer()
+  step.fit()
+  utterances = step.transform(utterances, remove)
 
-  # with Pool(
-  #     processes=n_jobs,
-  #     initializer=init_pool,
-  #     initargs=(utterances,),
-  #     maxtasksperchild=maxtasksperchild,
-  #   ) as pool:
-  #   start = perf_counter()
-  #   transformed_utterances: Dict[UtteranceId, Symbols] = dict(tqdm(
-  #     pool.imap_unordered(, utterances.keys(), chunksize=chunksize),
-  #     total=len(utterances),
-  #   ))
-  #   # transformed_utterances: Dict[UtteranceId, Symbols] = dict()
-  #   # with tqdm(total=len(keys)) as pbar:
-  #   #   iterator = pool.imap_unordered(method, keys, chunksize=chunksize_inner)
-  #   #   for utterance_id, include in iterator:
-  #   #     transformed_utterances[utterance_id] = include
-  #   #     pbar.update()
-  #   logger.info(f"Duration: {perf_counter() - start:.2f}s")
+  step = NormalizeTransformer()
+  step.fit()
+  utterances = step.transform(utterances)
 
-  # not currently usable: https://github.com/python/cpython/pull/27373
-  # with ProcessPoolExecutor(max_workers=n_jobs, initializer=init_pool, initargs=(utterances,)) as ex:
-  #   start = perf_counter()
-  #   transformed_utterances: Dict[UtteranceId, Symbols] = dict(tqdm(
-  #     ex.map(method, keys, chunksize=chunksize_inner),
-  #     total=len(keys),
-  #   ))
-  #   logger.info(f"Duration: {perf_counter() - start:.2f}s")
-  utterances = remove_transformer.transform(utterances, result)
-  selection = remove_selection_transformer.transform(selection, utterances)
+  step = DuplicateEstimator()
+  step.fit()
+  remove = step.estimate(utterances)
+
+  step = RemoveTransformer()
+  step.fit()
+  utterances = step.transform(utterances, remove)
+
+  step = UnfrequentWordCountEstimator()
+  step.fit(2, n_jobs, maxtasksperchild, chunksize)
+  remove = step.estimate(utterances)
+
+  step = RemoveTransformer()
+  step.fit()
+  utterances = step.transform(utterances, remove)
+
+  step = ProperNameEstimator()
+  step.fit(n_jobs, maxtasksperchild, chunksize)
+  remove = step.estimate(utterances)
+
+  step = RemoveTransformer()
+  step.fit()
+  utterances = step.transform(utterances, remove)
+
+  step = UndesiredTextEstimator()
+  undesired = set("/ \\ - : @ ; * % \" ( ) [ ] { } quote oswald ye hath pp.".split(" "))
+  step.fit(undesired, n_jobs, maxtasksperchild, chunksize)
+  remove = step.estimate(utterances)
+
+  step = RemoveTransformer()
+  step.fit()
+  utterances = step.transform(utterances, remove)
+
+  step = WordCountEstimator()
+  step.fit(3, None, n_jobs, maxtasksperchild, chunksize)
+  remove = step.estimate(utterances)
+
+  step = RemoveTransformer()
+  step.fit()
+  utterances = step.transform(utterances, remove)
+
+  step = UnknownWordEstimator()
+  step.fit(0, n_jobs, maxtasksperchild, chunksize)
+  remove = step.estimate(utterances)
+
+  step = RemoveTransformer()
+  step.fit()
+  utterances = step.transform(utterances, remove)
+
+  step = EngToArpaTransformer()
+  step.fit(utterances, n_jobs, chunksize)
+  utterances = step.transform(utterances)
+
+  step = UndesiredTextEstimator()
+  undesired = {"'"}
+  step.fit(undesired, n_jobs, maxtasksperchild, chunksize)
+  remove = step.estimate(utterances)
+
+  step = RemoveTransformer()
+  step.fit()
+  utterances = step.transform(utterances, remove)
+
+  step = ArpaToIpaTransformer()
+  step.fit(n_jobs, chunksize)
+  utterances = step.transform(utterances)
 
   return utterances, selection

@@ -1,3 +1,4 @@
+from logging import getLogger
 from typing import List, Optional, Set
 
 from recording_script_generator.core.estimators.utterances.UtteranceEstimatorBase import \
@@ -32,6 +33,8 @@ class AcronymEstimator(UtteranceEstimatorBase):
     super().fit(n_jobs, maxtasksperchild, chunksize)
 
   def estimate(self, utterances: Utterances) -> Set[UtteranceId]:
+    logger = getLogger(__name__)
+    logger.info("Detecting acronyms...")
     return super().estimate(
       utterances=utterances,
       method=main,

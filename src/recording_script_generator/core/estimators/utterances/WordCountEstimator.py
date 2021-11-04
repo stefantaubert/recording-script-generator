@@ -1,4 +1,5 @@
 from functools import partial
+from logging import getLogger
 from typing import Optional, Set
 
 from recording_script_generator.core.estimators.utterances.UtteranceEstimatorBase import \
@@ -39,6 +40,8 @@ class WordCountEstimator(UtteranceEstimatorBase):
     self.max_count = max_count
 
   def estimate(self, utterances: Utterances) -> Set[UtteranceId]:
+    logger = getLogger(__name__)
+    logger.info("Detecting words counts...")
     method = partial(
       main,
       min_count=self.min_count,

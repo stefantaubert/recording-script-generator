@@ -42,6 +42,9 @@ class UnknownWordEstimator(UtteranceEstimatorBase):
     self.max_unknown_word_count = max_unknown_word_count
 
   def estimate(self, utterances: Utterances) -> Set[UtteranceId]:
+    logger = getLogger(__name__)
+    logger.info("Detecting non-dictionary words...")
+    
     if utterances.language != Language.ENG:
       logger = getLogger(__name__)
       logger.error("Language needs to be English!")

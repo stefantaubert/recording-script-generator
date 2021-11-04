@@ -1,4 +1,5 @@
 from functools import partial
+from logging import getLogger
 from typing import Optional, Set
 
 from recording_script_generator.core.estimators.utterances.UtteranceEstimatorBase import \
@@ -31,6 +32,8 @@ class UndesiredTextEstimator(UtteranceEstimatorBase):
     self.undesired = undesired
 
   def estimate(self, utterances: Utterances) -> Set[UtteranceId]:
+    logger = getLogger(__name__)
+    logger.info("Detecting undesired words/symbols...")
     method = partial(
       main,
       undesired=self.undesired,

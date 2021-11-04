@@ -1,10 +1,11 @@
+from copy import deepcopy
 from logging import getLogger
 from typing import Set
 
 from recording_script_generator.core.types import UtteranceId, Utterances
 
 
-class RemoveUtterancesTransformer():
+class RemoveTransformer():
   def fit(self):
     pass
 
@@ -15,7 +16,7 @@ class RemoveUtterancesTransformer():
       logger.info("Nothing to remove.")
       return
 
-    result = utterances.copy()
+    result = deepcopy(utterances)
 
     assert len(result) > 0
     old_count = len(result)

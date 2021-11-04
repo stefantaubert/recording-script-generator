@@ -2,7 +2,7 @@ import logging
 import string
 from logging import getLogger
 
-from recording_script_generator.core.types import Utterances
+from recording_script_generator.core.types import Utterances, clone_utterances
 from sentence2pronunciation import prepare_cache_mp
 from sentence2pronunciation.core import sentences2pronunciations_from_cache_mp
 from text_utils import SymbolFormat
@@ -11,6 +11,7 @@ from text_utils.pronunciation.main import get_eng_to_arpa_lookup_method
 from text_utils.pronunciation.pronunciation_dict_cache import \
     get_eng_pronunciation_dict_arpa
 from text_utils.symbol_format import SymbolFormat
+from tqdm import tqdm
 
 
 class EngToArpaTransformer():
@@ -59,9 +60,10 @@ class EngToArpaTransformer():
     )
     logger.info("Done.")
 
-    # In-place to reduce memory
     logger.info("Updating existing utterances...")
-    for utterance_id, old_pronunciation in utterances.items():
-      utterances[utterance_id] = sentence_pronunciations[old_pronunciation]
-    utterances.symbol_format = SymbolFormat.PHONEMES_ARPA
+    result = clone_utterances(utterances)
+    for utterance_id, old_pronunciation in tqdm(utterances.items()):
+      result[utterance_id] = sentence_pronunciations[old_pronunciation]
+    result.symbol_format = SymbolFormat.PHONEMES_ARPA
     logger.info("Done.")
+    return result

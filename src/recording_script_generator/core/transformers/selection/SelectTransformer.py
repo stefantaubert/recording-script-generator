@@ -7,7 +7,7 @@ from recording_script_generator.core.types import (Selection, UtteranceId,
                                                    Utterances)
 
 
-class SelectTranformer():
+class SelectTransformer():
   def __init__(self) -> None:
     self.add_transformer = AddTransformer()
     self.remove_tranformer = RemoveTransformer()

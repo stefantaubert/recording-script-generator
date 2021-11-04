@@ -16,21 +16,12 @@ from recording_script_generator.core.export import (SortingMode,
                                                     get_reading_scripts)
 from recording_script_generator.core.main import (
     ReadingPassages, Representations, Selection, Utterances,
-    add_corpus_from_text_files, add_corpus_from_texts, change_ipa, change_text,
-    convert_eng_passages_to_arpa, deselect_all_utterances,
-    get_utterance_durations_based_on_symbols, map_passages_to_ipa, merge,
-    normalize, remove_deselected, remove_duplicate_utterances,
-    remove_non_existent_utterances, remove_utterances_with_acronyms,
-    remove_utterances_with_proper_names,
-    remove_utterances_with_too_seldom_words,
-    remove_utterances_with_undesired_sentence_lengths,
-    remove_utterances_with_undesired_text,
-    remove_utterances_with_unknown_words, select_all_utterances,
-    select_from_tex, select_greedy_ngrams_duration,
-    select_greedy_ngrams_epochs, select_kld_ngrams_duration)
+    add_corpus_from_text_files, add_corpus_from_texts,
+    get_utterance_durations_based_on_symbols, merge)
 from recording_script_generator.core.preprocessing_pipeline import do_pipeline
 from recording_script_generator.core.stats import (get_n_gram_stats_df,
                                                    log_general_stats)
+from recording_script_generator.core.types import Utterance, UtteranceId
 from recording_script_generator.globals import (DEFAULT_AVG_CHARS_PER_S,
                                                 DEFAULT_IGNORE, DEFAULT_SEED,
                                                 DEFAULT_SPLIT_BOUNDARY_MAX_S,
@@ -373,7 +364,7 @@ def app_do_pipeline(base_dir: Path, corpus_name: str, in_step_name: str, target:
   __alter_data(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
-def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str], overwrite: bool, method: Callable[[Utterances, Selection], None]):
+def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str], overwrite: bool, method: Callable[[Utterances, Selection], Tuple[Utterances, Selection]]):
   logger = getLogger(__name__)
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
   in_step_dir = get_step_dir(corpus_dir, in_step_name)
@@ -419,29 +410,39 @@ def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, target: Pr
     out_step_dir.mkdir(parents=True, exist_ok=True)
 
     save_selection(out_step_dir, selection)
+    del selection
+    
     if prep_target == PreparationTarget.READING_PASSAGES:
       save_reading_passages(out_step_dir, utterances)
     elif prep_target == PreparationTarget.REPRESENTATIONS:
       save_representations(out_step_dir, utterances)
     else:
       assert False
-
+    keys = utterances.keys()
+    del utterances
+    
     if target == PreparationTarget.BOTH:
       pass
     elif target == PreparationTarget.REPRESENTATIONS:
       logger.info("Updating reading passages...")
       reading_passages = load_reading_passages(in_step_dir)
-      remove_non_existent_utterances(utterances, reading_passages)
+      sync_utterances(reading_passages, keys)
       save_reading_passages(out_step_dir, reading_passages)
       logger.info("Done.")
     elif target == PreparationTarget.READING_PASSAGES:
       logger.info("Updating representations...")
       representations = load_representations(in_step_dir)
-      remove_non_existent_utterances(utterances, representations)
+      sync_utterances(representations, keys)
       save_representations(out_step_dir, representations)
       logger.info("Done.")
     else:
       assert False
+
+
+def sync_utterances(utterances: Utterances, keys: Set[UtteranceId]) -> None:
+  remove = utterances.keys() - keys
+  for key in remove:
+    utterances.pop(key)
 
 
 def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:

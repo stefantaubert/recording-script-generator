@@ -1,4 +1,4 @@
-from recording_script_generator.core.types import Utterances
+from recording_script_generator.core.types import Utterances, clone_utterances
 from text_utils import change_ipa as change_ipa_method
 from tqdm import tqdm
 
@@ -14,7 +14,8 @@ class ChangeIpaTransformer():
     self.chunksize = chunksize
 
   def transform(self, utterances: Utterances) -> Utterances:
-    res = utterances.copy()
+    res = clone_utterances(utterances)
+    
     for utterance_id, symbols in tqdm(utterances.items()):
       new_symbols = change_ipa_method(
         symbols=symbols,

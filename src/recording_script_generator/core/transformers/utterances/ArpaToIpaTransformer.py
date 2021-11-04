@@ -1,6 +1,7 @@
 from concurrent.futures.process import ProcessPoolExecutor
+from logging import getLogger
 
-from recording_script_generator.core.types import Utterance, Utterances
+from recording_script_generator.core.types import Utterance, Utterances, clone_utterances
 from text_utils import SymbolFormat, symbols_map_arpa_to_ipa
 from tqdm import tqdm
 
@@ -22,12 +23,14 @@ class ArpaToIpaTransformer():
     self.chunksize = chunksize
 
   def transform(self, utterances: Utterances) -> Utterances:
+    logger = getLogger(__name__)
+    logger.info("Mapping ARPA to IPA...")
     with ProcessPoolExecutor(max_workers=self.n_jobs) as ex:
       res = Utterances(
         tqdm(ex.map(map_to_tup_ipa, utterances.items(),
                     chunksize=self.chunksize), total=len(utterances))
       )
-    result = utterances.copy()
+    result = clone_utterances(utterances)
     result.update(res)
     result.symbol_format = SymbolFormat.PHONEMES_IPA
     return result

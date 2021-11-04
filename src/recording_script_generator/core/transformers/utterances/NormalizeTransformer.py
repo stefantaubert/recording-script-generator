@@ -1,6 +1,7 @@
 from logging import getLogger
 
-from recording_script_generator.core.types import Utterance, Utterances
+from recording_script_generator.core.types import (Utterance, Utterances,
+                                                   clone_utterances)
 from text_utils import text_normalize, text_to_symbols
 from text_utils.language import Language
 from text_utils.symbol_format import SymbolFormat
@@ -32,7 +33,7 @@ class NormalizeTransformer():
   def transform(self, utterances: Utterances) -> Utterances:
     logger = getLogger(__name__)
     logger.info("Normalizing...")
-    result = utterances.copy()
+    result = clone_utterances(utterances)
     for utterance in tqdm(utterances.items()):
       utterance_id, symbols = normalize_func(
         utterance, utterances.language, utterances.symbol_format)
