@@ -25,7 +25,7 @@ class RemoveSelectionTransformer():
   def fit(self):
     pass
 
-  def transform(self, utterances: Utterances, selection: Selection) -> Selection:
+  def transform(self, selection: Selection, utterances: Utterances) -> Selection:
     utterances_not_present_anymore = selection - set(utterances.keys())
     remove_utterances_from_selection_with_logging(utterances_not_present_anymore, selection)
     return selection

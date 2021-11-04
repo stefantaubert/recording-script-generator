@@ -68,31 +68,38 @@ def do_pipeline(utterances: Utterances, selection: Selection, n_jobs: int, chunk
   remove_selection_transformer = RemoveSelectionTransformer()
 
   chunking_transformer.fit()
-  acronym_estimator.fit()
   remove_transformer.fit()
   dechunking_tranformer.fit()
   remove_selection_transformer.fit()
 
   logger.info(f"Size of utterances in memory: {getsizeof(utterances)/1024**3:.2f} Gb")
 
-  with Pool(
-      processes=n_jobs,
-      initializer=init_pool,
-      initargs=(utterances,),
-      maxtasksperchild=maxtasksperchild,
-    ) as pool:
-    start = perf_counter()
-    transformed_utterances: Dict[UtteranceId, Symbols] = dict(tqdm(
-      pool.imap_unordered(chunk_pipeline, utterances.keys(), chunksize=chunksize),
-      total=len(utterances),
-    ))
-    # transformed_utterances: Dict[UtteranceId, Symbols] = dict()
-    # with tqdm(total=len(keys)) as pbar:
-    #   iterator = pool.imap_unordered(method, keys, chunksize=chunksize_inner)
-    #   for utterance_id, include in iterator:
-    #     transformed_utterances[utterance_id] = include
-    #     pbar.update()
-    logger.info(f"Duration: {perf_counter() - start:.2f}s")
+  acronym_estimator.fit(
+    n_jobs=n_jobs,
+    maxtasksperchild=maxtasksperchild,
+    chunksize=chunksize,
+  )
+
+  result = acronym_estimator.estimate(utterances)
+
+  # with Pool(
+  #     processes=n_jobs,
+  #     initializer=init_pool,
+  #     initargs=(utterances,),
+  #     maxtasksperchild=maxtasksperchild,
+  #   ) as pool:
+  #   start = perf_counter()
+  #   transformed_utterances: Dict[UtteranceId, Symbols] = dict(tqdm(
+  #     pool.imap_unordered(, utterances.keys(), chunksize=chunksize),
+  #     total=len(utterances),
+  #   ))
+  #   # transformed_utterances: Dict[UtteranceId, Symbols] = dict()
+  #   # with tqdm(total=len(keys)) as pbar:
+  #   #   iterator = pool.imap_unordered(method, keys, chunksize=chunksize_inner)
+  #   #   for utterance_id, include in iterator:
+  #   #     transformed_utterances[utterance_id] = include
+  #   #     pbar.update()
+  #   logger.info(f"Duration: {perf_counter() - start:.2f}s")
 
   # not currently usable: https://github.com/python/cpython/pull/27373
   # with ProcessPoolExecutor(max_workers=n_jobs, initializer=init_pool, initargs=(utterances,)) as ex:
@@ -102,7 +109,7 @@ def do_pipeline(utterances: Utterances, selection: Selection, n_jobs: int, chunk
   #     total=len(keys),
   #   ))
   #   logger.info(f"Duration: {perf_counter() - start:.2f}s")
+  utterances = remove_transformer.transform(utterances, result)
+  selection = remove_selection_transformer.transform(selection, utterances)
 
-  selection = remove_selection_transformer.transform(utterances, selection)
-
-  return transformed_utterances
+  return utterances, selection

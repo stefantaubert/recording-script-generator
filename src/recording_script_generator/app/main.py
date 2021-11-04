@@ -408,7 +408,7 @@ def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, target: Pr
     else:
       assert False
 
-    method(utterances, selection)
+    utterances, selection = method(utterances, selection)
 
     on_first_prep_target = i == 0
     if on_first_prep_target and out_step_dir.exists():
