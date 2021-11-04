@@ -11,12 +11,6 @@ from sys import getsizeof
 from time import perf_counter, sleep
 from typing import Any, Dict, List, Tuple, cast
 
-from recording_script_generator.core.estimators.AcronymEstimator import \
-    AcronymEstimator
-from recording_script_generator.core.transformers.RemoveSelectionTransformer import \
-    RemoveSelectionTransformer
-from recording_script_generator.core.transformers.RemoveUtterancesTransformer import \
-    RemoveUtterancesTransformer
 from recording_script_generator.core.types import (Selection, Utterance,
                                                    UtteranceId, Utterances)
 from text_utils.language import Language
@@ -33,8 +27,9 @@ def chunk_pipeline(utterance_id: UtteranceId):
   assert utterance_id in utterances
   symbols = utterances[utterance_id]
   utterance = utterance_id, symbols
-  acronym_estimator = AcronymEstimator()
-  remove = acronym_estimator.estimate(utterance)
+  #acronym_estimator = AcronymEstimator()
+  #remove = acronym_estimator.estimate(utterance)
+  remove = True
   utterance_id, _ = utterance
   return utterance_id, remove
 
@@ -57,9 +52,9 @@ def init_pool(utts: Utterances):
 
 def do_pipeline(utterances: Utterances, selection: Selection, n_jobs: int, chunksize: int, maxtasksperchild: int):
   logger = getLogger(__name__)
-  acronym_estimator = AcronymEstimator()
-  remove_transformer = RemoveUtterancesTransformer()
-  remove_selection_transformer = RemoveSelectionTransformer()
+  acronym_estimator = Any  # AcronymEstimator()
+  remove_transformer = Any  # RemoveUtterancesTransformer()
+  remove_selection_transformer = Any  # RemoveSelectionTransformer()
 
   remove_transformer.fit()
   remove_selection_transformer.fit()

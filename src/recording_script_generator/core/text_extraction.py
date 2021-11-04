@@ -64,28 +64,6 @@ def is_sentence(sentence: str, lang: Language, sentence_format: SymbolFormat) ->
 #   return len(set(sentence).intersection(undesired)) > 0
 
 
-def contains_undesired_text(sentence: str, undesired: Set[str], ignore_case: bool) -> bool:
-  for x in undesired:
-    if ignore_case:
-      if x.lower() in sentence.lower():
-        return True
-    else:
-      if x in sentence:
-        return True
-
-  return False
-
-
-def get_non_dict_words_amount(words: List[str], dict: enchant.Dict) -> int:
-  tmp = []
-  for word in words:
-    assert word != ""
-    val = int(dict.check(word))
-    tmp.append(val)
-  words_in_dict = sum(tmp)
-  words_not_in_dict = len(tmp) - words_in_dict
-  return words_not_in_dict
-
 
 def strip_punctuation(word: str):
   res = word.strip(".,;-/!?:\\—()[]{}\"'")
@@ -93,25 +71,10 @@ def strip_punctuation(word: str):
 
 
 def strip_punctuation_words(words: List[str]) -> List[str]:
+  # keep
   res = [strip_punctuation(x) for x in words]
   res = [x for x in res if x != ""]
   return res
-
-
-def words_contain_acronyms(words: List[str]) -> bool:
-  return any(is_acronym(word) for word in words)
-
-
-def is_acronym(word: str) -> bool:
-  if len(word) >= 3 and word.isupper():
-    return True
-  return False
-
-
-def contains_eng_proper_names(sentence: str) -> bool:
-  pattern = r" [A-HJ-Z]"
-  matches = re.search(pattern, sentence)
-  return matches is not None
 
 
 # def get_word_frequencies() -> FreqDist:
@@ -129,13 +92,3 @@ def contains_eng_proper_names(sentence: str) -> bool:
 #       pickle.dump(word_frequencies, f)
 
 #   return word_frequencies
-
-
-def get_minimum_frequency(words: List[str], word_frequencies: Counter) -> int:
-  frequencies = [word_frequencies[word.lower()] for word in words]
-  result = min(frequencies)
-  # for freq, word in zip(freqs, words):
-  #   if freq <= 1:
-  #     #print(word, freq)
-  #     pass
-  return result

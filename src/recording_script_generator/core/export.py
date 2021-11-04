@@ -7,10 +7,11 @@ from typing import Set, Tuple
 
 from ordered_set import OrderedSet
 from pandas import DataFrame
+from recording_script_generator.core.estimators.selection.TexEstimator import \
+    detect_ids_from_tex
 from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations, Selection,
                                                    UtteranceId)
-from recording_script_generator.utils import detect_ids_from_tex
 from text_selection import greedy_kld_uniform_ngrams_default
 from text_selection.greedy_kld_export import greedy_kld_uniform_ngrams_parts
 from textgrid.textgrid import Interval, IntervalTier, TextGrid

@@ -1,13 +1,10 @@
-from tqdm import tqdm
 from logging import getLogger
-from typing import Dict, Set, Tuple
 
-from recording_script_generator.core.types import (Selection, Utterance,
-                                                   UtteranceId, Utterances)
+from recording_script_generator.core.types import Utterance, Utterances
 from text_utils import text_normalize, text_to_symbols
 from text_utils.language import Language
 from text_utils.symbol_format import SymbolFormat
-from text_utils.types import Symbols
+from tqdm import tqdm
 
 
 def normalize_func(utterance: Utterance, lang: Language, text_format: SymbolFormat) -> Utterance:
