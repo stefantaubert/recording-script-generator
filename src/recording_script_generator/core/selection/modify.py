@@ -35,7 +35,7 @@ def remove_from_selection_inplace(selection: Selection, remove: Set[UtteranceId]
         f"Removed {removed_count} utterances from the selection.")
 
 
-def select_selection_inplace(selection: Selection, select: OrderedSet[UtteranceId], utterances: Utterances) -> None:
+def select_selection_inplace(selection: Selection, select: OrderedSet[UtteranceId]) -> None:
   remove = selection - select
   add = select - selection
   add_to_selection_inplace(selection, add)

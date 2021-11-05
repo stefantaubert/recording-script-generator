@@ -6,7 +6,5 @@ from recording_script_generator.core.utterances.transformation.change_text impor
     change_utterances_text_inplace
 from recording_script_generator.core.utterances.transformation.eng_to_arpa import \
     convert_utterances_from_eng_to_arpa_inplace
-from recording_script_generator.core.utterances.transformation.modify import (
-    add_to_utterances_inplace, remove_from_utterances_inplace)
 from recording_script_generator.core.utterances.transformation.normalize import \
     normalize_utterances_inplace

@@ -7,11 +7,9 @@ from typing import Tuple
 import numpy as np
 from ordered_set import OrderedSet
 from pandas import DataFrame
-from recording_script_generator.core.main import (Selection, UtteranceId,
-                                                  Utterances)
 from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations, Selection,
-                                                   UtteranceId)
+                                                   UtteranceId, Utterances)
 from text_utils import Symbols, get_ngrams
 
 

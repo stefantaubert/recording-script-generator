@@ -4,7 +4,7 @@ from typing import Optional
 
 from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp
-from recording_script_generator.core.types import Utterances, clone_utterances
+from recording_script_generator.core.types import Utterances
 from text_utils import change_symbols
 from tqdm import tqdm
 

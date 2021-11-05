@@ -25,19 +25,21 @@ def read_textfile(path: Path) -> str:
   return content
 
 
-def add_corpus_from_text_files(files: Set[Path], lang: Language, text_format: SymbolFormat, limit: Optional[int]) -> Tuple[Selection, ReadingPassages, Representations]:
+def add_corpus_from_text_files(files: Set[Path], lang: Language, text_format: SymbolFormat, limit: Optional[int], chunksize_files: int, chunksize_utterances: int, n_jobs: int) -> Tuple[Selection, ReadingPassages, Representations]:
   logger = getLogger(__name__)
   logger.info("Reading text files...")
   if limit is not None:
     files = set(list(files)[:limit])
-  with ThreadPoolExecutor(max_workers=DEFAULT_N_JOBS) as ex:
-    res = list(tqdm(ex.map(read_textfile, files), total=len(files)))
+  with ThreadPoolExecutor(max_workers=n_jobs) as ex:
+    res = list(tqdm(ex.map(read_textfile, files, chunksize=chunksize_files), total=len(files)))
   logger.info("Done.")
 
   return add_corpus_from_texts(
     texts=res,
     lang=lang,
     text_format=text_format,
+    n_jobs=n_jobs,
+    chunksize=chunksize_utterances,
   )
 
 
@@ -52,14 +54,14 @@ def get_sentences_from_text(text: str, lang: Language, text_format: SymbolFormat
   return sentences
 
 
-def add_corpus_from_texts(texts: List[str], lang: Language, text_format: SymbolFormat) -> Tuple[Selection, ReadingPassages, Representations]:
+def add_corpus_from_texts(texts: List[str], lang: Language, text_format: SymbolFormat, chunksize: int, n_jobs: int) -> Tuple[Selection, ReadingPassages, Representations]:
   logger = getLogger(__name__)
   method = partial(get_sentences_from_text, lang=lang, text_format=text_format)
   logger.info("Detecting valid sentences...")
-  tqdm_steps = 4
-  chunksize = max(round(len(texts) / DEFAULT_N_JOBS / tqdm_steps), 1)
-  logger.info(f"Assigning {chunksize} files to each processor core.")
-  with ProcessPoolExecutor(max_workers=DEFAULT_N_JOBS) as ex:
+  #tqdm_steps = 4
+  #chunksize = max(round(len(texts) / n_jobs / tqdm_steps), 1)
+  logger.info(f"Assigning {chunksize} files to {n_jobs} processor core.")
+  with ProcessPoolExecutor(max_workers=n_jobs) as ex:
     res: List[Set[str]] = list(
       tqdm(ex.map(method, texts, chunksize=chunksize), total=len(texts)))
 

@@ -15,7 +15,7 @@ from text_utils.symbol_format import SymbolFormat
 from tqdm import tqdm
 
 
-def convert_utterances_from_eng_to_arpa_inplace(utterances: Utterances, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> None:
+def convert_utterances_from_eng_to_arpa_inplace(utterances: Utterances, n_jobs: int, chunksize: int) -> None:
   logger = getLogger(__name__)
   logger.info("Loading dictionaries...")
   get_eng_g2p()

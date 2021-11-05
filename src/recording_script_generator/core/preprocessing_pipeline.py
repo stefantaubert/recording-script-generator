@@ -7,12 +7,21 @@ from time import perf_counter
 from typing import Dict, Optional, Set, cast
 
 from ordered_set import OrderedSet
+from recording_script_generator.core.detection import (
+    get_utterance_durations_based_on_symbols,
+    select_utterances_through_kld_duration_inplace)
+from recording_script_generator.core.inspection import (
+    remove_duplicate_utterances_inplace,
+    remove_utterances_with_acronyms_inplace,
+    remove_utterances_with_custom_word_counts,
+    remove_utterances_with_non_dictionary_words,
+    remove_utterances_with_proper_names, remove_utterances_with_undesired_text,
+    remove_utterances_with_unfrequent_words)
 from recording_script_generator.core.selection import *
 from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations, Selection,
                                                    Utterance, UtteranceId,
-                                                   Utterances,
-                                                   clone_utterances)
+                                                   Utterances)
 from recording_script_generator.core.utterances import *
 from tqdm import tqdm
 
@@ -47,21 +56,24 @@ def log_utterances(utterances: Utterances, selection: Set[UtteranceId], log_coun
     logger.info(f"- and {len(selection) - log_count} further utterance(s)...")
 
 
-def do_pipeline_prepare_inplace(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_jobs: int, chunksize: int, maxtasksperchild: int) -> None:
-  remove_inplace_func = partial(
-    remove_inplace,
-    reading_passages=reading_passages,
-    representations=representations,
-    selection=selection,
-  )
+def do_pipeline_prepare_inplace(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_jobs: int, chunksize: int, maxtasksperchild: Optional[int]) -> None:
+  kwargs = {
+    "reading_passages": reading_passages,
+    "representations": representations,
+    "selection": selection,
+  }
+
+  mp_kwargs = {
+    "n_jobs": n_jobs,
+    "chunksize": chunksize,
+    "maxtasksperchild": maxtasksperchild,
+  }
 
   # Remove acronyms
-  remove = get_utterances_with_acronyms(
-    representations,
+  remove_utterances_with_acronyms_inplace(
     min_acronym_len=3,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+    **(kwargs | mp_kwargs),
   )
-  remove_inplace_func(remove)
 
   # Normalize
   normalize_utterances_inplace(
@@ -74,63 +86,54 @@ def do_pipeline_prepare_inplace(reading_passages: ReadingPassages, representatio
   )
 
   # Remove duplicates
-  remove = get_duplicate_utterances(representations)
-  remove_inplace_func(remove)
+  remove_duplicate_utterances_inplace(
+    **kwargs,
+  )
 
   # Remove infrequent words
-  remove = get_utterances_with_unfrequent_words(
-    representations,
+  remove_utterances_with_unfrequent_words(
     min_occurrence_count=2,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+    **(kwargs | mp_kwargs),
   )
-  remove_inplace_func(remove)
 
   # Remove proper names
-  remove = get_utterances_with_proper_names(
-    representations,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+  remove_utterances_with_proper_names(
+    min_occurrence_count=2,
+    **(kwargs | mp_kwargs),
   )
-  remove_inplace_func(remove)
 
   # Remove undesired text
   undesired = set("/ \\ - : @ ; * % \" ( ) [ ] { } quote oswald ye hath pp.".split(" "))
-  remove = get_utterances_with_undesired_text(
-    representations,
+  remove_utterances_with_undesired_text(
     undesired=undesired,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+    **(kwargs | mp_kwargs),
   )
-  remove_inplace_func(remove)
 
   # Remove utterances with < 3 words
-  remove = get_utterances_with_custom_word_counts(
-    representations,
+  remove_utterances_with_custom_word_counts(
     min_count=3,
     max_count=None,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+    **(kwargs | mp_kwargs),
   )
-  remove_inplace_func(remove)
 
   # Remove utterances that contain non-dictionary words
-  remove = get_utterances_with_non_dictionary_words(
-    representations,
+  remove_utterances_with_non_dictionary_words(
     max_unknown_word_count=0,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+    **(kwargs | mp_kwargs),
   )
-  remove_inplace_func(remove)
 
   # Convert to ARPA
   convert_utterances_from_eng_to_arpa_inplace(
     representations,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+    n_jobs=n_jobs, chunksize=chunksize,
   )
 
   # Remove undesired text
-  remove = get_utterances_with_undesired_text(
-    representations,
-    undesired={"'"},
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+  undesired = {"'"}
+  remove_utterances_with_undesired_text(
+    undesired=undesired,
+    **(kwargs | mp_kwargs),
   )
-  remove_inplace_func(remove)
 
   # Map ARPA to IPA
   map_utterances_from_arpa_to_ipa_inplace(
@@ -173,10 +176,6 @@ def do_pipeline_select(reading_passages: ReadingPassages, representations: Repre
 
   update_utterances_func = partial(
     update_utterances,
-    selected=selected,
-    deselected=deselected,
-    selection=selection,
-    reading_passages=reading_passages,
   )
 
   add = get_utterances_through_kld_duration(
@@ -216,11 +215,3 @@ def do_pipeline_select(reading_passages: ReadingPassages, representations: Repre
   remove_from_utterances_inplace(representations, remove=deselected.keys())
   selection_contains_all_keys = len(selection - representations.keys()) == 0
   assert selection_contains_all_keys
-
-
-def get_utterance_durations_based_on_symbols(utterances: Utterances, reading_speed_symbols_per_s: float) -> Dict[UtteranceId, float]:
-  durations = {
-    utterance_id: len(symbols) / reading_speed_symbols_per_s
-    for utterance_id, symbols in utterances.items()
-  }
-  return durations
