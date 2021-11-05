@@ -3,8 +3,8 @@ from logging import getLogger
 from typing import List, Optional, Set
 
 import enchant
-from recording_script_generator.core.estimators.utterances.UtteranceEstimatorBase import \
-    UtteranceEstimatorBase
+from recording_script_generator.core.estimators.utterances.UtteranceEstimatorBase import (
+    UtteranceEstimatorBase, execute_method_on_utterances_mp_bool)
 from recording_script_generator.core.text_extraction import \
     strip_punctuation_words
 from recording_script_generator.core.types import UtteranceId, Utterances
@@ -35,6 +35,32 @@ def main(symbols: Symbols, max_unknown_word_count: int, lexicon: enchant.Dict) -
   return False
 
 
+def get_utterances_with_non_dictionary_words(utterances: Utterances, max_unknown_word_count: int, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> Set[UtteranceId]:
+  logger = getLogger(__name__)
+  logger.info("Detecting non-dictionary words...")
+
+  if utterances.language != Language.ENG:
+    logger = getLogger(__name__)
+    logger.error("Language needs to be English!")
+    raise Exception()
+
+  lexicon = enchant.Dict("en_US")
+
+  method = partial(
+    main,
+    lexicon=lexicon,
+    max_unknown_word_count=max_unknown_word_count,
+  )
+
+  return execute_method_on_utterances_mp_bool(
+    utterances=utterances,
+    method=method,
+    n_jobs=n_jobs,
+    maxtasksperchild=maxtasksperchild,
+    chunksize=chunksize,
+  )
+
+
 class UnknownWordEstimator(UtteranceEstimatorBase):
   def fit(self, max_unknown_word_count: int, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int):
     super().fit(n_jobs, maxtasksperchild, chunksize)
@@ -44,7 +70,7 @@ class UnknownWordEstimator(UtteranceEstimatorBase):
   def estimate(self, utterances: Utterances) -> Set[UtteranceId]:
     logger = getLogger(__name__)
     logger.info("Detecting non-dictionary words...")
-    
+
     if utterances.language != Language.ENG:
       logger = getLogger(__name__)
       logger.error("Language needs to be English!")

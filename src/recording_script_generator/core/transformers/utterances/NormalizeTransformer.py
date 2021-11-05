@@ -1,15 +1,42 @@
+from functools import partial
 from logging import getLogger
+from typing import Optional
 
+from recording_script_generator.core.estimators.utterances.UtteranceEstimatorBase import \
+    execute_method_on_utterances_mp
 from recording_script_generator.core.types import (Utterance, Utterances,
                                                    clone_utterances)
 from text_utils import text_normalize, text_to_symbols
 from text_utils.language import Language
 from text_utils.symbol_format import SymbolFormat
+from text_utils.types import Symbols
 from tqdm import tqdm
 
 
-def normalize_func(utterance: Utterance, lang: Language, text_format: SymbolFormat) -> Utterance:
-  utterance_id, symbols = utterance
+def get_utterances_normalized(utterances: Utterances, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> Utterances:
+  logger = getLogger(__name__)
+  logger.info("Changing IPA...")
+  method = partial(
+    normalize_func,
+    text_format=utterances.text_format,
+    language=utterances.language,
+  )
+
+  result = Utterances(execute_method_on_utterances_mp(
+    utterances=utterances,
+    method=method,
+    n_jobs=n_jobs,
+    maxtasksperchild=maxtasksperchild,
+    chunksize=chunksize,
+  ))
+
+  result.language = utterances.language
+  result.symbol_format = utterances.symbol_format
+
+  return result
+
+
+def normalize_func(symbols: Symbols, lang: Language, text_format: SymbolFormat) -> Symbols:
   symbols_str = ''.join(symbols)
   result = text_normalize(
     text=symbols_str,
@@ -23,7 +50,7 @@ def normalize_func(utterance: Utterance, lang: Language, text_format: SymbolForm
     text_format=text_format,
   )
 
-  return utterance_id, sentences
+  return sentences
 
 
 class NormalizeTransformer():

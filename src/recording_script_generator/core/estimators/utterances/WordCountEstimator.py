@@ -2,8 +2,8 @@ from functools import partial
 from logging import getLogger
 from typing import Optional, Set
 
-from recording_script_generator.core.estimators.utterances.UtteranceEstimatorBase import \
-    UtteranceEstimatorBase
+from recording_script_generator.core.estimators.utterances.UtteranceEstimatorBase import (
+    UtteranceEstimatorBase, execute_method_on_utterances_mp_bool)
 from recording_script_generator.core.types import UtteranceId, Utterances
 from text_utils.types import Symbols
 
@@ -31,6 +31,24 @@ def main(symbols: Symbols, min_count: Optional[int], max_count: Optional[int]) -
     return True
 
   return False
+
+
+def get_utterances_with_custom_counts(utterances: Utterances, min_count: Optional[int], max_count: Optional[int], n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> Set[UtteranceId]:
+  logger = getLogger(__name__)
+  logger.info("Detecting words counts...")
+  method = partial(
+    main,
+    min_count=min_count,
+    max_count=max_count,
+  )
+
+  return execute_method_on_utterances_mp_bool(
+    utterances=utterances,
+    method=method,
+    n_jobs=n_jobs,
+    maxtasksperchild=maxtasksperchild,
+    chunksize=chunksize,
+  )
 
 
 class WordCountEstimator(UtteranceEstimatorBase):
