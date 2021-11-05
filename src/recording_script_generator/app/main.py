@@ -21,7 +21,7 @@ from recording_script_generator.core.main import (ReadingPassages,
                                                   add_corpus_from_text_files,
                                                   add_corpus_from_texts, merge)
 from recording_script_generator.core.preprocessing_pipeline import (
-    do_pipeline_prepare, do_pipeline_select)
+    do_pipeline_prepare_inplace, do_pipeline_select)
 from recording_script_generator.core.stats import (get_n_gram_stats_df,
                                                    log_general_stats)
 from recording_script_generator.core.types import Utterance, UtteranceId
@@ -360,7 +360,7 @@ def app_merge(base_dir: Path, corpora_step_names: List[Tuple[str, str]], out_cor
 
 def app_do_pipeline_prepare(base_dir: Path, corpus_name: str, in_step_name: str, target: PreparationTarget, out_step_name: str, chunksize: int, maxtasksperchild: int, n_jobs: int, overwrite: bool) -> None:
   method = partial(
-    do_pipeline_prepare,
+    do_pipeline_prepare_inplace,
     n_jobs=n_jobs,
     chunksize=chunksize,
     maxtasksperchild=maxtasksperchild,
@@ -477,9 +477,19 @@ def __execute_pipeline(base_dir: Path, corpus_name: str, in_step_name: str, targ
   selection = load_selection(in_step_dir)
   reading_passages = load_reading_passages(in_step_dir)
   representations = load_representations(in_step_dir)
+  old_count = len(reading_passages)
 
-  reading_passages, representations, selection = method(
-    reading_passages, representations, selection)
+  start = perf_counter()
+  method(reading_passages, representations, selection)
+  end = perf_counter()
+  duration_min = (end - start) / 60
+  logger.info(f"Total operation duration: {duration_min:.2f}min.")
+
+  final_count = len(reading_passages)
+  removed_count = old_count - final_count
+  if old_count > 0:
+    logger.info(
+      f"Removed {removed_count} of {old_count} utterances ({removed_count/old_count*100:.2f}%) and obtained {final_count} utterances.")
 
   if out_step_dir.exists():
     assert overwrite

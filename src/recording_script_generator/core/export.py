@@ -1,3 +1,5 @@
+from recording_script_generator.core.selection.detection.tex import \
+    detect_ids_from_tex
 import random
 from collections import OrderedDict
 from enum import IntEnum
@@ -7,8 +9,6 @@ from typing import Set, Tuple
 
 from ordered_set import OrderedSet
 from pandas import DataFrame
-from recording_script_generator.core.estimators.selection.TexEstimator import \
-    detect_ids_from_tex
 from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations, Selection,
                                                    UtteranceId)

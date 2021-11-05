@@ -21,19 +21,15 @@ class Utterances(OrderedDictType[UtteranceId, Symbols]):
   language: Language
 
 
+ReadingPassages = Utterances
+Representations = Utterances
+
+
 def clone_utterances(utterances: Utterances) -> Utterances:
   result = utterances.copy()
   result.symbol_format = utterances.symbol_format
   result.language = utterances.language
   return result
-
-
-class ReadingPassages(Utterances):
-  pass
-
-
-class Representations(Utterances):
-  pass
 
 
 class Selection(OrderedSet):
