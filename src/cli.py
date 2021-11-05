@@ -59,8 +59,7 @@ def init_add_corpus_from_text_files_parser(parser: ArgumentParser):
   parser.add_argument('--lang', choices=Language, type=Language.__getitem__)
   parser.add_argument('--text_format', choices=SymbolFormat, type=SymbolFormat.__getitem__)
   parser.add_argument('--limit', type=int)
-  parser.add_argument('--chunksize_files', type=int, default=DEFAULT_CHUNKSIZE_FILES)
-  parser.add_argument('--chunksize_utterances', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_FILES)
   parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
   parser.add_argument('--overwrite', action='store_true')
   return app_add_corpus_from_text_files
@@ -138,6 +137,19 @@ def init_convert_to_arpa_parser(parser: ArgumentParser):
   parser.add_argument('--out_step_name', type=str, required=False)
   parser.add_argument('--overwrite', action='store_true')
   return app_convert_to_arpa
+
+
+def init_app_map_to_ipa_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True)
+  parser.add_argument('--in_step_name', type=str, required=True)
+  parser.add_argument('--target', type=Target.__getitem__,
+                      choices=Target, required=True, help=TARGET_HELP)
+  parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
+  parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
+  parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--out_step_name', type=str, required=False)
+  parser.add_argument('--overwrite', action='store_true')
+  return app_map_to_ipa
 
 
 def init_change_ipa_parser(parser: ArgumentParser):
@@ -243,6 +255,7 @@ def init_remove_utterances_with_proper_names_parser(parser: ArgumentParser):
 def init_remove_utterances_with_acronyms_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True, help=CORPUS_NAME_HELP)
   parser.add_argument('--in_step_name', type=str, required=True, help=IN_STEP_NAME_HELP)
+  parser.add_argument('--min_acronym_len', type=int, default=3)
   parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
   parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
   parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
@@ -398,7 +411,8 @@ def _init_parser():
   _add_parser_to(subparsers, "add-text", init_add_corpus_from_text_parser)
   _add_parser_to(subparsers, "normalize", init_normalize_parser)
   _add_parser_to(subparsers, "change-text", init_change_text_parser)
-  _add_parser_to(subparsers, "to-arpa", init_convert_to_arpa_parser)
+  _add_parser_to(subparsers, "eng-to-arpa", init_convert_to_arpa_parser)
+  _add_parser_to(subparsers, "arpa-to-ipa", init_app_map_to_ipa_parser)
   _add_parser_to(subparsers, "change-ipa", init_change_ipa_parser)
   _add_parser_to(subparsers, "stats", init_log_stats_parser)
   _add_parser_to(subparsers, "gen-scripts", init_generate_scripts_parser)

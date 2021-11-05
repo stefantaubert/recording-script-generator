@@ -11,7 +11,7 @@ from text_utils import Language
 from text_utils.symbol_format import SymbolFormat
 
 
-def app_add_corpus_from_text_files(base_dir: Path, corpus_name: str, step_name: str, text_dir: Path, lang: Language, text_format: SymbolFormat, limit: Optional[int], chunksize_files: int, chunksize_utterances: int, n_jobs: int, overwrite: bool = False) -> None:
+def app_add_corpus_from_text_files(base_dir: Path, corpus_name: str, step_name: str, text_dir: Path, lang: Language, text_format: SymbolFormat, limit: Optional[int], chunksize: int, n_jobs: int, overwrite: bool = False) -> None:
   logger = getLogger(__name__)
 
   if not text_dir.is_dir():
@@ -37,8 +37,7 @@ def app_add_corpus_from_text_files(base_dir: Path, corpus_name: str, step_name: 
     text_format=text_format,
     limit=limit,
     n_jobs=n_jobs,
-    chunksize_files=chunksize_files,
-    chunksize_utterances=chunksize_utterances,
+    chunksize=chunksize,
   )
 
   if corpus_dir.exists():

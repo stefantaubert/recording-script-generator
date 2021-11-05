@@ -12,11 +12,12 @@ from text_utils.types import Symbol
 from recording_script_generator.core.types import ReadingPassages, Representations
 
 
-def app_remove_utterances_with_acronyms(base_dir: Path, corpus_name: str, in_step_name: str, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_remove_utterances_with_acronyms(base_dir: Path, corpus_name: str, in_step_name: str, min_acronym_len: int, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing utterances with acronyms...")
   method = partial(
     remove_utterances_with_acronyms_inplace,
+    min_acronym_len=min_acronym_len,
     n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
   )
 

@@ -8,6 +8,7 @@ from typing import Dict, Optional, Set, cast
 
 from ordered_set import OrderedSet
 from recording_script_generator.core.detection import (
+    get_deselected_utterances, get_selected_utterances,
     get_utterance_durations_based_on_symbols,
     select_utterances_through_kld_duration_inplace)
 from recording_script_generator.core.inspection import (
@@ -98,7 +99,6 @@ def do_pipeline_prepare_inplace(reading_passages: ReadingPassages, representatio
 
   # Remove proper names
   remove_utterances_with_proper_names(
-    min_occurrence_count=2,
     **(kwargs | mp_kwargs),
   )
 
@@ -142,22 +142,6 @@ def do_pipeline_prepare_inplace(reading_passages: ReadingPassages, representatio
   )
 
 
-def get_utterances_from_selection(utterances: Utterances, selection: OrderedSet[UtteranceId]) -> Utterances:
-  result = Utterances({k: utterances[k] for k in tqdm(selection)})
-  result.language = utterances.language
-  result.symbol_format = utterances.symbol_format
-  return result
-
-
-def get_selected_utterances(utterances: Utterances, selection: Selection) -> Utterances:
-  return get_utterances_from_selection(utterances, selection)
-
-
-def get_deselected_utterances(utterances: Utterances, selection: Selection) -> Utterances:
-  deselected = OrderedSet(utterances.keys() - selection)
-  return get_utterances_from_selection(utterances, deselected)
-
-
 def update_utterances(add: OrderedSet[UtteranceId], selected: Representations, deselected: Representations, selection: Selection, reading_passages: ReadingPassages):
   log_utterances(reading_passages, add, log_count=None)
   add_to_selection_inplace(selection, add)
@@ -168,7 +152,7 @@ def update_utterances(add: OrderedSet[UtteranceId], selected: Representations, d
 def do_pipeline_select(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_jobs: int, chunksize: int, maxtasksperchild: int):
   utterance_durations_s = get_utterance_durations_based_on_symbols(
     reading_passages,
-    reading_speed_symbols_per_s=14
+    reading_speed_chars_per_s=14
   )
 
   selected = get_selected_utterances(representations, selection)

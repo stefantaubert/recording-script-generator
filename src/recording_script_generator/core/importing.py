@@ -25,13 +25,13 @@ def read_textfile(path: Path) -> str:
   return content
 
 
-def add_corpus_from_text_files(files: Set[Path], lang: Language, text_format: SymbolFormat, limit: Optional[int], chunksize_files: int, chunksize_utterances: int, n_jobs: int) -> Tuple[Selection, ReadingPassages, Representations]:
+def add_corpus_from_text_files(files: Set[Path], lang: Language, text_format: SymbolFormat, limit: Optional[int], chunksize: int, n_jobs: int) -> Tuple[Selection, ReadingPassages, Representations]:
   logger = getLogger(__name__)
   logger.info("Reading text files...")
   if limit is not None:
     files = set(list(files)[:limit])
   with ThreadPoolExecutor(max_workers=n_jobs) as ex:
-    res = list(tqdm(ex.map(read_textfile, files, chunksize=chunksize_files), total=len(files)))
+    res = list(tqdm(ex.map(read_textfile, files, chunksize=chunksize), total=len(files)))
   logger.info("Done.")
 
   return add_corpus_from_texts(
@@ -39,7 +39,7 @@ def add_corpus_from_text_files(files: Set[Path], lang: Language, text_format: Sy
     lang=lang,
     text_format=text_format,
     n_jobs=n_jobs,
-    chunksize=chunksize_utterances,
+    chunksize=chunksize,
   )
 
 

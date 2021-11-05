@@ -40,4 +40,4 @@ def select_selection_inplace(selection: Selection, select: OrderedSet[UtteranceI
   add = select - selection
   add_to_selection_inplace(selection, add)
   remove_from_selection_inplace(selection, remove)
-  assert selection == Selection(select)
+  assert sorted(selection) == sorted(select)

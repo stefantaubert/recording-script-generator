@@ -22,6 +22,6 @@ def get_utterances_from_tex(utterances: Utterances, tex: str) -> OrderedSet[Utte
   non_existent_utterance_ids = ids_in_tex - existent_utterance_ids
   if len(non_existent_utterance_ids) > 0:
     logger = getLogger(__name__)
-    logger.warn(f"Ignored unknown ids: {', '.join(sorted(non_existent_utterance_ids))}!")
+    logger.warn(f"Ignored unknown ids: {', '.join(map(str, sorted(non_existent_utterance_ids)))}!")
   return valid_ids_in_tex
 
