@@ -126,6 +126,7 @@ def do_pipeline_prepare_inplace(reading_passages: ReadingPassages, representatio
   convert_utterances_from_eng_to_arpa_inplace(
     representations,
     n_jobs=n_jobs, chunksize=chunksize,
+    maxtasksperchild=maxtasksperchild,
   )
 
   # Remove undesired text

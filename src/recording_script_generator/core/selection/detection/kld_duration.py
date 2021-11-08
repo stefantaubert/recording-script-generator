@@ -8,7 +8,7 @@ from text_selection.utils import DurationBoundary
 from text_utils.types import Symbol
 
 
-def get_utterances_through_kld_duration(utterances: Utterances, already_selected_utterances: Utterances, utterance_durations_s: Dict[UtteranceId, float], n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], boundary: DurationBoundary) -> OrderedSet[UtteranceId]:
+def get_utterances_through_kld_duration(utterances: Utterances, already_selected_utterances: Utterances, utterance_durations_s: Dict[UtteranceId, float], n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], boundary: DurationBoundary, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> OrderedSet[UtteranceId]:
   seconds = minutes * 60
   newly_selected = greedy_kld_uniform_ngrams_seconds_with_preselection(
     data=utterances,
@@ -18,7 +18,9 @@ def get_utterances_through_kld_duration(utterances: Utterances, already_selected
     durations_s=utterance_durations_s,
     preselection=already_selected_utterances,
     duration_boundary=boundary,
-    mp=True,
+    n_jobs=n_jobs,
+    maxtasksperchild=maxtasksperchild,
+    chunksize=chunksize,
   )
 
   newly_selected_duration_s = sum(

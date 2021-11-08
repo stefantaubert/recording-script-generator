@@ -13,7 +13,10 @@ from recording_script_generator.core.detection import \
 from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations, Selection)
 from recording_script_generator.globals import (DEFAULT_AVG_CHARS_PER_S,
-                                                DEFAULT_IGNORE, DEFAULT_SEED,
+                                                DEFAULT_CHUNKSIZE_UTTERANCES,
+                                                DEFAULT_IGNORE,
+                                                DEFAULT_MAXTASKSPERCHILD,
+                                                DEFAULT_N_JOBS, DEFAULT_SEED,
                                                 DEFAULT_SPLIT_BOUNDARY_MAX_S,
                                                 DEFAULT_SPLIT_BOUNDARY_MIN_S,
                                                 SEP)
@@ -49,7 +52,7 @@ def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_
   __alter_selection(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Set[Symbol] = DEFAULT_IGNORE, boundary_min_s: float = DEFAULT_SPLIT_BOUNDARY_MIN_S, boundary_max_s: float = DEFAULT_SPLIT_BOUNDARY_MAX_S, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Set[Symbol] = DEFAULT_IGNORE, boundary_min_s: float = DEFAULT_SPLIT_BOUNDARY_MIN_S, boundary_max_s: float = DEFAULT_SPLIT_BOUNDARY_MAX_S, n_jobs: int = DEFAULT_N_JOBS, maxtasksperchild: Optional[int] = DEFAULT_MAXTASKSPERCHILD, chunksize: int = DEFAULT_CHUNKSIZE_UTTERANCES, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with KLD duration-based...")
   method = partial(
@@ -59,12 +62,15 @@ def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_nam
     ignore_symbols=ignore_symbols,
     reading_speed_chars_per_s=reading_speed_chars_per_s,
     boundary=(boundary_min_s, boundary_max_s),
+    n_jobs=n_jobs,
+    maxtasksperchild=maxtasksperchild,
+    chunksize=chunksize,
   )
 
   __alter_selection(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_select_kld_ngrams_iterations(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, iterations: int, ignore_symbols: Optional[Set[str]] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_select_kld_ngrams_iterations(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, iterations: int, ignore_symbols: Optional[Set[str]] = None, n_jobs: int = DEFAULT_N_JOBS, maxtasksperchild: Optional[int] = DEFAULT_MAXTASKSPERCHILD, chunksize: int = DEFAULT_CHUNKSIZE_UTTERANCES, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with KLD iteration-based...")
   method = partial(
@@ -72,6 +78,9 @@ def app_select_kld_ngrams_iterations(base_dir: Path, corpus_name: str, in_step_n
     n_gram=n_gram,
     iterations=iterations,
     ignore_symbols=ignore_symbols,
+    n_jobs=n_jobs,
+    maxtasksperchild=maxtasksperchild,
+    chunksize=chunksize,
   )
 
   __alter_selection(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
@@ -100,7 +109,7 @@ def app_select_from_tex(base_dir: Path, corpus_name: str, in_step_name: str, out
   tex_path = get_tex_path(step_dir)
   if not tex_path.exists():
     raise Exception("Tex file not found!")
-  
+
   tex_content = tex_path.read_text()
   method = partial(
     select_utterances_from_tex_inplace,

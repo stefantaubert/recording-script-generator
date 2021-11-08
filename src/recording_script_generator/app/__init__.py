@@ -1,5 +1,6 @@
-from recording_script_generator.app.exporting import (app_generate_scripts,
-                                                      app_generate_textgrid)
+from recording_script_generator.app.exporting import (
+    app_generate_deselected_script, app_generate_selected_script,
+    app_generate_textgrid)
 from recording_script_generator.app.importing import (
     app_add_corpus_from_text, app_add_corpus_from_text_file,
     app_add_corpus_from_text_files, app_merge)

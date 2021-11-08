@@ -1,20 +1,22 @@
-from recording_script_generator.core.selection.detection.tex import \
-    detect_ids_from_tex
 import random
 from collections import OrderedDict
 from enum import IntEnum
+from logging import getLogger
 from typing import Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Set, Tuple
 
 from ordered_set import OrderedSet
 from pandas import DataFrame
+from recording_script_generator.core.selection.detection.tex import \
+    detect_ids_from_tex
 from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations, Selection,
                                                    UtteranceId)
 from text_selection import greedy_kld_uniform_ngrams_default
 from text_selection.greedy_kld_export import greedy_kld_uniform_ngrams_parts
 from textgrid.textgrid import Interval, IntervalTier, TextGrid
+from tqdm import tqdm
 
 
 class SortingMode(IntEnum):
@@ -48,7 +50,7 @@ def get_df_from_reading_passages(reading_passages: OrderedDictType[int, Tuple[Re
   return df
 
 
-def get_keys_custom_sort(selection: Selection, reading_passages: ReadingPassages, representations: Representations, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> OrderedSet[UtteranceId]:
+def get_keys_custom_sort(selection: OrderedSet[UtteranceId], reading_passages: ReadingPassages, representations: Representations, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> OrderedSet[UtteranceId]:
   selected_reading_passages = OrderedDict({k: reading_passages[k] for k in selection})
 
   if mode == SortingMode.RANDOM:
@@ -64,10 +66,13 @@ def get_keys_custom_sort(selection: Selection, reading_passages: ReadingPassages
     return unchanged_keys
 
   if mode == SortingMode.SYMBOL_COUNT_ASC:
+    logger = getLogger(__name__)
+    logger.info("Sorting keys after symbol count...")
     reading_passages_lens = [(key, len(symbols))
-                             for key, symbols in selected_reading_passages.items()]
+                             for key, symbols in tqdm(selected_reading_passages.items())]
     reading_passages_lens.sort(key=lambda key_lens: key_lens[1])
     result = OrderedSet([key for key, _ in reading_passages_lens])
+    logger.info("Done.")
     return result
 
   if mode == SortingMode.BY_INDEX:
@@ -102,8 +107,8 @@ def get_keys_custom_sort(selection: Selection, reading_passages: ReadingPassages
   raise Exception()
 
 
-def get_reading_scripts(selection: Selection, reading_passages: ReadingPassages, representations: Representations, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> Tuple[DataFrame, DataFrame]:
-  keys_sorted = get_keys_custom_sort(
+def get_reading_script_df(selection: OrderedSet[UtteranceId], reading_passages: ReadingPassages, representations: Representations, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> DataFrame:
+  selected_keys_sorted = get_keys_custom_sort(
     selection=selection,
     reading_passages=reading_passages,
     representations=representations,
@@ -114,17 +119,15 @@ def get_reading_scripts(selection: Selection, reading_passages: ReadingPassages,
     parts_count=parts_count,
   )
 
+  logger = getLogger(__name__)
+  logger.info("Creating script...")
   selected = OrderedDict(
     {k: (reading_passages[k], representations[k])
-     for k in keys_sorted})
-  rest = OrderedDict(
-    {k: (reading_passages[k], representations[k])
-     for k in reading_passages if k not in keys_sorted})
-
+     for k in tqdm(selected_keys_sorted)})
   selected_df = get_df_from_reading_passages(selected)
-  rest_df = get_df_from_reading_passages(rest)
+  logger.info("Done.")
 
-  return selected_df, rest_df
+  return selected_df
 
 
 def df_to_txt(df: DataFrame) -> str:

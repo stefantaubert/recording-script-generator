@@ -46,7 +46,7 @@ def get_utterance_durations_based_on_symbols(utterances: Utterances, reading_spe
   return durations
 
 
-def select_utterances_through_kld_duration_inplace(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], boundary: DurationBoundary, reading_speed_chars_per_s: float):
+def select_utterances_through_kld_duration_inplace(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], boundary: DurationBoundary, reading_speed_chars_per_s: float, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int):
   selected = get_selected_utterances(representations, selection)
   deselected = get_deselected_utterances(representations, selection)
   utterance_durations_s = get_utterance_durations_based_on_symbols(
@@ -62,11 +62,14 @@ def select_utterances_through_kld_duration_inplace(reading_passages: ReadingPass
     minutes=minutes,
     n_gram=n_gram,
     utterance_durations_s=utterance_durations_s,
+    n_jobs=n_jobs,
+    maxtasksperchild=maxtasksperchild,
+    chunksize=chunksize,
   )
   log_and_add_to_selection_inplace(add, selection, reading_passages)
 
 
-def select_utterances_through_kld_iterations_inplace(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_gram: int, iterations: int, ignore_symbols: Optional[Set[Symbol]]):
+def select_utterances_through_kld_iterations_inplace(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_gram: int, iterations: int, ignore_symbols: Optional[Set[Symbol]], n_jobs: int, maxtasksperchild: Optional[int], chunksize: int):
   deselected = get_deselected_utterances(representations, selection)
 
   add = get_utterances_through_kld_iterations(
@@ -74,6 +77,9 @@ def select_utterances_through_kld_iterations_inplace(reading_passages: ReadingPa
     ignore_symbols=ignore_symbols,
     iterations=iterations,
     n_gram=n_gram,
+    n_jobs=n_jobs,
+    maxtasksperchild=maxtasksperchild,
+    chunksize=chunksize,
   )
   log_and_add_to_selection_inplace(add, selection, reading_passages)
 

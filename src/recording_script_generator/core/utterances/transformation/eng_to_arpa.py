@@ -4,8 +4,8 @@ from logging import getLogger
 from typing import Optional
 
 from recording_script_generator.core.types import Utterances
-from sentence2pronunciation import prepare_cache_mp
-from sentence2pronunciation.core import sentences2pronunciations_from_cache_mp
+from sentence2pronunciation import (prepare_cache_mp,
+                                    sentences2pronunciations_from_cache_mp)
 from text_utils import SymbolFormat
 from text_utils.pronunciation.G2p_cache import get_eng_g2p
 from text_utils.pronunciation.main import get_eng_to_arpa_lookup_method
@@ -15,7 +15,7 @@ from text_utils.symbol_format import SymbolFormat
 from tqdm import tqdm
 
 
-def convert_utterances_from_eng_to_arpa_inplace(utterances: Utterances, n_jobs: int, chunksize: int) -> None:
+def convert_utterances_from_eng_to_arpa_inplace(utterances: Utterances, n_jobs: int, chunksize: int, maxtasksperchild: Optional[int]) -> None:
   logger = getLogger(__name__)
   logger.info("Loading dictionaries...")
   get_eng_g2p()
@@ -38,6 +38,7 @@ def convert_utterances_from_eng_to_arpa_inplace(utterances: Utterances, n_jobs: 
     n_jobs=n_jobs,
     split_on_hyphen=True,
     trim_symbols=set(string.punctuation),
+    maxtasksperchild=maxtasksperchild,
   )
   logger.info(f"Done. Retrieved {len(cache)} unique words (incl. punctuation).")
 
@@ -50,6 +51,7 @@ def convert_utterances_from_eng_to_arpa_inplace(utterances: Utterances, n_jobs: 
     consider_annotation=False,
     ignore_case=True,
     n_jobs=n_jobs,
+    maxtasksperchild=maxtasksperchild,
   )
   logger.info("Done.")
 

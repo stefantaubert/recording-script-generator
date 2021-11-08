@@ -83,7 +83,7 @@ def init_log_stats_parser(parser: ArgumentParser):
   return app_log_stats
 
 
-def init_generate_scripts_parser(parser: ArgumentParser):
+def init_app_generate_selected_script_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True)
   parser.add_argument('--step_name', type=str, required=True)
   parser.add_argument('--sorting_mode', choices=SortingMode,
@@ -92,13 +92,31 @@ def init_generate_scripts_parser(parser: ArgumentParser):
   parser.add_argument('--parts_count', type=int, required=False)
   parser.add_argument('--take_per_part', type=int, required=False)
   parser.add_argument('--ignore_symbols', type=str, required=False)
-  return _app_generate_scripts_cli
+  return _app_generate_selected_script_cli
 
 
-def _app_generate_scripts_cli(**args):
+def _app_generate_selected_script_cli(**args):
   if args["ignore_symbols"] is not None:
     args["ignore_symbols"] = parse_set(args["ignore_symbols"], split_symbol="&")
-  app_generate_scripts(**args)
+  app_generate_selected_script(**args)
+
+
+def init_app_generate_deselected_script_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True)
+  parser.add_argument('--step_name', type=str, required=True)
+  parser.add_argument('--sorting_mode', choices=SortingMode,
+                      type=SortingMode.__getitem__, default=SortingMode.SYMBOL_COUNT_ASC)
+  parser.add_argument('--seed', type=int, default=None)
+  parser.add_argument('--parts_count', type=int, default=None)
+  parser.add_argument('--take_per_part', type=int, default=None)
+  parser.add_argument('--ignore_symbols', type=str, default=None)
+  return _app_generate_deselected_script_cli
+
+
+def _app_generate_deselected_script_cli(**args):
+  if args["ignore_symbols"] is not None:
+    args["ignore_symbols"] = parse_set(args["ignore_symbols"], split_symbol="&")
+  app_generate_deselected_script(**args)
 
 
 def init_merge_parser(parser: ArgumentParser):
@@ -133,6 +151,7 @@ def init_convert_to_arpa_parser(parser: ArgumentParser):
   parser.add_argument('--target', type=Target.__getitem__,
                       choices=Target, required=True, help=TARGET_HELP)
   parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
+  parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
   parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
   parser.add_argument('--out_step_name', type=str, required=False)
   parser.add_argument('--overwrite', action='store_true')
@@ -229,7 +248,8 @@ def init_remove_undesired_text_parser(parser: ArgumentParser):
 
 
 def _app_remove_undesired_text_cli(**args):
-  args["undesired"] = parse_set(args["undesired"], split_symbol=" ")
+  args["undesired"] = parse_set(args["undesired"], split_symbol="|")
+  print("Parsed undesired: ", args["undesired"])
   app_remove_undesired_text(**args)
 
 
@@ -337,6 +357,9 @@ def init_app_select_kld_ngrams_iterations_parser(parser: ArgumentParser):
   parser.add_argument('--n_gram', type=int, required=True)
   parser.add_argument('--iterations', type=int, required=True)
   parser.add_argument('--ignore_symbols', type=str, required=False)
+  parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
+  parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
+  parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
   parser.add_argument('--out_step_name', type=str, required=False,
                       help=OUT_STEP_NAME_HELP)
   parser.add_argument('--overwrite', action='store_true',
@@ -383,6 +406,9 @@ def init_select_kld_ngrams_duration_parser(parser: ArgumentParser):
                       default=DEFAULT_SPLIT_BOUNDARY_MIN_S, help="")
   parser.add_argument('--boundary_max_s', type=float,
                       default=DEFAULT_SPLIT_BOUNDARY_MAX_S, help="")
+  parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
+  parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
+  parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
   parser.add_argument('--out_step_name', type=str, required=False,
                       help=OUT_STEP_NAME_HELP)
   parser.add_argument('--overwrite', action='store_true',
@@ -415,7 +441,8 @@ def _init_parser():
   _add_parser_to(subparsers, "arpa-to-ipa", init_app_map_to_ipa_parser)
   _add_parser_to(subparsers, "change-ipa", init_change_ipa_parser)
   _add_parser_to(subparsers, "stats", init_log_stats_parser)
-  _add_parser_to(subparsers, "gen-scripts", init_generate_scripts_parser)
+  _add_parser_to(subparsers, "gen-reading-script", init_app_generate_selected_script_parser)
+  _add_parser_to(subparsers, "gen-rest-script", init_app_generate_deselected_script_parser)
   _add_parser_to(subparsers, "gen-textgrid", init_generate_textgrid_parser)
   _add_parser_to(subparsers, "merge", init_merge_parser)
   _add_parser_to(subparsers, "remove-deselected", init_remove_deselected_parser)
