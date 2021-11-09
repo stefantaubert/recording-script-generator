@@ -43,14 +43,21 @@ def add_corpus_from_text_files(files: Set[Path], lang: Language, text_format: Sy
   )
 
 
-def get_sentences_from_text(text: str, lang: Language, text_format: SymbolFormat) -> Set[str]:
+def get_sentences_from_text(text: str, lang: Language, text_format: SymbolFormat) -> Set[Symbols]:
   utterances = file_to_utterances(text, lang, text_format)
-  sentences = []
+  sentences: Set[Symbols] = set()
 
   for utterance in utterances:
     if not is_sentence(utterance, lang, text_format):
       continue
-    sentences.append(utterance)
+
+    symbols = text_to_symbols(
+      text=utterance,
+      lang=lang,
+      text_format=text_format,
+    )
+
+    sentences.add(symbols)
   return sentences
 
 
@@ -61,36 +68,32 @@ def add_corpus_from_texts(texts: List[str], lang: Language, text_format: SymbolF
   #tqdm_steps = 4
   #chunksize = max(round(len(texts) / n_jobs / tqdm_steps), 1)
   logger.info(f"Assigning {chunksize} files to {n_jobs} processor core.")
+  # todo optimize that texts are not passed as argument
   with ProcessPoolExecutor(max_workers=n_jobs) as ex:
-    res: List[Set[str]] = list(
+    sentences_from_files: List[Set[Symbols]] = list(
       tqdm(ex.map(method, texts, chunksize=chunksize), total=len(texts)))
+  logger.info("Done.")
+  logger.info("Extracting sentences...")
+  all_sentences = {
+    text_sentence
+    for text_sentences in tqdm(sentences_from_files)
+    for text_sentence in text_sentences
+  }
 
-  passages: Dict[UtteranceId, Symbols] = {}
-  for text_sentences in res:
-    for text_sentence in text_sentences:
-      symbols = text_to_symbols(
-        text=text_sentence,
-        lang=lang,
-        text_format=text_format,
-      )
-
-      utterance_id = len(passages)
-      passages[utterance_id] = symbols
-
-  #     total_utterance_count += len(utterances)
+  reading_passages: Dict[UtteranceId, Symbols] = ReadingPassages({
+    i: sentence for i, sentence in tqdm(enumerate(all_sentences))
+  })
+  reading_passages.symbol_format = text_format
+  reading_passages.language = lang
 
   # selected_percent = len(reading_passages) / total_utterance_count
   # logger.info(
   #   f"{selected_percent*100:.2f}% ({len(reading_passages)}) of all {total_utterance_count} utterances were sentences and thus selected.")
-  logger.info("Done.")
-
-  reading_passages = ReadingPassages(passages)
-  reading_passages.symbol_format = text_format
-  reading_passages.language = lang
-
-  representations = Representations(passages)
+  logger.info("Cloning as representations...")
+  representations = Representations(reading_passages)
   representations.symbol_format = text_format
   representations.language = lang
+  logger.info(f"Done. Detected {len(reading_passages)} sentences.")
 
   selection = Selection()
 

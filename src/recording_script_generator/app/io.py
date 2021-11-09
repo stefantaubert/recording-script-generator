@@ -5,7 +5,8 @@ from time import perf_counter
 from typing import Tuple
 
 from general_utils import load_obj, save_obj
-from recording_script_generator.core.types import ReadingPassages, Representations, Selection
+from recording_script_generator.core.types import (ReadingPassages,
+                                                   Representations, Selection)
 
 READING_PASSAGES_DATA_FILE = "reading_passages.pkl"
 REPRESENTATIONS_DATA_FILE = "representations.pkl"
@@ -26,7 +27,12 @@ def load_reading_passages(step_dir: Path) -> ReadingPassages:
   start = perf_counter()
   res = load_obj(step_dir / READING_PASSAGES_DATA_FILE)
   logger.info(f"Done. Loaded {len(res)} reading passages in {perf_counter() - start:.2f}s.")
-  logger.info(f"Size of reading passages in memory: {getsizeof(res)/1024**3:.2f} Gb")
+  if __debug__:
+    logger.info("Calculating size in memory...")
+    size = getsizeof(res)
+    #from pympler import asizeof
+    #size = asizeof.asizeof(res)
+    logger.info(f"Size of reading passages in memory: {size/1024**3:.2f} Gb.")
   return res
 
 
@@ -36,7 +42,13 @@ def load_representations(step_dir: Path) -> Representations:
   start = perf_counter()
   res = load_obj(step_dir / REPRESENTATIONS_DATA_FILE)
   logger.info(f"Done. Loaded {len(res)} representations in {perf_counter() - start:.2f}s.")
-  logger.info(f"Size of representations in memory: {getsizeof(res)/1024**3:.2f} Gb")
+  
+  if __debug__:
+    logger.info("Calculating size in memory...")
+    size = getsizeof(res)
+    #from pympler import asizeof
+    #size = asizeof.asizeof(res)
+    logger.info(f"Size of representations in memory: {size/1024**3:.2f} Gb.")
   return res
 
 

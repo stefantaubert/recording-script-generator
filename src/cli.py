@@ -408,7 +408,7 @@ def init_select_kld_ngrams_duration_parser(parser: ArgumentParser):
                       default=DEFAULT_SPLIT_BOUNDARY_MAX_S, help="")
   parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
   parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
-  parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--chunksize', type=int, default=None)
   parser.add_argument('--out_step_name', type=str, required=False,
                       help=OUT_STEP_NAME_HELP)
   parser.add_argument('--overwrite', action='store_true',

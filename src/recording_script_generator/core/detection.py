@@ -46,7 +46,7 @@ def get_utterance_durations_based_on_symbols(utterances: Utterances, reading_spe
   return durations
 
 
-def select_utterances_through_kld_duration_inplace(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], boundary: DurationBoundary, reading_speed_chars_per_s: float, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int):
+def select_utterances_through_kld_duration_inplace(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], boundary: DurationBoundary, reading_speed_chars_per_s: float, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int]):
   selected = get_selected_utterances(representations, selection)
   deselected = get_deselected_utterances(representations, selection)
   utterance_durations_s = get_utterance_durations_based_on_symbols(

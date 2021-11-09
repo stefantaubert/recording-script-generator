@@ -7,9 +7,10 @@ from typing import Callable, Optional, Set
 
 from recording_script_generator.app.io import *
 from recording_script_generator.core import *
+from recording_script_generator.core.types import (ReadingPassages,
+                                                   Representations,
+                                                   UtteranceId)
 from text_utils.types import Symbol
-
-from recording_script_generator.core.types import ReadingPassages, Representations
 
 
 def app_remove_utterances_with_acronyms(base_dir: Path, corpus_name: str, in_step_name: str, min_acronym_len: int, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
@@ -103,7 +104,7 @@ def app_remove_deselected(base_dir: Path, corpus_name: str, in_step_name: str, o
   __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str], overwrite: bool, method: Callable[[ReadingPassages, Representations, Selection], None]):
+def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_name: Optional[str], overwrite: bool, method: Callable[[Representations, Selection], Set[UtteranceId]]):
   logger = getLogger(__name__)
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
   in_step_dir = get_step_dir(corpus_dir, in_step_name)
@@ -123,18 +124,17 @@ def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_n
     return
 
   selection = load_selection(in_step_dir)
-  reading_passages = load_reading_passages(in_step_dir)
   representations = load_representations(in_step_dir)
-  old_count = len(reading_passages)
+  old_count = len(representations)
 
   start = perf_counter()
   # reading passages as target is not planned
-  method(reading_passages, representations, selection)
+  remove = method(representations, selection)
   end = perf_counter()
   duration_min = (end - start) / 60
   logger.info(f"Total operation duration: {duration_min:.2f}min.")
 
-  final_count = len(reading_passages)
+  final_count = len(representations)
   removed_count = old_count - final_count
   if old_count > 0:
     logger.info(
@@ -148,5 +148,12 @@ def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_n
   out_step_dir.mkdir(parents=True, exist_ok=True)
 
   save_selection(out_step_dir, selection)
-  save_reading_passages(out_step_dir, reading_passages)
   save_representations(out_step_dir, representations)
+  # for memory reasons, remove the items at the end
+  del representations
+  del selection
+  logger.info("Applying changes also to reading passages...")
+  reading_passages = load_reading_passages(in_step_dir)
+  remove_from_utterances_inplace(reading_passages, remove)
+  save_reading_passages(out_step_dir, reading_passages)
+  logger.info("Done.")

@@ -1,6 +1,7 @@
 from functools import partial
 from logging import getLogger
 from math import inf
+from multiprocessing import cpu_count
 from multiprocessing.pool import RemoteTraceback
 from sys import getsizeof
 from time import perf_counter
@@ -171,6 +172,9 @@ def do_pipeline_select(reading_passages: ReadingPassages, representations: Repre
     minutes=1,  # 10
     n_gram=1,
     utterance_durations_s=utterance_durations_s,
+    chunksize=None,
+    maxtasksperchild=None,
+    n_jobs=cpu_count(),
   )
   update_utterances_func(add)
 
@@ -182,6 +186,9 @@ def do_pipeline_select(reading_passages: ReadingPassages, representations: Repre
     minutes=1,  # 13
     n_gram=1,
     utterance_durations_s=utterance_durations_s,
+    chunksize=None,
+    maxtasksperchild=None,
+    n_jobs=cpu_count(),
   )
   update_utterances_func(add)
 
@@ -193,6 +200,9 @@ def do_pipeline_select(reading_passages: ReadingPassages, representations: Repre
     minutes=1,  # 10
     n_gram=1,
     utterance_durations_s=utterance_durations_s,
+    chunksize=None,
+    maxtasksperchild=None,
+    n_jobs=cpu_count(),
   )
   update_utterances_func(add)
 

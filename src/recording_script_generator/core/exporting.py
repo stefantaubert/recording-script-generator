@@ -2,6 +2,7 @@ import random
 from collections import OrderedDict
 from enum import IntEnum
 from logging import getLogger
+from multiprocessing import cpu_count
 from typing import Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Set, Tuple
@@ -86,7 +87,10 @@ def get_keys_custom_sort(selection: OrderedSet[UtteranceId], reading_passages: R
     keys_sorted_by_index = greedy_kld_uniform_ngrams_default(
       data=selected_representations,
       n_gram=1,
-      ignore_symbols=ignore_symbols
+      ignore_symbols=ignore_symbols,
+      chunksize=None,
+      maxtasksperchild=None,
+      n_jobs=cpu_count(),
     )
     return keys_sorted_by_index
 
@@ -101,6 +105,9 @@ def get_keys_custom_sort(selection: OrderedSet[UtteranceId], reading_passages: R
       ignore_symbols=ignore_symbols,
       parts_count=parts_count,
       take_per_part=take_per_part,
+      chunksize=None,
+      maxtasksperchild=None,
+      n_jobs=cpu_count(),
     )
     return keys_sorted_by_index
 
