@@ -171,6 +171,19 @@ def init_app_map_to_ipa_parser(parser: ArgumentParser):
   return app_map_to_ipa
 
 
+def init_app_app_convert_to_symbols_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True)
+  parser.add_argument('--in_step_name', type=str, required=True)
+  parser.add_argument('--target', type=Target.__getitem__,
+                      choices=Target, required=True, help=TARGET_HELP)
+  parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
+  parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
+  parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--out_step_name', type=str, required=False)
+  parser.add_argument('--overwrite', action='store_true')
+  return app_convert_to_symbols
+
+
 def init_change_ipa_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True)
   parser.add_argument('--in_step_name', type=str, required=True)
@@ -438,6 +451,7 @@ def _init_parser():
   _add_parser_to(subparsers, "normalize", init_normalize_parser)
   _add_parser_to(subparsers, "change-text", init_change_text_parser)
   _add_parser_to(subparsers, "eng-to-arpa", init_convert_to_arpa_parser)
+  _add_parser_to(subparsers, "to-symbols", init_app_app_convert_to_symbols_parser)
   _add_parser_to(subparsers, "arpa-to-ipa", init_app_map_to_ipa_parser)
   _add_parser_to(subparsers, "change-ipa", init_change_ipa_parser)
   _add_parser_to(subparsers, "stats", init_log_stats_parser)

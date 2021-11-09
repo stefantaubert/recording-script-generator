@@ -16,6 +16,9 @@ from tqdm import tqdm
 
 
 def convert_utterances_from_eng_to_arpa_inplace(utterances: Utterances, n_jobs: int, chunksize: int, maxtasksperchild: Optional[int]) -> None:
+  if len(utterances) > 0:
+    first_utterance = utterances[list(utterances.keys())[0]]
+    assert isinstance(first_utterance, tuple)
   logger = getLogger(__name__)
   logger.info("Loading dictionaries...")
   get_eng_g2p()

@@ -3,11 +3,13 @@ from pathlib import Path
 from shutil import copyfile
 from sys import getsizeof
 from time import perf_counter
-from typing import Tuple
+from typing import Dict, Tuple
 
 from general_utils import load_obj, save_obj
 from recording_script_generator.core.types import (ReadingPassages,
-                                                   Representations, Selection)
+                                                   Representations, Selection,
+                                                   UtteranceId, Utterances)
+from tqdm import tqdm
 
 READING_PASSAGES_DATA_FILE = "reading_passages.pkl"
 REPRESENTATIONS_DATA_FILE = "representations.pkl"
@@ -50,6 +52,7 @@ def load_representations(step_dir: Path) -> Representations:
     #from pympler import asizeof
     #size = asizeof.asizeof(res)
     logger.info(f"Size of representations in memory: {size/1024**3:.2f} Gb.")
+
   return res
 
 
@@ -87,9 +90,9 @@ def save_representations(step_dir: Path, representations: Representations) -> No
 
   return None
 
-
 def copy_selection(in_step_dir: Path, out_step_dir: Path) -> None:
   copyfile(in_step_dir / SELECTION_DATA_FILE, out_step_dir / SELECTION_DATA_FILE)
+
 
 def copy_representations(in_step_dir: Path, out_step_dir: Path) -> None:
   copyfile(in_step_dir / REPRESENTATIONS_DATA_FILE, out_step_dir / REPRESENTATIONS_DATA_FILE)

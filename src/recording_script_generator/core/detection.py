@@ -8,7 +8,7 @@ from recording_script_generator.core.common import log_utterances
 from recording_script_generator.core.selection import *
 from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations, Selection,
-                                                   Utterance, UtteranceId,
+                                                   UtteranceKVPair, UtteranceId,
                                                    Utterances)
 from recording_script_generator.core.utterances import *
 from text_selection.selection import SelectionMode

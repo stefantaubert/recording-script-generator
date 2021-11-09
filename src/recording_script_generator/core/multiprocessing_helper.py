@@ -4,8 +4,8 @@ from multiprocessing import Pool
 from time import perf_counter
 from typing import Callable, Dict, Optional, Set, Tuple, TypeVar
 
-from recording_script_generator.core.types import UtteranceId, Utterances
-from text_utils.types import Symbols
+from recording_script_generator.core.types import (Utterance, UtteranceId,
+                                                   Utterances)
 from tqdm import tqdm
 
 utterances_shared_memory: Utterances
@@ -16,18 +16,18 @@ def init_pool(utterances: Utterances):
   utterances_shared_memory = utterances
 
 
-def main_proxy(utterance_id: UtteranceId, main_method: Callable[[Symbols], bool]) -> Tuple[UtteranceId, bool]:
+def main_proxy(utterance_id: UtteranceId, main_method: Callable[[Utterance], bool]) -> Tuple[UtteranceId, bool]:
   # pylint: disable=global-variable-not-assigned
   global utterances_shared_memory
-  symbols = utterances_shared_memory[utterance_id]
-  result_method = main_method(symbols)
+  utterance = utterances_shared_memory[utterance_id]
+  result_method = main_method(utterance)
   return utterance_id, result_method
 
 
 T = TypeVar('T')
 
 
-def execute_method_on_utterances_mp(utterances: Utterances, method: Callable[[Symbols], T], n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> Dict[UtteranceId, T]:
+def execute_method_on_utterances_mp(utterances: Utterances, method: Callable[[Utterance], T], n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> Dict[UtteranceId, T]:
   start = perf_counter()
 
   method_proxy = partial(
@@ -52,7 +52,7 @@ def execute_method_on_utterances_mp(utterances: Utterances, method: Callable[[Sy
   return transformed_utterances
 
 
-def execute_method_on_utterances_mp_bool(utterances: Utterances, method: Callable[[Symbols], bool], n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> Set[UtteranceId]:
+def execute_method_on_utterances_mp_bool(utterances: Utterances, method: Callable[[Utterance], bool], n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> Set[UtteranceId]:
   transformed_utterances = execute_method_on_utterances_mp(
     utterances=utterances,
     chunksize=chunksize,

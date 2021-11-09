@@ -11,16 +11,10 @@ from recording_script_generator.app.io import *
 from recording_script_generator.core import *
 from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations, Utterances)
-from recording_script_generator.core.utterances.transformation.arpa_to_ipa import \
-    map_utterances_from_arpa_to_ipa_inplace
-from recording_script_generator.core.utterances.transformation.change_ipa import \
-    change_utterances_ipa_inplace
-from recording_script_generator.core.utterances.transformation.change_text import \
-    change_utterances_text_inplace
-from recording_script_generator.core.utterances.transformation.eng_to_arpa import \
-    convert_utterances_from_eng_to_arpa_inplace
-from recording_script_generator.core.utterances.transformation.normalize import \
-    normalize_utterances_inplace
+from recording_script_generator.core.utterances.transformation import (
+    change_utterances_ipa_inplace, change_utterances_text_inplace,
+    convert_to_symbols_inplace, convert_utterances_from_eng_to_arpa_inplace,
+    map_utterances_from_arpa_to_ipa_inplace, normalize_utterances_inplace)
 
 
 class Target(IntEnum):
@@ -72,6 +66,17 @@ def app_map_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: 
   logger.info("Mapping to IPA...")
   method = partial(
     map_utterances_from_arpa_to_ipa_inplace,
+    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+  )
+
+  __alter_utterances(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
+
+
+def app_convert_to_symbols(base_dir: Path, corpus_name: str, in_step_name: str, target: Target, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+  logger = getLogger(__name__)
+  logger.info("Converting to symbols...")
+  method = partial(
+    convert_to_symbols_inplace,
     n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
   )
 

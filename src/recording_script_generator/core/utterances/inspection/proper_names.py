@@ -4,21 +4,21 @@ from typing import Optional, Set
 
 from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp_bool
-from recording_script_generator.core.types import UtteranceId, Utterances
+from recording_script_generator.core.types import (Utterance, UtteranceId,
+                                                   Utterances)
 from text_utils.language import Language
-from text_utils.types import Symbols
 
 pattern = re.compile(r" [A-HJ-Z]")
 
 
-def contains_eng_proper_names(sentence: str) -> bool:
-  matches = re.search(pattern, sentence)
+def contains_eng_proper_names(utterance_str: str) -> bool:
+  matches = re.search(pattern, utterance_str)
   return matches is not None
 
 
-def main(symbols: Symbols) -> bool:
-  symbols = ''.join(symbols)
-  result = contains_eng_proper_names(symbols)
+def main(utterance: Utterance) -> bool:
+  assert isinstance(utterance, str)
+  result = contains_eng_proper_names(utterance)
   return result
 
 

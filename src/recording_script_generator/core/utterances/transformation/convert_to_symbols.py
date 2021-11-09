@@ -5,27 +5,30 @@ from typing import Optional
 from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp
 from recording_script_generator.core.types import Utterance, Utterances
-from text_utils import change_symbols
+from text_utils import text_normalize, text_to_symbols
 from text_utils.language import Language
+from text_utils.symbol_format import SymbolFormat
 from text_utils.types import Symbols
 
 
-def main(utterance: Utterance, remove_space_around_punctuation: bool, language: Language) -> Symbols:
-  assert isinstance(utterance, tuple)
+def main(utterance: Utterance, language: Language, symbol_format: SymbolFormat) -> str:
+  assert isinstance(utterance, str)
 
-  return change_symbols(
-    symbols=utterance,
-    remove_space_around_punctuation=remove_space_around_punctuation,
+  symbols = text_to_symbols(
+    text=utterance,
     lang=language,
+    text_format=symbol_format,
   )
 
+  return symbols
 
-def change_utterances_text_inplace(utterances: Utterances, remove_space_around_punctuation: bool, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> None:
+
+def convert_to_symbols_inplace(utterances: Utterances, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> None:
   logger = getLogger(__name__)
-  logger.info("Changing text...")
+  logger.info("Converting to symbols...")
   method = partial(
     main,
-    remove_space_around_punctuation=remove_space_around_punctuation,
+    symbol_format=utterances.symbol_format,
     language=utterances.language,
   )
 
@@ -36,5 +39,4 @@ def change_utterances_text_inplace(utterances: Utterances, remove_space_around_p
     maxtasksperchild=maxtasksperchild,
     chunksize=chunksize,
   )
-
   utterances.update(result)

@@ -22,7 +22,7 @@ from recording_script_generator.core.inspection import (
 from recording_script_generator.core.selection import *
 from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations, Selection,
-                                                   Utterance, UtteranceId,
+                                                   UtteranceKVPair, UtteranceId,
                                                    Utterances)
 from recording_script_generator.core.utterances import *
 from tqdm import tqdm

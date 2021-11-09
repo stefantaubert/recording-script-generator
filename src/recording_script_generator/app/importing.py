@@ -71,7 +71,7 @@ def app_add_corpus_from_text(base_dir: Path, corpus_name: str, step_name: str, t
 
   selection, reading_passages, representations = add_corpus_from_texts(
     texts=[text],
-    lang=lang,
+    language=lang,
     text_format=text_format,
     n_jobs=1,
     chunksize=1,

@@ -7,7 +7,8 @@ from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp_bool
 from recording_script_generator.core.text_extraction import \
     strip_punctuation_words
-from recording_script_generator.core.types import UtteranceId, Utterances
+from recording_script_generator.core.types import (Utterance, UtteranceId,
+                                                   Utterances)
 from text_utils.language import Language
 from text_utils.types import Symbols
 
@@ -23,9 +24,9 @@ def get_non_dict_words_amount(words: List[str], lexicon: enchant.Dict) -> int:
   return words_not_in_dict
 
 
-def main(symbols: Symbols, max_unknown_word_count: int, lexicon: enchant.Dict) -> bool:
-  symbols = ''.join(symbols)
-  words = symbols.split(" ")
+def main(utterance: Utterance, max_unknown_word_count: int, lexicon: enchant.Dict) -> bool:
+  assert isinstance(utterance, str)
+  words = utterance.split(" ")
   words_non_punctuation = strip_punctuation_words(words)
 
   non_dict_words_amount = get_non_dict_words_amount(words_non_punctuation, lexicon)

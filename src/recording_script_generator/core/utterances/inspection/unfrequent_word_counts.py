@@ -7,8 +7,8 @@ from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp
 from recording_script_generator.core.text_extraction import \
     strip_punctuation_words
-from recording_script_generator.core.types import UtteranceId, Utterances
-from text_utils.types import Symbols
+from recording_script_generator.core.types import (Utterance, UtteranceId,
+                                                   Utterances)
 
 
 def get_minimum_frequency(words: List[str], word_frequencies: Counter) -> int:
@@ -20,8 +20,8 @@ def get_minimum_frequency(words: List[str], word_frequencies: Counter) -> int:
   return result
 
 
-def get_non_punctuation_words(symbols: Symbols) -> List[str]:
-  utterance = ''.join(symbols)
+def get_non_punctuation_words(utterance: Utterance) -> List[str]:
+  assert isinstance(utterance, str)
   utterance = utterance.lower()
   words = utterance.split(" ")
   words_non_punctuation = strip_punctuation_words(words)

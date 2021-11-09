@@ -3,14 +3,15 @@ from typing import Optional
 
 from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp
-from recording_script_generator.core.types import Utterances
+from recording_script_generator.core.types import Utterance, Utterances
 from text_utils import SymbolFormat, symbols_map_arpa_to_ipa
 from text_utils.types import Symbols
 
 
-def main(symbols: Symbols) -> Symbols:
+def main(utterance: Utterance) -> Symbols:
+  assert isinstance(utterance, tuple)
   ipa_symbols = symbols_map_arpa_to_ipa(
-    arpa_symbols=symbols,
+    arpa_symbols=utterance,
     ignore={},
     replace_unknown=False,
     replace_unknown_with=None,

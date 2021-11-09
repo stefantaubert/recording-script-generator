@@ -18,9 +18,6 @@ from recording_script_generator.app.selection import (
     app_select_greedy_ngrams_epochs, app_select_kld_ngrams_duration,
     app_select_kld_ngrams_iterations)
 from recording_script_generator.app.stats import app_log_stats
-from recording_script_generator.app.transformation import (Target,
-                                                           app_change_ipa,
-                                                           app_change_text,
-                                                           app_convert_to_arpa,
-                                                           app_map_to_ipa,
-                                                           app_normalize)
+from recording_script_generator.app.transformation import (
+    Target, app_change_ipa, app_change_text, app_convert_to_arpa,
+    app_convert_to_symbols, app_map_to_ipa, app_normalize)

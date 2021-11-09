@@ -7,9 +7,7 @@ from typing import Callable, Optional, Set
 
 from recording_script_generator.app.io import *
 from recording_script_generator.core import *
-from recording_script_generator.core.types import (ReadingPassages,
-                                                   Representations,
-                                                   UtteranceId)
+from recording_script_generator.core.types import Representations, UtteranceId
 from text_utils.types import Symbol
 
 

@@ -4,25 +4,29 @@ from typing import Optional, Set
 
 from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp_bool
-from recording_script_generator.core.types import UtteranceId, Utterances
-from text_utils.types import Symbols
+from recording_script_generator.core.types import (Utterance, UtteranceId,
+                                                   Utterances)
 
 
-def contains_undesired_text(sentence: str, undesired: Set[str], ignore_case: bool) -> bool:
+def contains_undesired_text(utterance: str, undesired: Set[str], ignore_case: bool) -> bool:
   for x in undesired:
     if ignore_case:
-      if x.lower() in sentence.lower():
+      if x.lower() in utterance.lower():
         return True
     else:
-      if x in sentence:
+      if x in utterance:
         return True
 
   return False
 
 
-def main(symbols: Symbols, undesired: Set[str]) -> bool:
-  symbols = ''.join(symbols)
-  result = contains_undesired_text(symbols, undesired=undesired, ignore_case=True)
+def main(utterance: Utterance, undesired: Set[str]) -> bool:
+  if isinstance(utterance, str):
+    utterance_str = utterance
+  else:
+    assert isinstance(utterance, tuple)
+    utterance_str = ''.join(utterance)
+  result = contains_undesired_text(utterance_str, undesired=undesired, ignore_case=True)
   return result
 
 

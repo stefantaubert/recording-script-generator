@@ -4,25 +4,25 @@ from typing import Optional, Set
 
 from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp_bool
-from recording_script_generator.core.types import UtteranceId, Utterances
+from recording_script_generator.core.types import Utterance, UtteranceId, Utterances
 from text_utils.types import Symbols
 
 
-def contains_undesired_text(sentence: str, undesired: Set[str], ignore_case: bool) -> bool:
+def contains_undesired_text(utterance: str, undesired: Set[str], ignore_case: bool) -> bool:
   for x in undesired:
     if ignore_case:
-      if x.lower() in sentence.lower():
+      if x.lower() in utterance.lower():
         return True
     else:
-      if x in sentence:
+      if x in utterance:
         return True
 
   return False
 
 
-def main(symbols: Symbols, min_count: Optional[int], max_count: Optional[int]) -> bool:
-  symbols = ''.join(symbols)
-  words = symbols.split(" ")
+def main(utterance: Utterance, min_count: Optional[int], max_count: Optional[int]) -> bool:
+  assert isinstance(utterance, str)
+  words = utterance.split(" ")
   words_count = len(words)
 
   if min_count is not None and words_count < min_count:
