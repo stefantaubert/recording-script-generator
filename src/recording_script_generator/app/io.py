@@ -1,5 +1,6 @@
 from logging import getLogger
 from pathlib import Path
+from shutil import copyfile
 from sys import getsizeof
 from time import perf_counter
 from typing import Tuple
@@ -42,7 +43,7 @@ def load_representations(step_dir: Path) -> Representations:
   start = perf_counter()
   res = load_obj(step_dir / REPRESENTATIONS_DATA_FILE)
   logger.info(f"Done. Loaded {len(res)} representations in {perf_counter() - start:.2f}s.")
-  
+
   if __debug__:
     logger.info("Calculating size in memory...")
     size = getsizeof(res)
@@ -85,6 +86,17 @@ def save_representations(step_dir: Path, representations: Representations) -> No
     f"Done. Saved {len(representations)} representations in {perf_counter() - start:.2f}s.")
 
   return None
+
+
+def copy_selection(in_step_dir: Path, out_step_dir: Path) -> None:
+  copyfile(in_step_dir / SELECTION_DATA_FILE, out_step_dir / SELECTION_DATA_FILE)
+
+def copy_representations(in_step_dir: Path, out_step_dir: Path) -> None:
+  copyfile(in_step_dir / REPRESENTATIONS_DATA_FILE, out_step_dir / REPRESENTATIONS_DATA_FILE)
+
+
+def copy_reading_passages(in_step_dir: Path, out_step_dir: Path) -> None:
+  copyfile(in_step_dir / READING_PASSAGES_DATA_FILE, out_step_dir / READING_PASSAGES_DATA_FILE)
 
 
 def save_selection(step_dir: Path, selection: Selection) -> None:

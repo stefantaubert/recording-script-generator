@@ -140,20 +140,27 @@ def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_n
     logger.info(
       f"Removed {removed_count} of {old_count} utterances ({removed_count/old_count*100:.2f}%) and obtained {final_count} utterances.")
 
-  if out_step_dir.exists():
-    assert overwrite
-    logger.info("Removing existing out dir...")
-    rmtree(out_step_dir)
-    logger.info("Done.")
+  # if out_step_dir.exists():
+  #   assert overwrite
+  #   logger.info("Removing existing out dir...")
+  #   rmtree(out_step_dir)
+  #   logger.info("Done.")
   out_step_dir.mkdir(parents=True, exist_ok=True)
 
   save_selection(out_step_dir, selection)
-  save_representations(out_step_dir, representations)
-  # for memory reasons, remove the items at the end
-  del representations
   del selection
-  logger.info("Applying changes also to reading passages...")
-  reading_passages = load_reading_passages(in_step_dir)
-  remove_from_utterances_inplace(reading_passages, remove)
-  save_reading_passages(out_step_dir, reading_passages)
+  save_representations(out_step_dir, representations)
+  del representations
+
+  changed_something = len(remove) > 0
+  if changed_something:
+    # for memory reasons, remove the items at the end
+    logger.info("Applying changes also to reading passages...")
+    reading_passages = load_reading_passages(in_step_dir)
+    remove_from_utterances_inplace(reading_passages, remove)
+    save_reading_passages(out_step_dir, reading_passages)
+  else:
+    if in_step_dir != out_step_dir:
+      logger.info("Copying reading passages...")
+      copy_reading_passages(in_step_dir, out_step_dir)
   logger.info("Done.")

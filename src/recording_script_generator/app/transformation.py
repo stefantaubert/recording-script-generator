@@ -1,6 +1,7 @@
 from enum import IntEnum
 from functools import partial
 from logging import getLogger
+from os import remove
 from pathlib import Path
 from shutil import rmtree
 from time import perf_counter
@@ -27,11 +28,19 @@ class Target(IntEnum):
   REPRESENTATIONS = 1
 
 
-def get_target_utterances(reading_passages: ReadingPassages, representations: Representations, target: Target) -> Utterances:
+def load_target_utterances(target: Target, step_dir: Path) -> Utterances:
   if target == Target.READING_PASSAGES:
-    return reading_passages
+    return load_reading_passages(step_dir)
   elif target == Target.REPRESENTATIONS:
-    return representations
+    return load_representations(step_dir)
+  assert False
+
+
+def save_target_utterances(target: Target, step_dir: Path, utterances: Utterances) -> None:
+  if target == Target.READING_PASSAGES:
+    save_reading_passages(step_dir, utterances)
+  elif target == Target.REPRESENTATIONS:
+    save_representations(step_dir, utterances)
   assert False
 
 
@@ -116,8 +125,7 @@ def __alter_utterances(base_dir: Path, corpus_name: str, in_step_name: str, targ
     logger.info("Already exists.")
     return
 
-  selection, reading_passages, representations = load_data(in_step_dir)
-  utterances = get_target_utterances(reading_passages, representations, target)
+  utterances = load_target_utterances(target, in_step_dir)
 
   start = perf_counter()
   method(utterances)
@@ -125,12 +133,22 @@ def __alter_utterances(base_dir: Path, corpus_name: str, in_step_name: str, targ
   duration_min = (end - start) / 60
   logger.info(f"Total operation duration: {duration_min:.2f}min.")
 
-  if out_step_dir.exists():
-    assert overwrite
-    logger.info("Removing existing out dir...")
-    rmtree(out_step_dir)
-    logger.info("Done.")
+  # if out_step_dir.exists():
+  #   assert overwrite
+  #   logger.info("Removing existing out dir...")
+  #   rmtree(out_step_dir)
+  #   logger.info("Done.")
   out_step_dir.mkdir(parents=True, exist_ok=True)
 
   # selection is just a copy
-  save_data(out_step_dir, selection, reading_passages, representations)
+  save_target_utterances(target, out_step_dir, utterances)
+  del utterances
+
+  if in_step_dir != out_step_dir:
+    logger.info("Copying other data from input folder.")
+    copy_selection(in_step_dir, out_step_dir)
+    if target == Target.READING_PASSAGES:
+      copy_representations(in_step_dir, out_step_dir)
+    elif target == Target.REPRESENTATIONS:
+      copy_reading_passages(in_step_dir, out_step_dir)
+  logger.info("Done.")
