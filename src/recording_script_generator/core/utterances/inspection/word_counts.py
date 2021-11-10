@@ -9,18 +9,6 @@ from recording_script_generator.core.types import (Utterance, UtteranceId,
                                                    utterance_to_str)
 
 
-def contains_undesired_text(utterance: str, undesired: Set[str], ignore_case: bool) -> bool:
-  for x in undesired:
-    if ignore_case:
-      if x.lower() in utterance.lower():
-        return True
-    else:
-      if x in utterance:
-        return True
-
-  return False
-
-
 def main(utterance: Utterance, min_count: Optional[int], max_count: Optional[int]) -> bool:
   utterance_str = utterance_to_str(utterance)
   words = utterance_str.split(" ")

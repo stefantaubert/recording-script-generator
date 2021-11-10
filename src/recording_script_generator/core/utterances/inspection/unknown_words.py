@@ -27,7 +27,6 @@ def main(utterance: Utterance, max_unknown_word_count: int, lexicon: enchant.Dic
   utterance_str = utterance_to_str(utterance)
   words = utterance_str.split(" ")
   words_non_punctuation = strip_punctuation_words(words)
-
   non_dict_words_amount = get_non_dict_words_amount(words_non_punctuation, lexicon)
   if non_dict_words_amount > max_unknown_word_count:
     return True

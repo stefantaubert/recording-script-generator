@@ -7,10 +7,9 @@ from multiprocessing import Pool
 from typing import Dict, List, Optional, Set, Tuple
 
 from ordered_set import OrderedSet
-from recording_script_generator.core.helper import (
-    strip_punctuation_utterance, strip_punctuation_words)
-from recording_script_generator.core.multiprocessing_helper import (
-    execute_method_on_utterances_mp, execute_method_on_utterances_mp_bool)
+from recording_script_generator.core.helper import strip_punctuation_utterance
+from recording_script_generator.core.multiprocessing_helper import \
+    execute_method_on_utterances_mp
 from recording_script_generator.core.types import (Utterance, UtteranceId,
                                                    Utterances,
                                                    utterance_to_str)
@@ -73,36 +72,16 @@ def get_utterances_with_unfrequent_words(utterances: Utterances, min_occurrence_
   else:
     chunksize = math.ceil(len(utterances) / n_jobs / batches)
 
-  # stripped_utterances = list()
-  # with Pool(
-  #   processes=n_jobs,
-  #   initializer=init_pool,
-  #   initargs=(utterances,),
-  #   maxtasksperchild=maxtasksperchild,
-  # ) as pool:
-
-  #   transformed_utterances: Dict[UtteranceId, T] = dict(tqdm(
-  #     pool.imap_unordered(method_proxy, utterances.keys(), chunksize=chunksize),
-  #     total=len(utterances),
-  #   ))
-
-  #   #stripped_utterances = {k: "" for k in utterances.keys()}
-  #   with tqdm(total=len(utterances)) as pbar:
-  #     iterator = pool.imap_unordered(get_non_punctuation_words,
-  #                                    utterances.keys(), chunksize=chunksize)
-  #     for utterance_id, counter, stripped_utterance in iterator:
-  #       # total_counter += counter
-  #       #stripped_utterances[utterance_id] == stripped_utterance
-  #       stripped_utterances.append((utterance_id, stripped_utterance))
-  #       pbar.update()
-  # del pool
-  #logger.info("Converting to dict...")
-  #stripped_utterances = dict(stripped_utterances)
   logger.info("Converting to str...")
-  total_string = ' '.join(stripped_utterances.values())
-  logger.info("Converting to words...")
-  words = total_string.split(" ")
-  del total_string
+  words = [
+    word
+    for utterance in tqdm(stripped_utterances.values())
+    for word in utterance.split(" ")
+  ]
+  #total_string = ' '.join(stripped_utterances.values())
+  #logger.info("Converting to words...")
+  # words = total_string.split(" ")
+  # del total_string
   logger.info("Converting to counter...")
   total_counter = Counter(words)
   del words
@@ -136,12 +115,3 @@ def get_utterances_with_unfrequent_words(utterances: Utterances, min_occurrence_
   gc.collect()
 
   return remove
-
-  # remove = OrderedSet()
-  # for utterance_id, words in stripped_words.items():
-  #   min_freq = get_minimum_frequency(words, words_counter)
-
-  #   if min_freq < min_occurrence_count:
-  #     remove.add(utterance_id)
-
-  # return remove

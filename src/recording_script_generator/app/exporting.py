@@ -99,15 +99,17 @@ def app_generate_deselected_script(base_dir: Path, corpus_name: str, step_name: 
     take_per_part=take_per_part,
   )
 
-  logger.info("Saving tex...")
-  (step_dir / REST_TEX_FILENAME).write_text(df_to_tex(rest_df))
+  logger.info("Getting txt...")
+  txt = df_to_txt(rest_df)
+  logger.info("Saving txt...")
+  (step_dir / REST_TXT_FILENAME).write_text(txt)
   logger.info(f"Done. Saved script to: {step_dir / REST_TXT_FILENAME}")
 
   if not only_txt:
     logger.info("Saving csv...")
     rest_df.to_csv(step_dir / REST_FILENAME, sep=SEP, header=True, index=False)
-    logger.info("Saving txt...")
-    (step_dir / REST_TXT_FILENAME).write_text(df_to_txt(rest_df))
+    logger.info("Saving tex...")
+    (step_dir / REST_TEX_FILENAME).write_text(df_to_tex(rest_df))
     logger.info("Saving consecutive txt...")
     (step_dir / REST_TXT_CONSEC_FILENAME).write_text(df_to_consecutive_txt(rest_df))
 
