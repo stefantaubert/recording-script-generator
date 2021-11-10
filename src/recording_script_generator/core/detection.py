@@ -9,7 +9,7 @@ from recording_script_generator.core.selection import *
 from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations, Selection,
                                                    UtteranceKVPair, UtteranceId,
-                                                   Utterances)
+                                                   Utterances, get_utterance_duration_s)
 from recording_script_generator.core.utterances import *
 from text_selection.selection import SelectionMode
 from text_selection.utils import DurationBoundary
@@ -38,10 +38,10 @@ def get_deselected_utterances(utterances: Utterances, selection: Selection) -> U
   return get_utterances_from_selection(utterances, deselected)
 
 
-def get_utterance_durations_based_on_symbols(utterances: Utterances, reading_speed_chars_per_s: float) -> Dict[UtteranceId, float]:
+def get_utterance_durations_based_on_utterances(utterances: Utterances, reading_speed_chars_per_s: float) -> Dict[UtteranceId, float]:
   durations = {
-    utterance_id: len(symbols) / reading_speed_chars_per_s
-    for utterance_id, symbols in utterances.items()
+    utterance_id: get_utterance_duration_s(utterance, reading_speed_chars_per_s)
+    for utterance_id, utterance in utterances.items()
   }
   return durations
 
@@ -49,7 +49,7 @@ def get_utterance_durations_based_on_symbols(utterances: Utterances, reading_spe
 def select_utterances_through_kld_duration_inplace(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], boundary: DurationBoundary, reading_speed_chars_per_s: float, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int]):
   selected = get_selected_utterances(representations, selection)
   deselected = get_deselected_utterances(representations, selection)
-  utterance_durations_s = get_utterance_durations_based_on_symbols(
+  utterance_durations_s = get_utterance_durations_based_on_utterances(
     reading_passages,
     reading_speed_chars_per_s=reading_speed_chars_per_s,
   )
@@ -98,7 +98,7 @@ def select_utterances_through_greedy_epochs_inplace(reading_passages: ReadingPas
 
 def select_utterances_through_greedy_duration_inplace(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], mode: SelectionMode, reading_speed_symbols_per_s: float):
   deselected = get_deselected_utterances(representations, selection)
-  utterance_durations_s = get_utterance_durations_based_on_symbols(
+  utterance_durations_s = get_utterance_durations_based_on_utterances(
     reading_passages,
     reading_speed_chars_per_s=reading_speed_symbols_per_s,
   )

@@ -4,8 +4,8 @@ from typing import Optional, Set
 
 from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations,
-                                                   UtteranceId, Utterances)
-
+                                                   UtteranceId, Utterances,
+                                                   utterance_to_str)
 
 
 def log_utterances(utterances: Utterances, selection: Set[UtteranceId], log_count: Optional[int] = 10) -> None:
@@ -14,7 +14,7 @@ def log_utterances(utterances: Utterances, selection: Set[UtteranceId], log_coun
     log_count = len(selection)
   logger.info("Utterances:")
   for utterance_id in list(sorted(selection))[:log_count]:
-    utterance_str = ''.join(utterances[utterance_id])
+    utterance_str = utterance_to_str(utterances[utterance_id])
     logger.info(f"- \"{utterance_str}\" ({utterance_id}),")
   if log_count < len(selection):
     logger.info(f"- and {len(selection) - log_count} further utterance(s)...")

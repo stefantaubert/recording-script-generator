@@ -1,14 +1,20 @@
+import gc
+import math
 from collections import Counter
+from functools import partial
 from logging import getLogger
-from typing import Dict, List, Optional, Set
+from multiprocessing import Pool
+from typing import Dict, List, Optional, Set, Tuple
 
 from ordered_set import OrderedSet
-from recording_script_generator.core.multiprocessing_helper import \
-    execute_method_on_utterances_mp
-from recording_script_generator.core.text_extraction import \
-    strip_punctuation_words
+from recording_script_generator.core.helper import (
+    strip_punctuation_utterance, strip_punctuation_words)
+from recording_script_generator.core.multiprocessing_helper import (
+    execute_method_on_utterances_mp, execute_method_on_utterances_mp_bool)
 from recording_script_generator.core.types import (Utterance, UtteranceId,
-                                                   Utterances)
+                                                   Utterances,
+                                                   utterance_to_str)
+from tqdm import tqdm
 
 
 def get_minimum_frequency(words: List[str], word_frequencies: Counter) -> int:
@@ -17,37 +23,125 @@ def get_minimum_frequency(words: List[str], word_frequencies: Counter) -> int:
   #   if freq <= 1:
   #     #print(word, freq)
   #     pass
+  assert result > 0
   return result
 
 
-def get_non_punctuation_words(utterance: Utterance) -> List[str]:
-  assert isinstance(utterance, str)
-  utterance = utterance.lower()
+def main_step_1(utterance: Utterance) -> str:
+  utterance_str = utterance_to_str(utterance)
+  utterance_str = utterance_str.lower()
+  stripped_utterance = strip_punctuation_utterance(utterance_str)
+  return stripped_utterance
+
+
+process_stripped_utterances: Dict[UtteranceId, str] = None
+process_counter: Counter = None
+
+
+def init_pool_step_2(stripped_utterances: Dict[UtteranceId, str], counter: Counter):
+  global process_stripped_utterances
+  global process_counter
+  process_stripped_utterances = stripped_utterances
+  process_counter = counter
+
+
+def main_step_2(utterance_id: UtteranceId, min_occurrence_count: int) -> Tuple[UtteranceId, bool]:
+  global process_stripped_utterances
+  global process_counter
+  utterance = process_stripped_utterances[utterance_id]
   words = utterance.split(" ")
-  words_non_punctuation = strip_punctuation_words(words)
-  return words_non_punctuation
+  min_freq = get_minimum_frequency(words, process_counter)
+  result = min_freq < min_occurrence_count
+  return utterance_id, result
 
 
-def get_utterances_with_unfrequent_words(utterances: Utterances, min_occurrence_count: int, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> Set[UtteranceId]:
+def get_utterances_with_unfrequent_words(utterances: Utterances, min_occurrence_count: int, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int]) -> Set[UtteranceId]:
   logger = getLogger(__name__)
-  logger.info("Detecting unfrequend words...")
-  stripped_words: Dict[int, List[str]] = execute_method_on_utterances_mp(
+  logger.info("Detecting unfrequent words...")
+
+  stripped_utterances = execute_method_on_utterances_mp(
     utterances=utterances,
+    method=main_step_1,
+    batches=batches,
+    n_jobs=n_jobs,
     chunksize=chunksize,
     maxtasksperchild=maxtasksperchild,
-    n_jobs=n_jobs,
-    method=get_non_punctuation_words,
   )
 
-  logger = getLogger("Getting counts...")
-  words_counter = Counter(word for words in stripped_words.values()
-                          for word in words)
-  logger = getLogger("Done.")
-  remove = OrderedSet()
-  for utterance_id, words in stripped_words.items():
-    min_freq = get_minimum_frequency(words, words_counter)
+  if batches is None:
+    assert chunksize is not None
+  else:
+    chunksize = math.ceil(len(utterances) / n_jobs / batches)
 
-    if min_freq < min_occurrence_count:
-      remove.add(utterance_id)
+  # stripped_utterances = list()
+  # with Pool(
+  #   processes=n_jobs,
+  #   initializer=init_pool,
+  #   initargs=(utterances,),
+  #   maxtasksperchild=maxtasksperchild,
+  # ) as pool:
+
+  #   transformed_utterances: Dict[UtteranceId, T] = dict(tqdm(
+  #     pool.imap_unordered(method_proxy, utterances.keys(), chunksize=chunksize),
+  #     total=len(utterances),
+  #   ))
+
+  #   #stripped_utterances = {k: "" for k in utterances.keys()}
+  #   with tqdm(total=len(utterances)) as pbar:
+  #     iterator = pool.imap_unordered(get_non_punctuation_words,
+  #                                    utterances.keys(), chunksize=chunksize)
+  #     for utterance_id, counter, stripped_utterance in iterator:
+  #       # total_counter += counter
+  #       #stripped_utterances[utterance_id] == stripped_utterance
+  #       stripped_utterances.append((utterance_id, stripped_utterance))
+  #       pbar.update()
+  # del pool
+  #logger.info("Converting to dict...")
+  #stripped_utterances = dict(stripped_utterances)
+  logger.info("Converting to str...")
+  total_string = ' '.join(stripped_utterances.values())
+  logger.info("Converting to words...")
+  words = total_string.split(" ")
+  del total_string
+  logger.info("Converting to counter...")
+  total_counter = Counter(words)
+  del words
+  gc.collect()
+  logger.info("Done.")
+
+  logger.info("Next step...")
+
+  method = partial(
+    main_step_2,
+    min_occurrence_count=min_occurrence_count,
+  )
+
+  remove: Set[UtteranceId] = set()
+
+  with Pool(
+    processes=n_jobs,
+    initializer=init_pool_step_2,
+    initargs=(stripped_utterances, total_counter,),
+    maxtasksperchild=maxtasksperchild,
+  ) as pool:
+    with tqdm(total=len(stripped_utterances)) as pbar:
+      iterator = pool.imap_unordered(method, stripped_utterances.keys(), chunksize=chunksize)
+      for utterance_id, dont_include in iterator:
+        if dont_include:
+          remove.add(utterance_id)
+        pbar.update()
+  del pool
+  del stripped_utterances
+  del total_counter
+  gc.collect()
 
   return remove
+
+  # remove = OrderedSet()
+  # for utterance_id, words in stripped_words.items():
+  #   min_freq = get_minimum_frequency(words, words_counter)
+
+  #   if min_freq < min_occurrence_count:
+  #     remove.add(utterance_id)
+
+  # return remove

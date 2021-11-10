@@ -3,14 +3,13 @@ from logging import getLogger
 from typing import List, Optional, Set
 
 import enchant
+from recording_script_generator.core.helper import strip_punctuation_words
 from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp_bool
-from recording_script_generator.core.text_extraction import \
-    strip_punctuation_words
 from recording_script_generator.core.types import (Utterance, UtteranceId,
-                                                   Utterances)
+                                                   Utterances,
+                                                   utterance_to_str)
 from text_utils.language import Language
-from text_utils.types import Symbols
 
 
 def get_non_dict_words_amount(words: List[str], lexicon: enchant.Dict) -> int:
@@ -25,8 +24,8 @@ def get_non_dict_words_amount(words: List[str], lexicon: enchant.Dict) -> int:
 
 
 def main(utterance: Utterance, max_unknown_word_count: int, lexicon: enchant.Dict) -> bool:
-  assert isinstance(utterance, str)
-  words = utterance.split(" ")
+  utterance_str = utterance_to_str(utterance)
+  words = utterance_str.split(" ")
   words_non_punctuation = strip_punctuation_words(words)
 
   non_dict_words_amount = get_non_dict_words_amount(words_non_punctuation, lexicon)
@@ -36,7 +35,7 @@ def main(utterance: Utterance, max_unknown_word_count: int, lexicon: enchant.Dic
   return False
 
 
-def get_utterances_with_non_dictionary_words(utterances: Utterances, max_unknown_word_count: int, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> Set[UtteranceId]:
+def get_utterances_with_non_dictionary_words(utterances: Utterances, max_unknown_word_count: int, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int]) -> Set[UtteranceId]:
   logger = getLogger(__name__)
   logger.info("Detecting non-dictionary words...")
 
@@ -59,4 +58,5 @@ def get_utterances_with_non_dictionary_words(utterances: Utterances, max_unknown
     n_jobs=n_jobs,
     maxtasksperchild=maxtasksperchild,
     chunksize=chunksize,
+    batches=batches,
   )

@@ -12,8 +12,11 @@ from pandas import DataFrame
 from recording_script_generator.core.selection.detection.tex import \
     detect_ids_from_tex
 from recording_script_generator.core.types import (ReadingPassages,
-                                                   Representations, Selection,
-                                                   UtteranceId)
+                                                   Representations, Utterance,
+                                                   UtteranceId,
+                                                   get_utterance_duration_s,
+                                                   utterance_to_str,
+                                                   utterance_to_symbols)
 from text_selection import greedy_kld_uniform_ngrams_default
 from text_selection.greedy_kld_export import greedy_kld_uniform_ngrams_parts
 from textgrid.textgrid import Interval, IntervalTier, TextGrid
@@ -37,21 +40,41 @@ def number_prepend_zeros(n: int, max_n: int) -> str:
   return res
 
 
-def get_df_from_reading_passages(reading_passages: OrderedDictType[int, Tuple[ReadingPassages, Representations]]) -> DataFrame:
-  df = DataFrame(
-    data=[(
+def get_reading_script_df(selection: OrderedSet[UtteranceId], reading_passages: ReadingPassages, representations: Representations, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> DataFrame:
+  selected_keys_sorted = __get_keys_custom_sort(
+    selection=selection,
+    reading_passages=reading_passages,
+    representations=representations,
+    mode=mode,
+    seed=seed,
+    ignore_symbols=ignore_symbols,
+    take_per_part=take_per_part,
+    parts_count=parts_count,
+  )
+
+  logger = getLogger(__name__)
+  logger.info("Creating script...")
+  df_data = [
+    (
       k,
-      number_prepend_zeros(i + 1, len(reading_passages) + 1),
-      "".join(reading_passage),
-      "".join(representation),
-    ) for i, (k, (reading_passage, representation)) in enumerate(reading_passages.items())],
+      number_prepend_zeros(i + 1, len(selected_keys_sorted) + 1),
+      utterance_to_str(reading_passages[k]),
+      utterance_to_str(representations[k]),
+    )
+    for i, k in enumerate(tqdm(selected_keys_sorted))
+  ]
+
+  logger.info("Getting csv...")
+  df = DataFrame(
+    data=df_data,
     columns=["Id", "Nr", "Utterance", "Representation"],
   )
+  logger.info("Done.")
 
   return df
 
 
-def get_keys_custom_sort(selection: OrderedSet[UtteranceId], reading_passages: ReadingPassages, representations: Representations, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> OrderedSet[UtteranceId]:
+def __get_keys_custom_sort(selection: OrderedSet[UtteranceId], reading_passages: ReadingPassages, representations: Representations, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> OrderedSet[UtteranceId]:
   selected_reading_passages = OrderedDict({k: reading_passages[k] for k in selection})
 
   if mode == SortingMode.RANDOM:
@@ -80,7 +103,14 @@ def get_keys_custom_sort(selection: OrderedSet[UtteranceId], reading_passages: R
     keys_sorted_by_index = OrderedSet(list(sorted(selected_reading_passages.keys())))
     return keys_sorted_by_index
 
-  selected_representations = OrderedDict({k: representations[k] for k in selection})
+  selected_representations = OrderedDict({
+    k: utterance_to_symbols(
+      utterance=representations[k],
+      text_format=representations.symbol_format,
+      language=representations.language,
+    )
+    for k in selection
+  })
 
   if mode == SortingMode.KLD:
     assert ignore_symbols is not None
@@ -114,45 +144,22 @@ def get_keys_custom_sort(selection: OrderedSet[UtteranceId], reading_passages: R
   raise Exception()
 
 
-def get_reading_script_df(selection: OrderedSet[UtteranceId], reading_passages: ReadingPassages, representations: Representations, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> DataFrame:
-  selected_keys_sorted = get_keys_custom_sort(
-    selection=selection,
-    reading_passages=reading_passages,
-    representations=representations,
-    mode=mode,
-    seed=seed,
-    ignore_symbols=ignore_symbols,
-    take_per_part=take_per_part,
-    parts_count=parts_count,
-  )
-
-  logger = getLogger(__name__)
-  logger.info("Creating script...")
-  selected = OrderedDict(
-    {k: (reading_passages[k], representations[k])
-     for k in tqdm(selected_keys_sorted)})
-  selected_df = get_df_from_reading_passages(selected)
-  logger.info("Done.")
-
-  return selected_df
-
-
 def df_to_txt(df: DataFrame) -> str:
   result = ""
-  for _, row in df.iterrows():
+  for _, row in tqdm(df.iterrows(), total=len(df.index)):
     result += f"{row['Nr']}: {row['Utterance']}\n"
   return result
 
 
 def df_to_consecutive_txt(df: DataFrame) -> str:
-  all_utterances = [row['Utterance'] for _, row in df.iterrows()]
+  all_utterances = [row['Utterance'] for _, row in tqdm(df.iterrows(), total=len(df.index))]
   result = " ".join(all_utterances)
   return result
 
 
 def df_to_tex(df: DataFrame, use_hint_on_question_and_exclamation: bool = True) -> str:
   result = "\\begin{enumerate}[label={\\protect\\threedigits{\\theenumi}:}]\n"
-  for _, row in df.iterrows():
+  for _, row in tqdm(df.iterrows(), total=len(df.index)):
     hint = ""
     if use_hint_on_question_and_exclamation:
       add_hint = len(row["Utterance"]) > 0 and row["Utterance"][-1] in {"!", "?"}
@@ -188,11 +195,11 @@ def generate_textgrid(reading_passages: ReadingPassages, representations: Repres
 
   last_time = 0
   for read_id in ids_in_tex:
-    duration = len(reading_passages[read_id]) / reading_speed_chars_per_s
+    duration = get_utterance_duration_s(reading_passages[read_id], reading_speed_chars_per_s)
     min_time = last_time
     max_time = last_time + duration
 
-    graphemes = ''.join(reading_passages[read_id])
+    graphemes = utterance_to_str(reading_passages[read_id])
     graphemes_interval = Interval(
       minTime=min_time,
       maxTime=max_time,
@@ -200,7 +207,7 @@ def generate_textgrid(reading_passages: ReadingPassages, representations: Repres
     )
     graphemes_tier.addInterval(graphemes_interval)
 
-    phonemes = ''.join(representations[read_id])
+    phonemes = utterance_to_str(representations[read_id])
     phonemes_interval = Interval(
       minTime=min_time,
       maxTime=max_time,

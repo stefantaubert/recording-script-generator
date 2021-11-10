@@ -4,26 +4,23 @@ from typing import Optional
 
 from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp
-from recording_script_generator.core.types import Utterance, Utterances
-from text_utils import text_normalize, text_to_symbols
+from recording_script_generator.core.types import (Utterance, Utterances,
+                                                   utterance_to_symbols)
 from text_utils.language import Language
 from text_utils.symbol_format import SymbolFormat
-from text_utils.types import Symbols
 
 
 def main(utterance: Utterance, language: Language, symbol_format: SymbolFormat) -> str:
-  assert isinstance(utterance, str)
-
-  symbols = text_to_symbols(
-    text=utterance,
-    lang=language,
+  symbols = utterance_to_symbols(
+    utterance=utterance,
+    language=language,
     text_format=symbol_format,
   )
 
   return symbols
 
 
-def convert_to_symbols_inplace(utterances: Utterances, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> None:
+def convert_to_symbols_inplace(utterances: Utterances, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int]) -> None:
   logger = getLogger(__name__)
   logger.info("Converting to symbols...")
   method = partial(
@@ -38,5 +35,6 @@ def convert_to_symbols_inplace(utterances: Utterances, n_jobs: int, maxtasksperc
     n_jobs=n_jobs,
     maxtasksperchild=maxtasksperchild,
     chunksize=chunksize,
+    batches=batches,
   )
   utterances.update(result)

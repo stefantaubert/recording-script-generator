@@ -12,7 +12,7 @@ TWO_GRAM_STATS_CSV_FILENAME = "2_gram_stats.csv"
 THREE_GRAM_STATS_CSV_FILENAME = "3_gram_stats.csv"
 
 
-def _save_stats_df(step_dir: Path, selection: Selection, representations: Representations) -> None:
+def __save_stats_df(step_dir: Path, selection: Selection, representations: Representations) -> None:
   logger = getLogger(__name__)
   logger.info("Getting 1-gram stats...")
   one_gram_repr_stats = get_n_gram_stats_df(representations, selection, n=1)
@@ -56,4 +56,4 @@ def app_log_stats(base_dir: Path, corpus_name: str, step_name: str, reading_spee
     avg_chars_per_s=reading_speed_chars_per_s,
   )
 
-  _save_stats_df(step_dir, selection, representations)
+  __save_stats_df(step_dir, selection, representations)

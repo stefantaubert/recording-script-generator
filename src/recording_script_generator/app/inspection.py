@@ -11,13 +11,13 @@ from recording_script_generator.core.types import Representations, UtteranceId
 from text_utils.types import Symbol
 
 
-def app_remove_utterances_with_acronyms(base_dir: Path, corpus_name: str, in_step_name: str, min_acronym_len: int, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_remove_utterances_with_acronyms(base_dir: Path, corpus_name: str, in_step_name: str, min_acronym_len: int, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing utterances with acronyms...")
   method = partial(
     remove_utterances_with_acronyms_inplace,
     min_acronym_len=min_acronym_len,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize, batches=batches,
   )
 
   __alter_data(base_dir, corpus_name, in_step_name, out_step_name,
@@ -31,62 +31,62 @@ def app_remove_duplicate_utterances(base_dir: Path, corpus_name: str, in_step_na
                out_step_name, overwrite, remove_duplicate_utterances_inplace)
 
 
-def app_remove_utterances_with_proper_names(base_dir: Path, corpus_name: str, in_step_name: str, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_remove_utterances_with_proper_names(base_dir: Path, corpus_name: str, in_step_name: str, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing utterances with proper names...")
   method = partial(
     remove_utterances_with_proper_names,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize, batches=batches,
   )
 
   __alter_data(base_dir, corpus_name, in_step_name, out_step_name,
                overwrite, method)
 
 
-def app_remove_utterances_with_undesired_sentence_lengths(base_dir: Path, corpus_name: str, in_step_name: str, min_count: Optional[int], max_count: Optional[int], n_jobs: int, maxtasksperchild: Optional[int], chunksize: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_remove_utterances_with_undesired_sentence_lengths(base_dir: Path, corpus_name: str, in_step_name: str, min_count: Optional[int], max_count: Optional[int], n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing utterances with undesired word counts...")
   method = partial(
     remove_utterances_with_custom_word_counts,
     min_count=min_count,
     max_count=max_count,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize, batches=batches,
   )
 
   __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_remove_utterances_with_unknown_words(base_dir: Path, corpus_name: str, in_step_name: str, max_unknown_word_count: int, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_remove_utterances_with_unknown_words(base_dir: Path, corpus_name: str, in_step_name: str, max_unknown_word_count: int, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing utterances with to many unknown words...")
   method = partial(
     remove_utterances_with_non_dictionary_words,
     max_unknown_word_count=max_unknown_word_count,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize, batches=batches,
   )
 
   __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_remove_utterances_with_too_seldom_words(base_dir: Path, corpus_name: str, in_step_name: str, min_occurrence_count: int, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_remove_utterances_with_too_seldom_words(base_dir: Path, corpus_name: str, in_step_name: str, min_occurrence_count: int, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing utterances with too seldom words...")
   method = partial(
     remove_utterances_with_unfrequent_words,
     min_occurrence_count=min_occurrence_count,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize, batches=batches,
   )
 
   __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_remove_undesired_text(base_dir: Path, corpus_name: str, in_step_name: str, undesired: Set[Symbol], n_jobs: int, maxtasksperchild: Optional[int], chunksize: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_remove_undesired_text(base_dir: Path, corpus_name: str, in_step_name: str, undesired: Set[Symbol], n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Removing undesired text...")
   method = partial(
     remove_utterances_with_undesired_text,
     undesired=undesired,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize, batches=batches,
   )
 
   __alter_data(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)

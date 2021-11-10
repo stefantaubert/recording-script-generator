@@ -7,10 +7,9 @@ from recording_script_generator.core.multiprocessing_helper import \
 from recording_script_generator.core.types import Utterance, Utterances
 from text_utils import change_ipa
 from text_utils.language import Language
-from text_utils.types import Symbols
 
 
-def main(utterance: Utterance, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, build_n_thongs: bool, language: Language) -> Symbols:
+def main(utterance: Utterance, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, build_n_thongs: bool, language: Language) -> Utterance:
   assert isinstance(utterance, tuple)
 
   return change_ipa(
@@ -24,7 +23,7 @@ def main(utterance: Utterance, ignore_tones: bool, ignore_arcs: bool, ignore_str
   )
 
 
-def change_utterances_ipa_inplace(utterances: Utterances, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, build_n_thongs: bool, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> None:
+def change_utterances_ipa_inplace(utterances: Utterances, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, build_n_thongs: bool, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int]) -> None:
   logger = getLogger(__name__)
   logger.info("Changing IPA...")
   method = partial(
@@ -43,6 +42,7 @@ def change_utterances_ipa_inplace(utterances: Utterances, ignore_tones: bool, ig
     n_jobs=n_jobs,
     maxtasksperchild=maxtasksperchild,
     chunksize=chunksize,
+    batches=batches,
   )
 
   utterances.update(result)

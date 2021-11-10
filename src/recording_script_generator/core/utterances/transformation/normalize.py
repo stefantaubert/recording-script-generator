@@ -5,13 +5,12 @@ from typing import Optional
 from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp
 from recording_script_generator.core.types import Utterance, Utterances
-from text_utils import text_normalize, text_to_symbols
+from text_utils import text_normalize
 from text_utils.language import Language
 from text_utils.symbol_format import SymbolFormat
-from text_utils.types import Symbols
 
 
-def normalize_func(utterance: Utterance, language: Language, symbol_format: SymbolFormat) -> str:
+def normalize_func(utterance: Utterance, language: Language, symbol_format: SymbolFormat) -> Utterance:
   assert isinstance(utterance, str)
   result = text_normalize(
     text=utterance,
@@ -19,16 +18,10 @@ def normalize_func(utterance: Utterance, language: Language, symbol_format: Symb
     lang=language,
   )
 
-  # sentences = text_to_symbols(
-  #   text=result,
-  #   lang=language,
-  #   text_format=symbol_format,
-  # )
-
   return result
 
 
-def normalize_utterances_inplace(utterances: Utterances, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> None:
+def normalize_utterances_inplace(utterances: Utterances, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int]) -> None:
   logger = getLogger(__name__)
   logger.info("Normalizing...")
   method = partial(
@@ -43,5 +36,6 @@ def normalize_utterances_inplace(utterances: Utterances, n_jobs: int, maxtaskspe
     n_jobs=n_jobs,
     maxtasksperchild=maxtasksperchild,
     chunksize=chunksize,
+    batches=batches,
   )
   utterances.update(result)

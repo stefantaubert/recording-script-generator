@@ -4,8 +4,9 @@ from typing import Optional, Set
 
 from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp_bool
-from recording_script_generator.core.types import Utterance, UtteranceId, Utterances
-from text_utils.types import Symbols
+from recording_script_generator.core.types import (Utterance, UtteranceId,
+                                                   Utterances,
+                                                   utterance_to_str)
 
 
 def contains_undesired_text(utterance: str, undesired: Set[str], ignore_case: bool) -> bool:
@@ -21,8 +22,8 @@ def contains_undesired_text(utterance: str, undesired: Set[str], ignore_case: bo
 
 
 def main(utterance: Utterance, min_count: Optional[int], max_count: Optional[int]) -> bool:
-  assert isinstance(utterance, str)
-  words = utterance.split(" ")
+  utterance_str = utterance_to_str(utterance)
+  words = utterance_str.split(" ")
   words_count = len(words)
 
   if min_count is not None and words_count < min_count:
@@ -33,7 +34,7 @@ def main(utterance: Utterance, min_count: Optional[int], max_count: Optional[int
   return False
 
 
-def get_utterances_with_custom_word_counts(utterances: Utterances, min_count: Optional[int], max_count: Optional[int], n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> Set[UtteranceId]:
+def get_utterances_with_custom_word_counts(utterances: Utterances, min_count: Optional[int], max_count: Optional[int], n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int]) -> Set[UtteranceId]:
   logger = getLogger(__name__)
   logger.info("Detecting words counts...")
   method = partial(
@@ -48,4 +49,5 @@ def get_utterances_with_custom_word_counts(utterances: Utterances, min_count: Op
     n_jobs=n_jobs,
     maxtasksperchild=maxtasksperchild,
     chunksize=chunksize,
+    batches=batches,
   )

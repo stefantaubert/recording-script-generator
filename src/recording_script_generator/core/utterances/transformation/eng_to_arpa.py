@@ -1,4 +1,5 @@
 import logging
+import math
 import string
 from logging import getLogger
 from typing import Optional
@@ -15,7 +16,7 @@ from text_utils.symbol_format import SymbolFormat
 from tqdm import tqdm
 
 
-def convert_utterances_from_eng_to_arpa_inplace(utterances: Utterances, n_jobs: int, chunksize: int, maxtasksperchild: Optional[int]) -> None:
+def convert_utterances_from_eng_to_arpa_inplace(utterances: Utterances, n_jobs: int, chunksize: Optional[int], batches: Optional[int], maxtasksperchild: Optional[int]) -> None:
   if len(utterances) > 0:
     first_utterance = utterances[list(utterances.keys())[0]]
     assert isinstance(first_utterance, tuple)
@@ -29,6 +30,11 @@ def convert_utterances_from_eng_to_arpa_inplace(utterances: Utterances, n_jobs: 
 
   prn_logger = getLogger("text_utils.pronunciation.main")
   prn_logger.setLevel(logging.WARNING)
+
+  if batches is None:
+    assert chunksize is not None
+  else:
+    chunksize = math.ceil(len(utterances) / n_jobs / batches)
 
   sentences = set(utterances.values())
   cache = prepare_cache_mp(

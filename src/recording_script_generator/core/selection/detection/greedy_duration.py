@@ -29,4 +29,3 @@ def get_utterances_through_greedy_duration(utterances: Utterances, utterance_dur
     f"Duration of utterances: {newly_selected_duration_s/60:.2f}min.")
 
   return newly_selected
-

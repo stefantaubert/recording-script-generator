@@ -10,7 +10,7 @@ from typing import Dict, Optional, Set, cast
 from ordered_set import OrderedSet
 from recording_script_generator.core.detection import (
     get_deselected_utterances, get_selected_utterances,
-    get_utterance_durations_based_on_symbols,
+    get_utterance_durations_based_on_utterances,
     select_utterances_through_kld_duration_inplace)
 from recording_script_generator.core.inspection import (
     remove_duplicate_utterances_inplace,
@@ -152,7 +152,7 @@ def update_utterances(add: OrderedSet[UtteranceId], selected: Representations, d
 
 
 def do_pipeline_select(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_jobs: int, chunksize: int, maxtasksperchild: int):
-  utterance_durations_s = get_utterance_durations_based_on_symbols(
+  utterance_durations_s = get_utterance_durations_based_on_utterances(
     reading_passages,
     reading_speed_chars_per_s=14
   )

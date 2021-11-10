@@ -1,17 +1,17 @@
+import math
 from functools import partial
 from logging import getLogger
 from multiprocessing import Pool
 from time import perf_counter
 from typing import Callable, Dict, Optional, Set, Tuple, TypeVar
 
-from recording_script_generator.core.types import (Utterance, UtteranceId,
-                                                   Utterances)
+from recording_script_generator.core.types import Utterance, UtteranceId
 from tqdm import tqdm
 
-utterances_shared_memory: Utterances
+utterances_shared_memory: Dict[UtteranceId, Utterance]
 
 
-def init_pool(utterances: Utterances):
+def init_pool(utterances: Dict[UtteranceId, Utterance]):
   global utterances_shared_memory
   utterances_shared_memory = utterances
 
@@ -27,13 +27,22 @@ def main_proxy(utterance_id: UtteranceId, main_method: Callable[[Utterance], boo
 T = TypeVar('T')
 
 
-def execute_method_on_utterances_mp(utterances: Utterances, method: Callable[[Utterance], T], n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> Dict[UtteranceId, T]:
+def execute_method_on_utterances_mp(utterances: Dict[UtteranceId, Utterance], method: Callable[[Utterance], T], n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int]) -> Dict[UtteranceId, T]:
+  logger = getLogger(__name__)
   start = perf_counter()
 
   method_proxy = partial(
     main_proxy,
     main_method=method,
   )
+
+  if batches is None:
+    assert chunksize is not None
+  else:
+    chunksize = math.ceil(len(utterances) / n_jobs / batches)
+
+  logger.info(
+    f"Using {n_jobs} processes with chunks of size {chunksize} for {len(utterances)} utterances.")
 
   with Pool(
     processes=n_jobs,
@@ -47,18 +56,18 @@ def execute_method_on_utterances_mp(utterances: Utterances, method: Callable[[Ut
     ))
 
   end = perf_counter()
-  logger = getLogger(__name__)
   logger.info(f"Duration: {end-start:.2f}s")
   return transformed_utterances
 
 
-def execute_method_on_utterances_mp_bool(utterances: Utterances, method: Callable[[Utterance], bool], n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> Set[UtteranceId]:
+def execute_method_on_utterances_mp_bool(utterances: Dict[UtteranceId, Utterance], method: Callable[[Utterance], bool], n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int]) -> Set[UtteranceId]:
   transformed_utterances = execute_method_on_utterances_mp(
     utterances=utterances,
     chunksize=chunksize,
     maxtasksperchild=maxtasksperchild,
     method=method,
     n_jobs=n_jobs,
+    batches=batches,
   )
 
   remove: Set[UtteranceId] = {

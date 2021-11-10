@@ -5,10 +5,9 @@ from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp
 from recording_script_generator.core.types import Utterance, Utterances
 from text_utils import SymbolFormat, symbols_map_arpa_to_ipa
-from text_utils.types import Symbols
 
 
-def main(utterance: Utterance) -> Symbols:
+def main(utterance: Utterance) -> Utterance:
   assert isinstance(utterance, tuple)
   ipa_symbols = symbols_map_arpa_to_ipa(
     arpa_symbols=utterance,
@@ -19,7 +18,7 @@ def main(utterance: Utterance) -> Symbols:
   return ipa_symbols
 
 
-def map_utterances_from_arpa_to_ipa_inplace(utterances: Utterances, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> None:
+def map_utterances_from_arpa_to_ipa_inplace(utterances: Utterances, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int]) -> None:
   logger = getLogger(__name__)
   logger.info("Mapping ARPA to IPA...")
 
@@ -29,6 +28,7 @@ def map_utterances_from_arpa_to_ipa_inplace(utterances: Utterances, n_jobs: int,
     n_jobs=n_jobs,
     maxtasksperchild=maxtasksperchild,
     chunksize=chunksize,
+    batches=batches,
   )
 
   utterances.update(result)

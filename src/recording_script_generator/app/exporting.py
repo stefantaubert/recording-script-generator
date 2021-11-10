@@ -25,7 +25,7 @@ REST_FILENAME = "rest.csv"
 REST_TXT_FILENAME = "rest.txt"
 REST_TEX_FILENAME = "rest.tex"
 REST_TEX_FILENAME = "rest.tex"
-REST_TEX_CONSEC_FILENAME = "rest_consecutive.tex"
+REST_TXT_CONSEC_FILENAME = "rest_consecutive.tex"
 
 
 def get_tex_path(step_dir: Path) -> Path:
@@ -60,14 +60,18 @@ def app_generate_selected_script(base_dir: Path, corpus_name: str, step_name: st
     take_per_part=take_per_part,
   )
 
+  logger.info("Saving csv...")
   selected_df.to_csv(step_dir / SELECTED_FILENAME, sep=SEP, header=True, index=False)
+  logger.info("Saving txt...")
   (step_dir / SELECTED_TXT_FILENAME).write_text(df_to_txt(selected_df))
+  logger.info("Saving consecutive txt...")
   (step_dir / SELECTED_TXT_CONSEC_FILENAME).write_text(df_to_consecutive_txt(selected_df))
+  logger.info("Saving tex...")
   get_tex_path(step_dir).write_text(df_to_tex(selected_df))
-  logger.info("Done.")
+  logger.info(f"Done. Saved script to: {step_dir / SELECTED_TXT_FILENAME}")
 
 
-def app_generate_deselected_script(base_dir: Path, corpus_name: str, step_name: str, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[Symbol]] = DEFAULT_IGNORE, parts_count: Optional[int] = None, take_per_part: Optional[int] = None) -> None:
+def app_generate_deselected_script(base_dir: Path, corpus_name: str, step_name: str, sorting_mode: SortingMode, seed: Optional[int] = DEFAULT_SEED, ignore_symbols: Optional[Set[Symbol]] = DEFAULT_IGNORE, parts_count: Optional[int] = None, take_per_part: Optional[int] = None, only_txt: bool = True) -> None:
   logger = getLogger(__name__)
   corpus_dir = get_corpus_dir(base_dir, corpus_name)
 
@@ -95,11 +99,17 @@ def app_generate_deselected_script(base_dir: Path, corpus_name: str, step_name: 
     take_per_part=take_per_part,
   )
 
-  rest_df.to_csv(step_dir / REST_FILENAME, sep=SEP, header=True, index=False)
-  (step_dir / REST_TXT_FILENAME).write_text(df_to_txt(rest_df))
+  logger.info("Saving tex...")
   (step_dir / REST_TEX_FILENAME).write_text(df_to_tex(rest_df))
-  (step_dir / REST_TEX_CONSEC_FILENAME).write_text(df_to_consecutive_txt(rest_df))
-  logger.info("Done.")
+  logger.info(f"Done. Saved script to: {step_dir / REST_TXT_FILENAME}")
+
+  if not only_txt:
+    logger.info("Saving csv...")
+    rest_df.to_csv(step_dir / REST_FILENAME, sep=SEP, header=True, index=False)
+    logger.info("Saving txt...")
+    (step_dir / REST_TXT_FILENAME).write_text(df_to_txt(rest_df))
+    logger.info("Saving consecutive txt...")
+    (step_dir / REST_TXT_CONSEC_FILENAME).write_text(df_to_consecutive_txt(rest_df))
 
 
 def app_generate_textgrid(base_dir: Path, corpus_name: str, step_name: str, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S) -> None:

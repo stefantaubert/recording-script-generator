@@ -1,16 +1,13 @@
 from enum import IntEnum
 from functools import partial
 from logging import getLogger
-from os import remove
 from pathlib import Path
-from shutil import rmtree
 from time import perf_counter
 from typing import Callable, Optional
 
 from recording_script_generator.app.io import *
 from recording_script_generator.core import *
-from recording_script_generator.core.types import (ReadingPassages,
-                                                   Representations, Utterances)
+from recording_script_generator.core.types import Utterances
 from recording_script_generator.core.utterances.transformation import (
     change_utterances_ipa_inplace, change_utterances_text_inplace,
     convert_to_symbols_inplace, convert_utterances_from_eng_to_arpa_inplace,
@@ -35,55 +32,55 @@ def save_target_utterances(target: Target, step_dir: Path, utterances: Utterance
     save_reading_passages(step_dir, utterances)
   elif target == Target.REPRESENTATIONS:
     save_representations(step_dir, utterances)
-  assert False
+  else:
+    assert False
 
 
-def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, target: Target, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, target: Target, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Normalizing...")
   method = partial(
     normalize_utterances_inplace,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize, batches=batches,
   )
 
   __alter_utterances(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
-def app_convert_to_arpa(base_dir: Path, corpus_name: str, in_step_name: str, target: Target, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_convert_to_arpa(base_dir: Path, corpus_name: str, in_step_name: str, target: Target, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Converting to ARPA...")
   method = partial(
     convert_utterances_from_eng_to_arpa_inplace,
-    n_jobs=n_jobs, chunksize=chunksize, maxtasksperchild=maxtasksperchild,
-
+    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize, batches=batches,
   )
 
   __alter_utterances(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
-def app_map_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: Target, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_map_to_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: Target, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Mapping to IPA...")
   method = partial(
     map_utterances_from_arpa_to_ipa_inplace,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize, batches=batches,
   )
 
   __alter_utterances(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
-def app_convert_to_symbols(base_dir: Path, corpus_name: str, in_step_name: str, target: Target, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_convert_to_symbols(base_dir: Path, corpus_name: str, in_step_name: str, target: Target, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Converting to symbols...")
   method = partial(
     convert_to_symbols_inplace,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize, batches=batches,
   )
 
   __alter_utterances(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
-def app_change_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: Target, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, build_n_thongs: bool, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_change_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: Target, ignore_tones: bool, ignore_arcs: bool, ignore_stress: bool, break_n_thongs: bool, build_n_thongs: bool, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Changing IPA...")
   method = partial(
@@ -93,19 +90,19 @@ def app_change_ipa(base_dir: Path, corpus_name: str, in_step_name: str, target: 
     ignore_stress=ignore_stress,
     break_n_thongs=break_n_thongs,
     build_n_thongs=build_n_thongs,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize, batches=batches,
   )
 
   __alter_utterances(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
 
 
-def app_change_text(base_dir: Path, corpus_name: str, in_step_name: str, target: Target, remove_space_around_punctuation: bool, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_change_text(base_dir: Path, corpus_name: str, in_step_name: str, target: Target, remove_space_around_punctuation: bool, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Changing text...")
   method = partial(
     change_utterances_text_inplace,
     remove_space_around_punctuation=remove_space_around_punctuation,
-    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize,
+    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize, batches=batches,
   )
 
   __alter_utterances(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)

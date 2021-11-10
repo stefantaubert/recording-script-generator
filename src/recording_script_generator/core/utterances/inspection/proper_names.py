@@ -2,10 +2,12 @@ import re
 from logging import getLogger
 from typing import Optional, Set
 
+from recording_script_generator.core.helper import strip_punctuation_utterance, strip_punctuation_words
 from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp_bool
 from recording_script_generator.core.types import (Utterance, UtteranceId,
-                                                   Utterances)
+                                                   Utterances,
+                                                   utterance_to_str)
 from text_utils.language import Language
 
 pattern = re.compile(r" [A-HJ-Z]")
@@ -17,12 +19,13 @@ def contains_eng_proper_names(utterance_str: str) -> bool:
 
 
 def main(utterance: Utterance) -> bool:
-  assert isinstance(utterance, str)
-  result = contains_eng_proper_names(utterance)
+  utterance_str = utterance_to_str(utterance)
+  stripped_utterance = strip_punctuation_utterance(utterance_str)
+  result = contains_eng_proper_names(stripped_utterance)
   return result
 
 
-def get_utterances_with_proper_names(utterances: Utterances, n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> Set[UtteranceId]:
+def get_utterances_with_proper_names(utterances: Utterances, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int]) -> Set[UtteranceId]:
   logger = getLogger(__name__)
   logger.info("Detecting proper names...")
   if utterances.language != Language.ENG:
@@ -36,4 +39,5 @@ def get_utterances_with_proper_names(utterances: Utterances, n_jobs: int, maxtas
     n_jobs=n_jobs,
     maxtasksperchild=maxtasksperchild,
     chunksize=chunksize,
+    batches=batches,
   )

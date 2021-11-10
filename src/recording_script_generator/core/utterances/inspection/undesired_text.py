@@ -5,7 +5,8 @@ from typing import Optional, Set
 from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp_bool
 from recording_script_generator.core.types import (Utterance, UtteranceId,
-                                                   Utterances)
+                                                   Utterances,
+                                                   utterance_to_str)
 
 
 def contains_undesired_text(utterance: str, undesired: Set[str], ignore_case: bool) -> bool:
@@ -21,16 +22,12 @@ def contains_undesired_text(utterance: str, undesired: Set[str], ignore_case: bo
 
 
 def main(utterance: Utterance, undesired: Set[str]) -> bool:
-  if isinstance(utterance, str):
-    utterance_str = utterance
-  else:
-    assert isinstance(utterance, tuple)
-    utterance_str = ''.join(utterance)
+  utterance_str = utterance_to_str(utterance)
   result = contains_undesired_text(utterance_str, undesired=undesired, ignore_case=True)
   return result
 
 
-def get_utterances_with_undesired_text(utterances: Utterances, undesired: Set[str], n_jobs: int, maxtasksperchild: Optional[int], chunksize: int) -> Set[UtteranceId]:
+def get_utterances_with_undesired_text(utterances: Utterances, undesired: Set[str], n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int]) -> Set[UtteranceId]:
   logger = getLogger(__name__)
   logger.info("Detecting undesired words/symbols...")
 
@@ -45,4 +42,5 @@ def get_utterances_with_undesired_text(utterances: Utterances, undesired: Set[st
     n_jobs=n_jobs,
     maxtasksperchild=maxtasksperchild,
     chunksize=chunksize,
+    batches=batches,
   )

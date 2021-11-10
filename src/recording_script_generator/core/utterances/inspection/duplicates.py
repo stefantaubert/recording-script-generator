@@ -11,9 +11,9 @@ def get_duplicate_utterances(utterances: Utterances) -> Set[UtteranceId]:
   logger.info("Detecting duplicate utterances...")
   result = OrderedSet()
   already_exist: Set[Utterance] = set()
-  for utterance_id, utterance_symbols in tqdm(utterances.items()):
-    if utterance_symbols in already_exist:
+  for utterance_id, utterance in tqdm(utterances.items()):
+    if utterance in already_exist:
       result.add(utterance_id)
     else:
-      already_exist.add(utterance_symbols)
+      already_exist.add(utterance)
   return result

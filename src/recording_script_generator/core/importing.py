@@ -2,21 +2,17 @@ from concurrent.futures.process import ProcessPoolExecutor
 from concurrent.futures.thread import ThreadPoolExecutor
 from functools import partial
 from logging import getLogger
-from multiprocessing import cpu_count
+from multiprocessing import Pool, cpu_count
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from recording_script_generator.core.text_extraction import (
-    file_to_utterances, is_sentence)
 from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations, Selection,
-                                                   UtteranceId, Utterances)
-from text_utils import Language, SymbolFormat, Symbols, text_to_symbols
+                                                   Utterance, UtteranceId,
+                                                   Utterances)
+from text_utils import Language, SymbolFormat
+from text_utils.text import text_to_sentences
 from tqdm import tqdm
-
-DEFAULT_N_JOBS = cpu_count() - 1
-DEFAULT_CHUNK_SIZE_PROCESSES = 1000
-print(f"Using {DEFAULT_N_JOBS} threads with {DEFAULT_CHUNK_SIZE_PROCESSES} chunks...")
 
 
 def read_textfile(path: Path) -> str:
@@ -25,7 +21,7 @@ def read_textfile(path: Path) -> str:
   return content
 
 
-def add_corpus_from_text_files(files: Set[Path], lang: Language, text_format: SymbolFormat, limit: Optional[int], chunksize: int, n_jobs: int) -> Tuple[Selection, ReadingPassages, Representations]:
+def add_corpus_from_text_files(files: Set[Path], lang: Language, text_format: SymbolFormat, limit: Optional[int], chunksize: int, n_jobs: int, maxtasksperchild: Optional[int]) -> Tuple[Selection, ReadingPassages, Representations]:
   logger = getLogger(__name__)
   logger.info("Reading text files...")
   if limit is not None:
@@ -40,6 +36,7 @@ def add_corpus_from_text_files(files: Set[Path], lang: Language, text_format: Sy
     text_format=text_format,
     n_jobs=n_jobs,
     chunksize=chunksize,
+    maxtasksperchild=maxtasksperchild,
   )
 
 
@@ -61,17 +58,64 @@ def get_sentences_from_text(text: str, lang: Language, text_format: SymbolFormat
   return sentences
 
 
-def add_corpus_from_texts(texts: List[str], language: Language, text_format: SymbolFormat, chunksize: int, n_jobs: int) -> Tuple[Selection, ReadingPassages, Representations]:
+process_texts: List[str] = None
+
+
+def init_pool(texts: List[str]) -> None:
+  global process_texts
+  process_texts = texts
+
+
+def get_sentences_from_text_v2(text_nr: int, language: Language, text_format: SymbolFormat) -> Set[str]:
+  # pylint: disable=global-variable-not-assigned
+  global process_texts
+  text = process_texts[text_nr]
+  utterances = file_to_utterances(text, language, text_format)
+  sentences: Set[str] = set()
+
+  for utterance in utterances:
+    if not is_sentence(utterance, language, text_format):
+      continue
+
+    # symbols = text_to_symbols(
+    #   text=utterance,
+    #   lang=lang,
+    #   text_format=text_format,
+    # )
+
+    sentences.add(utterance)
+  return sentences
+
+
+def add_corpus_from_texts(texts: List[str], language: Language, text_format: SymbolFormat, chunksize: int, n_jobs: int, maxtasksperchild: Optional[int]) -> Tuple[Selection, ReadingPassages, Representations]:
   logger = getLogger(__name__)
   method_proxy = partial(get_sentences_from_text, lang=language, text_format=text_format)
   logger.info("Detecting valid sentences...")
   #tqdm_steps = 4
   #chunksize = max(round(len(texts) / n_jobs / tqdm_steps), 1)
   logger.info(f"Assigning {chunksize} files to {n_jobs} processor core.")
-  # todo optimize that texts are not passed as argument
-  with ProcessPoolExecutor(max_workers=n_jobs) as ex:
-    sentences_from_files: List[Set[str]] = list(
-      tqdm(ex.map(method_proxy, texts, chunksize=chunksize), total=len(texts)))
+
+  method_proxy = partial(
+    get_sentences_from_text_v2,
+    language=language,
+    text_format=text_format,
+  )
+
+  with Pool(
+    processes=n_jobs,
+    initializer=init_pool,
+    initargs=(texts,),
+    maxtasksperchild=maxtasksperchild,
+  ) as pool:
+    sentences_from_files: List[Set[str]] = list(tqdm(
+      pool.imap_unordered(method_proxy, range(len(texts)), chunksize=chunksize),
+      total=len(texts),
+    ))
+
+  # # todo optimize that texts are not passed as argument
+  # with ProcessPoolExecutor(max_workers=n_jobs) as ex:
+  #   sentences_from_files: List[Set[str]] = list(
+  #     tqdm(ex.map(method_proxy, texts, chunksize=chunksize), total=len(texts)))
   logger.info("Done.")
   logger.info("Extracting sentences...")
   all_sentences: Set[str] = {
@@ -80,8 +124,8 @@ def add_corpus_from_texts(texts: List[str], language: Language, text_format: Sym
     for text_sentence in text_sentences
   }
 
-  reading_passages: Dict[UtteranceId, Symbols] = ReadingPassages({
-    utterance_id: sentence for utterance_id, sentence in tqdm(enumerate(all_sentences))
+  reading_passages = ReadingPassages({
+    utterance_id: sentence for utterance_id, sentence in enumerate(tqdm(all_sentences))
   })
   reading_passages.symbol_format = text_format
   reading_passages.language = language
@@ -147,3 +191,49 @@ def merge(data: List[Tuple[Selection, ReadingPassages, Representations]]) -> Tup
 #       filtered_utterance_indicies.add(utterance_id)
 
 #   return filtered_utterance_indicies
+
+def file_to_utterances(content: str, lang: Language, text_format: SymbolFormat) -> List[str]:
+  content_lines = content.split("\n")
+  res = []
+  for line in content_lines:
+    sentences = text_to_sentences(
+      text=line.strip(),
+      lang=lang,
+      text_format=text_format,
+    )
+    res.extend(sentences)
+  return res
+
+
+def ends_with_punctuation(sentence: str) -> bool:
+  if len(sentence) == 0:
+    return False
+
+  last_letter = sentence[-1]
+
+  contains_sentence_ending = last_letter in {".", "!", "?"}
+  if not contains_sentence_ending:
+    return False
+
+  return True
+
+
+def starts_with_big_letter(sentence: str) -> bool:
+  if len(sentence) == 0:
+    return False
+
+  first_letter = sentence[0]
+  res = first_letter.isupper()
+  return res
+
+
+def is_sentence(sentence: str, lang: Language, sentence_format: SymbolFormat) -> bool:
+  if sentence_format == SymbolFormat.GRAPHEMES:
+    if lang == Language.ENG or lang == Language.GER:
+      return starts_with_big_letter(sentence) and ends_with_punctuation(sentence)
+    else:
+      raise Exception("Not supported!")
+  elif sentence_format.is_IPA:
+    return ends_with_punctuation(sentence)
+  else:
+    assert False

@@ -10,6 +10,7 @@ from text_utils.symbol_format import SymbolFormat
 from recording_script_generator.app import *
 from recording_script_generator.core.exporting import SortingMode
 from recording_script_generator.globals import (DEFAULT_AVG_CHARS_PER_S,
+                                                DEFAULT_BATCHES,
                                                 DEFAULT_CHUNKSIZE_FILES,
                                                 DEFAULT_CHUNKSIZE_UTTERANCES,
                                                 DEFAULT_MAXTASKSPERCHILD,
@@ -60,7 +61,9 @@ def init_add_corpus_from_text_files_parser(parser: ArgumentParser):
   parser.add_argument('--text_format', choices=SymbolFormat, type=SymbolFormat.__getitem__)
   parser.add_argument('--limit', type=int)
   parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_FILES)
+  parser.add_argument('--batches', type=int, default=DEFAULT_BATCHES)
   parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
+  parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
   parser.add_argument('--overwrite', action='store_true')
   return app_add_corpus_from_text_files
 
@@ -110,6 +113,7 @@ def init_app_generate_deselected_script_parser(parser: ArgumentParser):
   parser.add_argument('--parts_count', type=int, default=None)
   parser.add_argument('--take_per_part', type=int, default=None)
   parser.add_argument('--ignore_symbols', type=str, default=None)
+  parser.add_argument('--only_txt', action='store_true')
   return _app_generate_deselected_script_cli
 
 
@@ -141,6 +145,7 @@ def init_normalize_parser(parser: ArgumentParser):
   parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
   parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
   parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--batches', type=int, default=DEFAULT_BATCHES)
   parser.add_argument('--overwrite', action='store_true')
   return app_normalize
 
@@ -153,6 +158,7 @@ def init_convert_to_arpa_parser(parser: ArgumentParser):
   parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
   parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
   parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--batches', type=int, default=DEFAULT_BATCHES)
   parser.add_argument('--out_step_name', type=str, required=False)
   parser.add_argument('--overwrite', action='store_true')
   return app_convert_to_arpa
@@ -166,6 +172,7 @@ def init_app_map_to_ipa_parser(parser: ArgumentParser):
   parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
   parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
   parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--batches', type=int, default=DEFAULT_BATCHES)
   parser.add_argument('--out_step_name', type=str, required=False)
   parser.add_argument('--overwrite', action='store_true')
   return app_map_to_ipa
@@ -179,6 +186,7 @@ def init_app_app_convert_to_symbols_parser(parser: ArgumentParser):
   parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
   parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
   parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--batches', type=int, default=DEFAULT_BATCHES)
   parser.add_argument('--out_step_name', type=str, required=False)
   parser.add_argument('--overwrite', action='store_true')
   return app_convert_to_symbols
@@ -197,6 +205,7 @@ def init_change_ipa_parser(parser: ArgumentParser):
   parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
   parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
   parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--batches', type=int, default=DEFAULT_BATCHES)
   parser.add_argument('--out_step_name', type=str, required=False)
   parser.add_argument('--overwrite', action='store_true')
   return app_change_ipa
@@ -211,6 +220,7 @@ def init_change_text_parser(parser: ArgumentParser):
   parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
   parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
   parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--batches', type=int, default=DEFAULT_BATCHES)
   parser.add_argument('--out_step_name', type=str, required=False)
   parser.add_argument('--overwrite', action='store_true')
   return app_change_text
@@ -255,6 +265,7 @@ def init_remove_undesired_text_parser(parser: ArgumentParser):
   parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
   parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
   parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--batches', type=int, default=DEFAULT_BATCHES)
   parser.add_argument('--out_step_name', type=str, required=False)
   parser.add_argument('--overwrite', action='store_true')
   return _app_remove_undesired_text_cli
@@ -280,6 +291,7 @@ def init_remove_utterances_with_proper_names_parser(parser: ArgumentParser):
   parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
   parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
   parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--batches', type=int, default=DEFAULT_BATCHES)
   parser.add_argument('--out_step_name', type=str, required=False, help=OUT_STEP_NAME_HELP)
   parser.add_argument('--overwrite', action='store_true', help=OVERWRITE_HELP)
   return app_remove_utterances_with_proper_names
@@ -292,6 +304,7 @@ def init_remove_utterances_with_acronyms_parser(parser: ArgumentParser):
   parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
   parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
   parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--batches', type=int, default=DEFAULT_BATCHES)
   parser.add_argument('--out_step_name', type=str, required=False, help=OUT_STEP_NAME_HELP)
   parser.add_argument('--overwrite', action='store_true', help=OVERWRITE_HELP)
   return app_remove_utterances_with_acronyms
@@ -305,6 +318,7 @@ def init_remove_utterances_with_undesired_sentence_lengths_parser(parser: Argume
   parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
   parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
   parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--batches', type=int, default=DEFAULT_BATCHES)
   parser.add_argument('--out_step_name', type=str, required=False, help=OUT_STEP_NAME_HELP)
   parser.add_argument('--overwrite', action='store_true', help=OVERWRITE_HELP)
   return app_remove_utterances_with_undesired_sentence_lengths
@@ -320,6 +334,7 @@ def init_remove_utterances_with_unknown_words_parser(parser: ArgumentParser):
   parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
   parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
   parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--batches', type=int, default=DEFAULT_BATCHES)
   parser.add_argument('--out_step_name',
                       type=str, required=False, help=OUT_STEP_NAME_HELP)
   parser.add_argument('--overwrite',
@@ -337,6 +352,7 @@ def init_remove_utterances_with_too_seldom_words_parser(parser: ArgumentParser):
   parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
   parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
   parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--batches', type=int, default=DEFAULT_BATCHES)
   parser.add_argument('--out_step_name', type=str, required=False,
                       help=OUT_STEP_NAME_HELP)
   parser.add_argument('--overwrite', action='store_true',
