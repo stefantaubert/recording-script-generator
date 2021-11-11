@@ -75,7 +75,7 @@ def get_reading_script_df(selection: OrderedSet[UtteranceId], reading_passages: 
 
 
 def __get_keys_custom_sort(selection: OrderedSet[UtteranceId], reading_passages: ReadingPassages, representations: Representations, mode: SortingMode, seed: Optional[int], ignore_symbols: Optional[Set[str]], parts_count: Optional[int], take_per_part: Optional[int]) -> OrderedSet[UtteranceId]:
-  selected_reading_passages = OrderedDict({k: reading_passages[k] for k in selection})
+  selected_reading_passages = OrderedDict([(k, reading_passages[k]) for k in selection])
 
   if mode == SortingMode.RANDOM:
     assert seed is not None
@@ -103,14 +103,14 @@ def __get_keys_custom_sort(selection: OrderedSet[UtteranceId], reading_passages:
     keys_sorted_by_index = OrderedSet(list(sorted(selected_reading_passages.keys())))
     return keys_sorted_by_index
 
-  selected_representations = OrderedDict({
-    k: utterance_to_symbols(
+  selected_representations = OrderedDict([(
+    k, utterance_to_symbols(
       utterance=representations[k],
       text_format=representations.symbol_format,
       language=representations.language,
-    )
+    ))
     for k in selection
-  })
+  ])
 
   if mode == SortingMode.KLD:
     assert ignore_symbols is not None

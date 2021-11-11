@@ -21,21 +21,19 @@ def log_general_stats(selection: Selection, reading_passages: ReadingPassages, r
   assert avg_chars_per_s > 0
   logger = getLogger(__name__)
 
-  selected = OrderedDict(
-    {k: (v, representations[k]) for k, v in reading_passages.items() if k in selection})
-  not_selected = OrderedDict(
-    {k: (v, representations[k]) for k, v in reading_passages.items() if k not in selection})
+  selected_reading_passages = [v for k, v in tqdm(reading_passages.items()) if k in selection]
+  selected_representations = [v for k, v in tqdm(representations.items()) if k in selection]
+  deselected_reading_passages = [v for k, v in tqdm(reading_passages.items()) if k not in selection]
+  deselected_representations = [v for k, v in tqdm(representations.items()) if k not in selection]
 
-  selected_read_chars_len = len([x for (read, rep) in selected.values() for x in read])
-  deselected_read_chars_len = len([x for (read, rep) in not_selected.values() for x in read])
+  selected_read_chars_len = sum([1 for read in selected_reading_passages for _ in read])
+  deselected_read_chars_len = sum([1 for read in deselected_reading_passages for _ in read])
 
-  selected_word_counts = __get_utterances_word_counts([read for (read, rep) in selected.values()])
+  selected_word_counts = __get_utterances_word_counts(selected_reading_passages)
   deselected_word_counts = __get_utterances_word_counts(
-    [read for (read, rep) in not_selected.values()])
-  selected_durations_s = __get_utterances_durations(
-    [read for (read, rep) in selected.values()], avg_chars_per_s)
-  deselected_durations_s = __get_utterances_durations(
-    [read for (read, rep) in not_selected.values()], avg_chars_per_s)
+    deselected_reading_passages)
+  selected_durations_s = __get_utterances_durations(selected_reading_passages, avg_chars_per_s)
+  deselected_durations_s = __get_utterances_durations(deselected_reading_passages, avg_chars_per_s)
 
   selected_durations_s_distribution = __get_utterance_duration_distribution(selected_durations_s)
   non_selected_durations_s_distribution = __get_utterance_duration_distribution(
@@ -50,12 +48,12 @@ def log_general_stats(selection: Selection, reading_passages: ReadingPassages, r
     __log_distribution(non_selected_durations_s_distribution)
 
   logger.info(
-    f"Selected: {len(selected)} entries / {selected_read_chars_len} chars / ca. {selected_read_chars_len/avg_chars_per_s/60:.2f}min / ca. {selected_read_chars_len/avg_chars_per_s/60/60:.2f}h")
+    f"Selected: {len(selected_reading_passages)} entries / {selected_read_chars_len} chars / ca. {selected_read_chars_len/avg_chars_per_s/60:.2f}min / ca. {selected_read_chars_len/avg_chars_per_s/60/60:.2f}h")
   logger.info(
-    f"Deselected: {len(not_selected)} entries / {deselected_read_chars_len} chars / ca. {deselected_read_chars_len/avg_chars_per_s/60:.2f}min / ca. {deselected_read_chars_len/avg_chars_per_s/60/60:.2f}h")
+    f"Deselected: {len(deselected_reading_passages)} entries / {deselected_read_chars_len} chars / ca. {deselected_read_chars_len/avg_chars_per_s/60:.2f}min / ca. {deselected_read_chars_len/avg_chars_per_s/60/60:.2f}h")
 
-  selected_chars = {x for (read, rep) in selected.values() for x in rep}
-  rest_chars = {x for (read, rep) in not_selected.values() for x in rep}
+  selected_chars = {x for rep in tqdm(selected_representations) for x in rep}
+  rest_chars = {x for rep in tqdm(deselected_representations) for x in rep}
   if len(selected_chars) > 0:
     logger.info(f"Selected chars ({len(selected_chars)}):\t{' '.join(sorted(selected_chars))}")
   if len(rest_chars) > 0:
