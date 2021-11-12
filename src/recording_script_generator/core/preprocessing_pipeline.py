@@ -171,7 +171,7 @@ def do_pipeline_select(reading_passages: ReadingPassages, representations: Repre
     ignore_symbols=" ",
     minutes=1,  # 10
     n_gram=1,
-    utterance_durations_s=utterance_durations_s,
+    deselected_durations_s=utterance_durations_s,
     chunksize=None,
     maxtasksperchild=None,
     n_jobs=cpu_count(),
@@ -185,7 +185,7 @@ def do_pipeline_select(reading_passages: ReadingPassages, representations: Repre
     ignore_symbols=" ",
     minutes=1,  # 13
     n_gram=1,
-    utterance_durations_s=utterance_durations_s,
+    deselected_durations_s=utterance_durations_s,
     chunksize=None,
     maxtasksperchild=None,
     n_jobs=cpu_count(),
@@ -199,7 +199,7 @@ def do_pipeline_select(reading_passages: ReadingPassages, representations: Repre
     ignore_symbols=" ",
     minutes=1,  # 10
     n_gram=1,
-    utterance_durations_s=utterance_durations_s,
+    deselected_durations_s=utterance_durations_s,
     chunksize=None,
     maxtasksperchild=None,
     n_jobs=cpu_count(),

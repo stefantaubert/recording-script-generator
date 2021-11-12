@@ -8,8 +8,9 @@ from typing import Callable, Optional, Set
 from recording_script_generator.app.exporting import get_tex_path
 from recording_script_generator.app.io import *
 from recording_script_generator.core import *
-from recording_script_generator.core.detection import \
-    select_utterances_from_tex_inplace
+from recording_script_generator.core.detection import (
+    get_utterance_durations_based_on_utterances,
+    select_utterances_from_tex_inplace)
 from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations, Selection)
 from recording_script_generator.globals import (DEFAULT_AVG_CHARS_PER_S,

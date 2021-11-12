@@ -54,6 +54,18 @@ def main_step_2(utterance_id: UtteranceId, min_occurrence_count: int) -> Tuple[U
   return utterance_id, result
 
 
+def get_chunksize(data_count: int, n_jobs: int, chunksize: Optional[int], batches: Optional[int]) -> int:
+  if batches is None:
+    assert chunksize is not None
+    assert chunksize > 0
+    return chunksize
+
+  if len(data_count) == 0:
+    return 1
+  chunksize = math.ceil(data_count / n_jobs / batches)
+  return chunksize
+
+
 def get_utterances_with_unfrequent_words(utterances: Utterances, min_occurrence_count: int, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int]) -> Set[UtteranceId]:
   logger = getLogger(__name__)
   logger.info("Detecting unfrequent words...")
@@ -67,11 +79,8 @@ def get_utterances_with_unfrequent_words(utterances: Utterances, min_occurrence_
     maxtasksperchild=maxtasksperchild,
   )
 
-  if batches is None:
-    assert chunksize is not None
-  else:
-    chunksize = math.ceil(len(utterances) / n_jobs / batches)
-
+  chunksize = get_chunksize(len(utterances), n_jobs, chunksize, batches)
+  
   logger.info("Converting to str...")
   words = [
     word

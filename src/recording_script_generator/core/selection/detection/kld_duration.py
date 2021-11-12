@@ -9,24 +9,26 @@ from text_selection.utils import DurationBoundary
 from text_utils.types import Symbol
 
 
-def get_utterances_through_kld_duration(utterances: Utterances, already_selected_utterances: Utterances, utterance_durations_s: Dict[UtteranceId, float], n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], boundary: DurationBoundary, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int]) -> OrderedSet[UtteranceId]:
+def get_utterances_through_kld_duration(utterances: Utterances, selected: OrderedSet[int], deselected: OrderedSet[int], deselected_durations_s: Dict[UtteranceId, float], n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], boundary: DurationBoundary, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int]) -> OrderedSet[UtteranceId]:
   seconds = minutes * 60
   newly_selected = greedy_kld_uniform_ngrams_seconds_with_preselection_perf(
     data=utterances,
     n_gram=n_gram,
     ignore_symbols=ignore_symbols,
     seconds=seconds,
-    durations_s=utterance_durations_s,
-    preselection=already_selected_utterances,
+    preselection_keys=selected,
+    select_from_durations_s=deselected_durations_s,
+    select_from_keys=deselected,
     duration_boundary=boundary,
     n_jobs=n_jobs,
     maxtasksperchild=maxtasksperchild,
     chunksize=chunksize,
+    batches=4,
   )
 
   newly_selected_duration_s = sum(
     duration_s
-    for utterance_id, duration_s in utterance_durations_s.items()
+    for utterance_id, duration_s in deselected_durations_s.items()
     if utterance_id in newly_selected
   )
 

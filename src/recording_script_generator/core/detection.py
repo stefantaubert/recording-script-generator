@@ -8,8 +8,9 @@ from recording_script_generator.core.common import log_utterances
 from recording_script_generator.core.selection import *
 from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations, Selection,
-                                                   UtteranceKVPair, UtteranceId,
-                                                   Utterances, get_utterance_duration_s)
+                                                   UtteranceId,
+                                                   UtteranceKVPair, Utterances,
+                                                   get_utterance_duration_s)
 from recording_script_generator.core.utterances import *
 from text_selection.selection import SelectionMode
 from text_selection.utils import DurationBoundary
@@ -38,30 +39,33 @@ def get_deselected_utterances(utterances: Utterances, selection: Selection) -> U
   return get_utterances_from_selection(utterances, deselected)
 
 
-def get_utterance_durations_based_on_utterances(utterances: Utterances, reading_speed_chars_per_s: float) -> Dict[UtteranceId, float]:
+def get_utterance_durations_based_on_utterances(utterances: Utterances, keys: OrderedSet[int], reading_speed_chars_per_s: float) -> Dict[UtteranceId, float]:
   durations = {
-    utterance_id: get_utterance_duration_s(utterance, reading_speed_chars_per_s)
-    for utterance_id, utterance in utterances.items()
+    utterance_id: get_utterance_duration_s(utterances[utterance_id], reading_speed_chars_per_s)
+    for utterance_id in tqdm(keys)
   }
   return durations
 
 
 def select_utterances_through_kld_duration_inplace(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], boundary: DurationBoundary, reading_speed_chars_per_s: float, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int]):
-  selected = get_selected_utterances(representations, selection)
-  deselected = get_deselected_utterances(representations, selection)
-  utterance_durations_s = get_utterance_durations_based_on_utterances(
+  deselected = OrderedSet(representations.keys() - selection)
+  logger = getLogger(__name__)
+  logger.info("Getting durations...")
+  deselected_durations_s = get_utterance_durations_based_on_utterances(
     reading_passages,
+    keys=deselected,
     reading_speed_chars_per_s=reading_speed_chars_per_s,
   )
 
   add = get_utterances_through_kld_duration(
-    utterances=deselected,
-    already_selected_utterances=selected,
+    utterances=representations,
+    deselected=deselected,
+    selected=selection,
     boundary=boundary,
     ignore_symbols=ignore_symbols,
     minutes=minutes,
     n_gram=n_gram,
-    utterance_durations_s=utterance_durations_s,
+    deselected_durations_s=deselected_durations_s,
     n_jobs=n_jobs,
     maxtasksperchild=maxtasksperchild,
     chunksize=chunksize,
@@ -100,6 +104,7 @@ def select_utterances_through_greedy_duration_inplace(reading_passages: ReadingP
   deselected = get_deselected_utterances(representations, selection)
   utterance_durations_s = get_utterance_durations_based_on_utterances(
     reading_passages,
+    keys=deselected.keys(),
     reading_speed_chars_per_s=reading_speed_symbols_per_s,
   )
 
