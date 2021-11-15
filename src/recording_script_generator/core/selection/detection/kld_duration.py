@@ -23,7 +23,7 @@ def get_utterances_through_kld_duration(utterances: Utterances, selected: Ordere
     n_jobs=n_jobs,
     maxtasksperchild=maxtasksperchild,
     chunksize=chunksize,
-    batches=4,
+    batches=1,
   )
 
   newly_selected_duration_s = sum(
