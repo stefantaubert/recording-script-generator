@@ -47,7 +47,7 @@ def get_utterance_durations_based_on_utterances(utterances: Utterances, keys: Or
   return durations
 
 
-def select_utterances_through_kld_duration_inplace(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], boundary: DurationBoundary, reading_speed_chars_per_s: float, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int]):
+def select_utterances_through_kld_duration_inplace(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], boundary: DurationBoundary, reading_speed_chars_per_s: float, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int]):
   deselected = OrderedSet(representations.keys() - selection)
   logger = getLogger(__name__)
   logger.info("Getting durations...")
@@ -69,6 +69,7 @@ def select_utterances_through_kld_duration_inplace(reading_passages: ReadingPass
     n_jobs=n_jobs,
     maxtasksperchild=maxtasksperchild,
     chunksize=chunksize,
+    batches=batches,
   )
   log_and_add_to_selection_inplace(add, selection, reading_passages)
 

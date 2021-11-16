@@ -14,6 +14,7 @@ from recording_script_generator.core.detection import (
 from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations, Selection)
 from recording_script_generator.globals import (DEFAULT_AVG_CHARS_PER_S,
+                                                DEFAULT_BATCHES,
                                                 DEFAULT_CHUNKSIZE_UTTERANCES,
                                                 DEFAULT_IGNORE,
                                                 DEFAULT_MAXTASKSPERCHILD,
@@ -53,7 +54,7 @@ def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_
   __alter_selection(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
 
 
-def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Set[Symbol] = DEFAULT_IGNORE, boundary_min_s: float = DEFAULT_SPLIT_BOUNDARY_MIN_S, boundary_max_s: float = DEFAULT_SPLIT_BOUNDARY_MAX_S, n_jobs: int = DEFAULT_N_JOBS, maxtasksperchild: Optional[int] = DEFAULT_MAXTASKSPERCHILD, chunksize: Optional[int] = None, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Set[Symbol] = DEFAULT_IGNORE, boundary_min_s: float = DEFAULT_SPLIT_BOUNDARY_MIN_S, boundary_max_s: float = DEFAULT_SPLIT_BOUNDARY_MAX_S, n_jobs: int = DEFAULT_N_JOBS, maxtasksperchild: Optional[int] = DEFAULT_MAXTASKSPERCHILD, chunksize: Optional[int] = None, batches: Optional[int] = DEFAULT_BATCHES, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with KLD duration-based...")
   method = partial(
@@ -66,6 +67,7 @@ def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_nam
     n_jobs=n_jobs,
     maxtasksperchild=maxtasksperchild,
     chunksize=chunksize,
+    batches=batches,
   )
 
   __alter_selection(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
