@@ -8,8 +8,7 @@ from recording_script_generator.core.common import log_utterances
 from recording_script_generator.core.selection import *
 from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations, Selection,
-                                                   UtteranceId,
-                                                   UtteranceKVPair, Utterances,
+                                                   UtteranceId,Utterances,
                                                    get_utterance_duration_s)
 from recording_script_generator.core.utterances import *
 from text_selection.selection import SelectionMode
@@ -74,48 +73,29 @@ def select_utterances_through_kld_duration_inplace(reading_passages: ReadingPass
   log_and_add_to_selection_inplace(add, selection, reading_passages)
 
 
-def select_utterances_through_kld_iterations_inplace(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_gram: int, iterations: int, ignore_symbols: Optional[Set[Symbol]], n_jobs: int, maxtasksperchild: Optional[int], chunksize: int):
-  deselected = get_deselected_utterances(representations, selection)
-
-  add = get_utterances_through_kld_iterations(
-    utterances=deselected,
-    ignore_symbols=ignore_symbols,
-    iterations=iterations,
-    n_gram=n_gram,
-    n_jobs=n_jobs,
-    maxtasksperchild=maxtasksperchild,
-    chunksize=chunksize,
-  )
-  log_and_add_to_selection_inplace(add, selection, reading_passages)
-
-
-def select_utterances_through_greedy_epochs_inplace(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_gram: int, epochs: int, ignore_symbols: Optional[Set[Symbol]]):
-  deselected = get_deselected_utterances(representations, selection)
-
-  add = get_utterances_through_greedy_epochs(
-    utterances=deselected,
-    ignore_symbols=ignore_symbols,
-    epochs=epochs,
-    n_gram=n_gram,
-  )
-  log_and_add_to_selection_inplace(add, selection, reading_passages)
-
-
-def select_utterances_through_greedy_duration_inplace(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], mode: SelectionMode, reading_speed_symbols_per_s: float):
-  deselected = get_deselected_utterances(representations, selection)
-  utterance_durations_s = get_utterance_durations_based_on_utterances(
+def select_utterances_through_greedy_duration_inplace(reading_passages: ReadingPassages, representations: Representations, selection: Selection, n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], boundary: DurationBoundary, reading_speed_chars_per_s: float, n_jobs: int, maxtasksperchild: Optional[int], chunksize: Optional[int], batches: Optional[int]):
+  deselected = OrderedSet(representations.keys() - selection)
+  logger = getLogger(__name__)
+  logger.info("Getting durations...")
+  deselected_durations_s = get_utterance_durations_based_on_utterances(
     reading_passages,
-    keys=deselected.keys(),
-    reading_speed_chars_per_s=reading_speed_symbols_per_s,
+    keys=deselected,
+    reading_speed_chars_per_s=reading_speed_chars_per_s,
   )
 
   add = get_utterances_through_greedy_duration(
-    utterances=deselected,
+    utterances=representations,
+    deselected=deselected,
+    selected=selection,
+    boundary=boundary,
     ignore_symbols=ignore_symbols,
     minutes=minutes,
     n_gram=n_gram,
-    utterance_durations_s=utterance_durations_s,
-    mode=mode,
+    deselected_durations_s=deselected_durations_s,
+    n_jobs=n_jobs,
+    maxtasksperchild=maxtasksperchild,
+    chunksize=chunksize,
+    batches=batches,
   )
   log_and_add_to_selection_inplace(add, selection, reading_passages)
 

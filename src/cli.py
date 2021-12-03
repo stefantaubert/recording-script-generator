@@ -360,49 +360,8 @@ def init_remove_utterances_with_too_seldom_words_parser(parser: ArgumentParser):
   return app_remove_utterances_with_too_seldom_words
 
 
-def init_select_greedy_ngrams_epochs_parser(parser: ArgumentParser):
-  parser.add_argument('--merge_name', type=str, required=True)
-  parser.add_argument('--in_step_name', type=str, required=True,
-                      help=IN_STEP_NAME_HELP)
-  parser.add_argument('--n_gram', type=int, required=True)
-  parser.add_argument('--epochs', type=int, required=True)
-  parser.add_argument('--ignore_symbols', type=str, required=False)
-  parser.add_argument('--out_step_name', type=str, required=False,
-                      help=OUT_STEP_NAME_HELP)
-  parser.add_argument('--overwrite', action='store_true',
-                      help=OVERWRITE_HELP)
-  return _app_select_greedy_ngrams_epochs_cli
-
-
-def _app_select_greedy_ngrams_epochs_cli(**args):
-  args["ignore_symbols"] = parse_set(args["ignore_symbols"], split_symbol=" ")
-  app_select_greedy_ngrams_epochs(**args)
-
-
-def init_app_select_kld_ngrams_iterations_parser(parser: ArgumentParser):
-  parser.add_argument('--merge_name', type=str, required=True)
-  parser.add_argument('--in_step_name', type=str, required=True,
-                      help=IN_STEP_NAME_HELP)
-  parser.add_argument('--n_gram', type=int, required=True)
-  parser.add_argument('--iterations', type=int, required=True)
-  parser.add_argument('--ignore_symbols', type=str, required=False)
-  parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
-  parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
-  parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
-  parser.add_argument('--out_step_name', type=str, required=False,
-                      help=OUT_STEP_NAME_HELP)
-  parser.add_argument('--overwrite', action='store_true',
-                      help=OVERWRITE_HELP)
-  return _app_select_kld_ngrams_iterations_cli
-
-
-def _app_select_kld_ngrams_iterations_cli(**args):
-  args["ignore_symbols"] = parse_set(args["ignore_symbols"], split_symbol=" ")
-  app_select_kld_ngrams_iterations(**args)
-
-
 def init_select_greedy_ngrams_duration_parser(parser: ArgumentParser):
-  parser.add_argument('--merge_name', type=str, required=True)
+  parser.add_argument('--corpus_name', type=str, required=True)
   parser.add_argument('--in_step_name', type=str, required=True,
                       help=IN_STEP_NAME_HELP)
   parser.add_argument('--n_gram', type=int, required=True)
@@ -410,6 +369,14 @@ def init_select_greedy_ngrams_duration_parser(parser: ArgumentParser):
   parser.add_argument('--reading_speed_chars_per_s', type=float,
                       default=DEFAULT_AVG_CHARS_PER_S)
   parser.add_argument('--ignore_symbols', type=str, required=False)
+  parser.add_argument('--boundary_min_s', type=float,
+                      default=DEFAULT_SPLIT_BOUNDARY_MIN_S, help="")
+  parser.add_argument('--boundary_max_s', type=float,
+                      default=DEFAULT_SPLIT_BOUNDARY_MAX_S, help="")
+  parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
+  parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
+  parser.add_argument('--chunksize', type=int, default=None)
+  parser.add_argument('--batches', type=int, default=None)
   parser.add_argument('--out_step_name', type=str, required=False,
                       help=OUT_STEP_NAME_HELP)
   parser.add_argument('--overwrite', action='store_true',
@@ -418,7 +385,7 @@ def init_select_greedy_ngrams_duration_parser(parser: ArgumentParser):
 
 
 def _app_select_greedy_ngrams_duration_cli(**args):
-  args["ignore_symbols"] = parse_set(args["ignore_symbols"], split_symbol=" ")
+  args["ignore_symbols"] = parse_set(args["ignore_symbols"], split_symbol="&")
   app_select_greedy_ngrams_duration(**args)
 
 
@@ -489,10 +456,8 @@ def _init_parser():
                  init_remove_utterances_with_too_seldom_words_parser)
   _add_parser_to(subparsers, "select-from-tex", init_select_from_tex_parser)
   # _add_parser_to(subparsers, "select-all", init_select_all_parser)
-  _add_parser_to(subparsers, "select-greedy-epochs", init_select_greedy_ngrams_epochs_parser)
   _add_parser_to(subparsers, "select-greedy-duration", init_select_greedy_ngrams_duration_parser)
   _add_parser_to(subparsers, "select-kld-duration", init_select_kld_ngrams_duration_parser)
-  _add_parser_to(subparsers, "select-kld-iterations", init_app_select_kld_ngrams_iterations_parser)
   # _add_parser_to(subparsers, "deselect-all", init_select_all_parser)
 
   return result

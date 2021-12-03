@@ -8,47 +8,34 @@ from typing import Callable, Optional, Set
 from recording_script_generator.app.exporting import get_tex_path
 from recording_script_generator.app.io import *
 from recording_script_generator.core import *
-from recording_script_generator.core.detection import (
-    get_utterance_durations_based_on_utterances,
-    select_utterances_from_tex_inplace)
+from recording_script_generator.core.detection import \
+    select_utterances_from_tex_inplace
 from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations, Selection)
 from recording_script_generator.globals import (DEFAULT_AVG_CHARS_PER_S,
                                                 DEFAULT_BATCHES,
-                                                DEFAULT_CHUNKSIZE_UTTERANCES,
                                                 DEFAULT_IGNORE,
                                                 DEFAULT_MAXTASKSPERCHILD,
-                                                DEFAULT_N_JOBS, DEFAULT_SEED,
+                                                DEFAULT_N_JOBS,
                                                 DEFAULT_SPLIT_BOUNDARY_MAX_S,
-                                                DEFAULT_SPLIT_BOUNDARY_MIN_S,
-                                                SEP)
-from text_selection.selection import SelectionMode
+                                                DEFAULT_SPLIT_BOUNDARY_MIN_S)
 from text_utils.types import Symbol
 
 
-def app_select_greedy_ngrams_epochs(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, epochs: int, ignore_symbols: Optional[Set[Symbol]], out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
-  logger = getLogger(__name__)
-  logger.info("Selecting utterances with Greedy epoch-based...")
-  method = partial(
-    select_utterances_through_greedy_epochs_inplace,
-    n_gram=n_gram,
-    epochs=epochs,
-    ignore_symbols=ignore_symbols,
-  )
-
-  __alter_selection(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
-
-
-def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, ignore_symbols: Optional[Set[Symbol]], reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+def app_select_greedy_ngrams_duration(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, minutes: float, reading_speed_chars_per_s: float = DEFAULT_AVG_CHARS_PER_S, ignore_symbols: Set[Symbol] = DEFAULT_IGNORE, boundary_min_s: float = DEFAULT_SPLIT_BOUNDARY_MIN_S, boundary_max_s: float = DEFAULT_SPLIT_BOUNDARY_MAX_S, n_jobs: int = DEFAULT_N_JOBS, maxtasksperchild: Optional[int] = DEFAULT_MAXTASKSPERCHILD, chunksize: Optional[int] = None, batches: Optional[int] = DEFAULT_BATCHES, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
   logger = getLogger(__name__)
   logger.info("Selecting utterances with Greedy duration-based...")
   method = partial(
     select_utterances_through_greedy_duration_inplace,
     n_gram=n_gram,
-    ignore_symbols=ignore_symbols,
     minutes=minutes,
+    ignore_symbols=ignore_symbols,
     reading_speed_chars_per_s=reading_speed_chars_per_s,
-    mode=SelectionMode.SHORTEST,
+    boundary=(boundary_min_s, boundary_max_s),
+    n_jobs=n_jobs,
+    maxtasksperchild=maxtasksperchild,
+    chunksize=chunksize,
+    batches=batches,
   )
 
   __alter_selection(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
@@ -68,22 +55,6 @@ def app_select_kld_ngrams_duration(base_dir: Path, corpus_name: str, in_step_nam
     maxtasksperchild=maxtasksperchild,
     chunksize=chunksize,
     batches=batches,
-  )
-
-  __alter_selection(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)
-
-
-def app_select_kld_ngrams_iterations(base_dir: Path, corpus_name: str, in_step_name: str, n_gram: int, iterations: int, ignore_symbols: Optional[Set[str]] = None, n_jobs: int = DEFAULT_N_JOBS, maxtasksperchild: Optional[int] = DEFAULT_MAXTASKSPERCHILD, chunksize: int = DEFAULT_CHUNKSIZE_UTTERANCES, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
-  logger = getLogger(__name__)
-  logger.info("Selecting utterances with KLD iteration-based...")
-  method = partial(
-    select_utterances_through_kld_iterations_inplace,
-    n_gram=n_gram,
-    iterations=iterations,
-    ignore_symbols=ignore_symbols,
-    n_jobs=n_jobs,
-    maxtasksperchild=maxtasksperchild,
-    chunksize=chunksize,
   )
 
   __alter_selection(base_dir, corpus_name, in_step_name, out_step_name, overwrite, method)

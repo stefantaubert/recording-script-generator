@@ -15,8 +15,7 @@ from recording_script_generator.app.pipelining import (app_do_pipeline_prepare,
                                                        app_do_pipeline_select)
 from recording_script_generator.app.selection import (
     app_select_from_tex, app_select_greedy_ngrams_duration,
-    app_select_greedy_ngrams_epochs, app_select_kld_ngrams_duration,
-    app_select_kld_ngrams_iterations)
+    app_select_kld_ngrams_duration)
 from recording_script_generator.app.stats import app_log_stats
 from recording_script_generator.app.transformation import (
     Target, app_change_ipa, app_change_text, app_convert_to_arpa,
