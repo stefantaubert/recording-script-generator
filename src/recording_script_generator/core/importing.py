@@ -1,27 +1,79 @@
-from concurrent.futures.process import ProcessPoolExecutor
 from concurrent.futures.thread import ThreadPoolExecutor
+from copy import deepcopy
 from functools import partial
 from logging import getLogger
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple
 
-from recording_script_generator.core.types import (ReadingPassages,
-                                                   Representations, Selection,
-                                                   Utterance, UtteranceId,
-                                                   Utterances)
-from text_utils import Language, SymbolFormat
-from text_utils.text import text_to_sentences
+from recording_script_generator.core.types import (Paths, ReadingPassages,
+                                                   ReadingPassagesPaths,
+                                                   Representations, Selection)
+from recording_script_generator.core.validation import InvalidContentError
+from text_utils import (Language, String, StringFormat, SymbolFormat,
+                        text_to_sentences)
 from tqdm import tqdm
 
 
 def read_textfile(path: Path) -> str:
+  assert path.exists() and path.is_file()
   content = path.read_text()
-  content = content.replace("\n", " ")
+  # content.strip("\n")
+  # content = content.replace("\n", " ")
   return content
 
 
-def add_corpus_from_text_files(files: Set[Path], lang: Language, text_format: SymbolFormat, limit: Optional[int], chunksize: int, n_jobs: int, maxtasksperchild: Optional[int]) -> Tuple[Selection, ReadingPassages, Representations]:
+def read_content(path: Path, string_format: StringFormat) -> String:
+  content = read_textfile(path)
+  valid_content = string_format.can_parse_string(content)
+  if not valid_content:
+    raise InvalidContentError(content, f"Invalid text in file: \"{str(path)}\"!")
+  return string_format.parse_string(content)
+
+
+def create_from_both_files(paths: List[Tuple[Path, Path]], symbol_formats: Tuple[SymbolFormat, SymbolFormat], string_formats: Tuple[StringFormat, StringFormat], language: Language, limit: Optional[int]) -> Tuple[Selection, ReadingPassages, Representations, Paths, ReadingPassagesPaths]:
+  logger = getLogger(__name__)
+  logger.info("Reading text files...")
+  if limit is not None:
+    logger.debug(f"Set limit to: {limit}.")
+    paths = paths[:limit]
+
+  reading_passages_string_format, representations_string_format = string_formats
+  reading_passages_symbol_format, representations_symbol_format = symbol_formats
+
+  logger.info("Parsing reading passages...")
+  reading_passages = ReadingPassages((
+    (utterance_id, read_content(reading_passage_path, reading_passages_string_format)) for utterance_id, (reading_passage_path, _) in enumerate(tqdm(paths))
+  ))
+  reading_passages.symbol_format = reading_passages_symbol_format
+  reading_passages.language = language
+
+  both_paths_are_equal = all(path1 == path2 for path1, path2 in paths)
+
+  logger.info("Parsing representations...")
+  if both_paths_are_equal:
+    representations = deepcopy(reading_passages)
+  else:
+    representations = Representations((
+      (utterance_id, read_content(representation_path, representations_string_format)) for utterance_id, (_, representation_path) in enumerate(tqdm(paths))
+    ))
+    representations.symbol_format = representations_symbol_format
+    representations.language = language
+
+  paths_to_ids = Paths((
+    (path_id, reading_passage_path) for path_id, (reading_passage_path, _) in enumerate(paths)
+  ))
+
+  utterance_paths = ReadingPassagesPaths(
+    (path_id, path_id) for path_id, _ in enumerate(paths)
+  )
+
+  selection = Selection()
+
+  return selection, reading_passages, representations, paths_to_ids, utterance_paths
+
+
+def add_corpus_from_text_files(files: Set[Path], lang: Language, text_format: SymbolFormat, limit: Optional[int], chunksize: int, n_jobs: int, maxtasksperchild: Optional[int]) -> Tuple[Selection, ReadingPassages, Representations, ReadingPassagesPaths]:
   logger = getLogger(__name__)
   logger.info("Reading text files...")
   if limit is not None:
@@ -58,18 +110,18 @@ def get_sentences_from_text(text: str, lang: Language, text_format: SymbolFormat
   return sentences
 
 
-process_texts: List[str] = None
+process_texts: List[Tuple[Path, str]] = None
 
 
-def init_pool(texts: List[str]) -> None:
+def init_pool(texts: List[Tuple[Path, str]]) -> None:
   global process_texts
   process_texts = texts
 
 
-def get_sentences_from_text_v2(text_nr: int, language: Language, text_format: SymbolFormat) -> Set[str]:
+def get_sentences_from_text_v2(text_nr: int, language: Language, text_format: SymbolFormat) -> Tuple[Path, Set[str]]:
   # pylint: disable=global-variable-not-assigned
   global process_texts
-  text = process_texts[text_nr]
+  path, text = process_texts[text_nr]
   utterances = file_to_utterances(text, language, text_format)
   sentences: Set[str] = set()
 
@@ -84,15 +136,15 @@ def get_sentences_from_text_v2(text_nr: int, language: Language, text_format: Sy
     # )
 
     sentences.add(utterance)
-  return sentences
+  return path, sentences
 
 
-def add_corpus_from_texts(texts: List[str], language: Language, text_format: SymbolFormat, chunksize: int, n_jobs: int, maxtasksperchild: Optional[int]) -> Tuple[Selection, ReadingPassages, Representations]:
+def add_corpus_from_texts(texts: List[Tuple[Path, str]], language: Language, text_format: SymbolFormat, chunksize: int, n_jobs: int, maxtasksperchild: Optional[int]) -> Tuple[Selection, ReadingPassages, Representations, ReadingPassagesPaths]:
   logger = getLogger(__name__)
   method_proxy = partial(get_sentences_from_text, lang=language, text_format=text_format)
   logger.info("Detecting valid sentences...")
-  #tqdm_steps = 4
-  #chunksize = max(round(len(texts) / n_jobs / tqdm_steps), 1)
+  # tqdm_steps = 4
+  # chunksize = max(round(len(texts) / n_jobs / tqdm_steps), 1)
   logger.info(f"Assigning {chunksize} files to {n_jobs} processor core.")
 
   method_proxy = partial(
@@ -118,15 +170,19 @@ def add_corpus_from_texts(texts: List[str], language: Language, text_format: Sym
   #     tqdm(ex.map(method_proxy, texts, chunksize=chunksize), total=len(texts)))
   logger.info("Done.")
   logger.info("Extracting sentences...")
-  all_sentences: Set[str] = {
-    text_sentence
-    for text_sentences in tqdm(sentences_from_files)
+  all_sentences: List[Tuple[Path, str]] = list(
+    (path, text_sentence)
+    for path, text_sentences in tqdm(sentences_from_files)
     for text_sentence in text_sentences
-  }
+  )
 
-  reading_passages = ReadingPassages({
-    utterance_id: sentence for utterance_id, sentence in enumerate(tqdm(all_sentences))
-  })
+  utterance_paths = ReadingPassagesPaths((
+    (utterance_id, path) for utterance_id, (path, sentence) in enumerate(tqdm(all_sentences))
+  ))
+
+  reading_passages = ReadingPassages((
+    (utterance_id, sentence) for utterance_id, (path, sentence) in enumerate(tqdm(all_sentences))
+  ))
   reading_passages.symbol_format = text_format
   reading_passages.language = language
 
@@ -141,7 +197,7 @@ def add_corpus_from_texts(texts: List[str], language: Language, text_format: Sym
 
   selection = Selection()
 
-  return selection, reading_passages, representations
+  return selection, reading_passages, representations, utterance_paths
 
 
 def merge(data: List[Tuple[Selection, ReadingPassages, Representations]]) -> Tuple[Selection, ReadingPassages, Representations]:

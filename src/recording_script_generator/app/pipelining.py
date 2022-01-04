@@ -54,7 +54,7 @@ def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_n
     logger.info("Already exists.")
     return
 
-  selection, reading_passages, representations = load_data(in_step_dir)
+  selection, reading_passages, representations, utterance_paths = load_data(in_step_dir)
 
   start = perf_counter()
   method(reading_passages, representations, selection)
@@ -69,4 +69,4 @@ def __alter_data(base_dir: Path, corpus_name: str, in_step_name: str, out_step_n
     logger.info("Done.")
   out_step_dir.mkdir(parents=True, exist_ok=True)
 
-  save_data(out_step_dir, selection, reading_passages, representations)
+  save_data(out_step_dir, selection, reading_passages, representations, utterance_paths)

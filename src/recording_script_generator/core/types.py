@@ -1,19 +1,22 @@
-from logging import getLogger
-from sys import getsizeof
+from pathlib import Path
 from typing import Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Tuple, Union
 
 from ordered_set import OrderedSet
-from text_utils import Language, SymbolFormat, Symbols, text_to_symbols
-from tqdm import tqdm
+from text_utils import Language, String, SymbolFormat, Symbols, text_to_symbols
 
 Selection = OrderedSet
 
 UtteranceId = int
+PathId = int
 
 UtteranceKVPair = Tuple[UtteranceId, Symbols]
-Utterance = Union[Symbols, str]
+Utterance = String
+Paths = OrderedDictType[PathId, Optional[Path]]
+
+UtterancesPaths = OrderedDictType[UtteranceId, PathId]
+ReadingPassagesPaths = UtterancesPaths
 
 
 class Utterances(OrderedDictType[UtteranceId, Utterance]):

@@ -5,9 +5,15 @@ from typing import Callable
 
 from general_utils import parse_set, parse_tuple_list
 from text_utils import Language
+from text_utils.string_format import StringFormat
 from text_utils.symbol_format import SymbolFormat
 
 from recording_script_generator.app import *
+from recording_script_generator.app.helper import add_overwrite_argument
+from recording_script_generator.app.importing import app_add_files
+from recording_script_generator.app.sentence_splitting import \
+    app_split_sentences
+from recording_script_generator.app.transformation import app_replace
 from recording_script_generator.core.exporting import SortingMode
 from recording_script_generator.globals import (DEFAULT_AVG_CHARS_PER_S,
                                                 DEFAULT_BATCHES,
@@ -148,6 +154,22 @@ def init_normalize_parser(parser: ArgumentParser):
   parser.add_argument('--batches', type=int, default=DEFAULT_BATCHES)
   parser.add_argument('--overwrite', action='store_true')
   return app_normalize
+
+
+def init_replace_parser(parser: ArgumentParser):
+  parser.add_argument('--corpus_name', type=str, required=True)
+  parser.add_argument('--in_step_name', type=str, required=True)
+  parser.add_argument('--target', type=Target.__getitem__,
+                      choices=Target, required=True, help=TARGET_HELP)
+  parser.add_argument('--out_step_name', type=str, required=False)
+  parser.add_argument('--replace_target', type=str)
+  parser.add_argument('--replace_with', type=str)
+  parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
+  parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
+  parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--batches', type=int, default=DEFAULT_BATCHES)
+  parser.add_argument('--overwrite', action='store_true')
+  return app_replace
 
 
 def init_convert_to_arpa_parser(parser: ArgumentParser):
@@ -426,13 +448,46 @@ def init_generate_textgrid_parser(parser: ArgumentParser):
   return app_generate_textgrid
 
 
+def init_app_split_sentences_parser(parser: ArgumentParser):
+  parser.add_argument('working_directory', metavar="working-directory", type=Path)
+  parser.add_argument('--custom-output-directory', type=Path, required=False)
+  parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
+  parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
+  parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_UTTERANCES)
+  parser.add_argument('--overwrite', action='store_true')
+  return app_split_sentences
+
+
+def init_app_add_files_parser(parser: ArgumentParser):
+  parser.add_argument('working_directory', metavar="working-directory", type=Path)
+  parser.add_argument('directory', type=Path,
+                      help="directory containing the text files which should be added")
+  parser.add_argument('--language', choices=Language,
+                      type=Language.__getitem__, default=Language.ENG)
+  parser.add_argument('--symbol-format', choices=SymbolFormat,
+                      type=SymbolFormat.__getitem__, default=SymbolFormat.GRAPHEMES)
+  parser.add_argument('--string-format', choices=StringFormat,
+                      type=StringFormat.__getitem__, default=StringFormat.TEXT)
+  parser.add_argument('--limit', type=int, default=None)
+  parser.add_argument('--custom-representations-directory', type=Path, default=None)
+  parser.add_argument('--custom-representations-symbol-format', choices=SymbolFormat,
+                      type=SymbolFormat.__getitem__, default=None)
+  parser.add_argument('--custom-representations-string-format', choices=StringFormat,
+                      type=StringFormat.__getitem__, default=None)
+  add_overwrite_argument(parser)
+  return app_add_files
+
+
 def _init_parser():
   result = ArgumentParser()
   subparsers = result.add_subparsers(help='sub-command help')
+  _add_parser_to(subparsers, "create", init_app_add_files_parser)
   _add_parser_to(subparsers, "add-file", init_add_corpus_from_text_file_parser)
   _add_parser_to(subparsers, "add-files", init_add_corpus_from_text_files_parser)
   _add_parser_to(subparsers, "add-text", init_add_corpus_from_text_parser)
+  _add_parser_to(subparsers, "split-sentences", init_app_split_sentences_parser)
   _add_parser_to(subparsers, "normalize", init_normalize_parser)
+  _add_parser_to(subparsers, "replace", init_replace_parser)
   _add_parser_to(subparsers, "change-text", init_change_text_parser)
   _add_parser_to(subparsers, "eng-to-arpa", init_convert_to_arpa_parser)
   _add_parser_to(subparsers, "to-symbols", init_app_app_convert_to_symbols_parser)

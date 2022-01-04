@@ -12,6 +12,10 @@ from recording_script_generator.core.utterances.transformation import (
     change_utterances_ipa_inplace, change_utterances_text_inplace,
     convert_to_symbols_inplace, convert_utterances_from_eng_to_arpa_inplace,
     map_utterances_from_arpa_to_ipa_inplace, normalize_utterances_inplace)
+from recording_script_generator.core.utterances.transformation.replacement import \
+    replace_utterance_inplace
+from recording_script_generator.globals import *
+from text_utils.types import Symbol
 
 
 class Target(IntEnum):
@@ -41,6 +45,19 @@ def app_normalize(base_dir: Path, corpus_name: str, in_step_name: str, target: T
   logger.info("Normalizing...")
   method = partial(
     normalize_utterances_inplace,
+    n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize, batches=batches,
+  )
+
+  __alter_utterances(base_dir, corpus_name, in_step_name, target, out_step_name, overwrite, method)
+
+
+def app_replace(base_dir: Path, corpus_name: str, in_step_name: str, target: Target, replace_target: Symbol, replace_with: Symbol, n_jobs: int = DEFAULT_N_JOBS, maxtasksperchild: Optional[int] = DEFAULT_MAXTASKSPERCHILD, chunksize: Optional[int] = DEFAULT_CHUNKSIZE_UTTERANCES, batches: Optional[int] = DEFAULT_BATCHES, out_step_name: Optional[str] = None, overwrite: bool = True) -> None:
+  logger = getLogger(__name__)
+  logger.info("Replacing...")
+  method = partial(
+    replace_utterance_inplace,
+    replace_target=replace_target,
+    replace_with=replace_with,
     n_jobs=n_jobs, maxtasksperchild=maxtasksperchild, chunksize=chunksize, batches=batches,
   )
 
@@ -149,6 +166,8 @@ def __alter_utterances(base_dir: Path, corpus_name: str, in_step_name: str, targ
   if in_step_dir != out_step_dir:
     logger.info("Copying other data from input folder.")
     copy_selection(in_step_dir, out_step_dir)
+    copy_paths(in_step_dir, out_step_dir)
+    copy_reading_passages_paths(in_step_dir, out_step_dir)
     if target == Target.READING_PASSAGES:
       copy_representations(in_step_dir, out_step_dir)
     elif target == Target.REPRESENTATIONS:
