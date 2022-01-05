@@ -8,10 +8,13 @@ from typing import List, Optional, Set, Tuple
 
 from recording_script_generator.core.types import (Paths, ReadingPassages,
                                                    ReadingPassagesPaths,
-                                                   Representations, Selection)
+                                                   Representations, Selection,
+                                                   Utterance)
 from recording_script_generator.core.validation import InvalidContentError
 from text_utils import (Language, String, StringFormat, SymbolFormat,
                         text_to_sentences)
+from text_utils.string_format import (can_convert_symbols_string_to_symbols,
+                                      convert_symbols_to_text_string)
 from tqdm import tqdm
 
 
@@ -23,12 +26,18 @@ def read_textfile(path: Path) -> str:
   return content
 
 
-def read_content(path: Path, string_format: StringFormat) -> String:
+def read_content(path: Path, string_format: StringFormat) -> Utterance:
   content = read_textfile(path)
-  valid_content = string_format.can_parse_string(content)
-  if not valid_content:
+  if string_format == StringFormat.SYMBOLS and not can_convert_symbols_string_to_symbols(content):
     raise InvalidContentError(content, f"Invalid text in file: \"{str(path)}\"!")
-  return string_format.parse_string(content)
+  symbols = string_format.convert_string_to_symbols(content)
+
+  parse_as_string_format = string_format
+  if parse_as_string_format == StringFormat.SYMBOLS:
+    return symbols
+  if parse_as_string_format == StringFormat.TEXT:
+    return convert_symbols_to_text_string(symbols)
+  assert False
 
 
 def create_from_both_files(paths: List[Tuple[Path, Path]], symbol_formats: Tuple[SymbolFormat, SymbolFormat], string_formats: Tuple[StringFormat, StringFormat], language: Language, limit: Optional[int]) -> Tuple[Selection, ReadingPassages, Representations, Paths, ReadingPassagesPaths]:

@@ -12,7 +12,7 @@ UtteranceId = int
 PathId = int
 
 UtteranceKVPair = Tuple[UtteranceId, Symbols]
-Utterance = String
+Utterance = Union[str, Symbols]
 Paths = OrderedDictType[PathId, Optional[Path]]
 
 UtterancesPaths = OrderedDictType[UtteranceId, PathId]
