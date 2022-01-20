@@ -11,7 +11,7 @@ from recording_script_generator.core.types import (ReadingPassages,
                                                    Representations, Selection,
                                                    Utterance, Utterances,
                                                    get_utterance_duration_s,
-                                                   utterance_to_str,
+                                                   utterance_to_text,
                                                    utterance_to_symbols)
 from text_utils import get_ngrams
 from tqdm import tqdm
@@ -157,7 +157,7 @@ def __get_ngram_stats_percent(ngram_stats_count: Tuple[int, ...]) -> Tuple[float
 def __get_utterances_word_counts(utterances: List[Utterance]) -> List[int]:
   word_counts = []
   for utterance in tqdm(utterances):
-    words = utterance_to_str(utterance).split(" ")
+    words = utterance_to_text(utterance).split(" ")
     word_counts.append(len(words))
   return word_counts
 

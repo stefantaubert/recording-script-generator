@@ -6,7 +6,7 @@ from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp_bool
 from recording_script_generator.core.types import (Utterance, UtteranceId,
                                                    Utterances,
-                                                   utterance_to_str)
+                                                   utterance_to_text)
 
 
 def contains_undesired_text(utterance: str, undesired: Set[str], ignore_case: bool) -> bool:
@@ -22,7 +22,7 @@ def contains_undesired_text(utterance: str, undesired: Set[str], ignore_case: bo
 
 
 def main(utterance: Utterance, undesired: Set[str]) -> bool:
-  utterance_str = utterance_to_str(utterance)
+  utterance_str = utterance_to_text(utterance)
   result = contains_undesired_text(utterance_str, undesired=undesired, ignore_case=True)
   return result
 

@@ -8,7 +8,7 @@ from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp_bool
 from recording_script_generator.core.types import (Utterance, UtteranceId,
                                                    Utterances,
-                                                   utterance_to_str)
+                                                   utterance_to_text)
 from text_utils.language import Language
 
 
@@ -24,7 +24,7 @@ def get_non_dict_words_amount(words: List[str], lexicon: enchant.Dict) -> int:
 
 
 def main(utterance: Utterance, max_unknown_word_count: int, lexicon: enchant.Dict) -> bool:
-  utterance_str = utterance_to_str(utterance)
+  utterance_str = utterance_to_text(utterance)
   words = utterance_str.split(" ")
   words_non_punctuation = strip_punctuation_words(words)
   non_dict_words_amount = get_non_dict_words_amount(words_non_punctuation, lexicon)

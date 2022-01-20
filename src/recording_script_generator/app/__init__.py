@@ -1,9 +1,6 @@
 from recording_script_generator.app.exporting import (
     app_generate_deselected_script, app_generate_selected_script,
     app_generate_textgrid)
-from recording_script_generator.app.importing import (
-    app_add_corpus_from_text, app_add_corpus_from_text_file,
-    app_add_corpus_from_text_files, app_merge)
 from recording_script_generator.app.inspection import (
     app_remove_deselected, app_remove_duplicate_utterances,
     app_remove_undesired_text, app_remove_utterances_with_acronyms,

@@ -7,7 +7,7 @@ from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp_bool
 from recording_script_generator.core.types import (Utterance, UtteranceId,
                                                    Utterances,
-                                                   utterance_to_str)
+                                                   utterance_to_text)
 
 
 def words_contain_acronyms(words: List[str], min_acronym_len: int) -> bool:
@@ -21,7 +21,7 @@ def is_acronym(word: str, min_acronym_len: int) -> bool:
 
 
 def main(utterance: Utterance, min_acronym_len: int) -> bool:
-  utterance_str = utterance_to_str(utterance)
+  utterance_str = utterance_to_text(utterance)
   words = utterance_str.split(" ")
   words_non_punctuation = strip_punctuation_words(words)
   result = words_contain_acronyms(words_non_punctuation, min_acronym_len)

@@ -1,212 +1,108 @@
-from concurrent.futures.thread import ThreadPoolExecutor
-from copy import deepcopy
-from functools import partial
 from logging import getLogger
-from multiprocessing import Pool
 from pathlib import Path
-from typing import List, Optional, Set, Tuple
+from typing import Generator, List, Optional, Tuple
 
 from recording_script_generator.core.types import (Paths, ReadingPassages,
                                                    ReadingPassagesPaths,
-                                                   Representations, Selection,
-                                                   Utterance)
-from recording_script_generator.core.validation import InvalidContentError
-from text_utils import (Language, String, StringFormat, SymbolFormat,
-                        text_to_sentences)
-from text_utils.string_format import (can_convert_symbols_string_to_symbols,
-                                      convert_symbols_to_text_string)
+                                                   Representations, Selection)
+from text_utils import Language, StringFormat, SymbolFormat
 from tqdm import tqdm
 
 
-def read_textfile(path: Path) -> str:
-  assert path.exists() and path.is_file()
-  content = path.read_text()
-  # content.strip("\n")
-  # content = content.replace("\n", " ")
+def read_text(path: Path, encoding: str) -> str:
+  assert path.is_file()
+  content = path.read_text(encoding)
   return content
 
 
-def read_content(path: Path, string_format: StringFormat) -> Utterance:
-  content = read_textfile(path)
-  if string_format == StringFormat.SYMBOLS and not can_convert_symbols_string_to_symbols(content):
-    raise InvalidContentError(content, f"Invalid text in file: \"{str(path)}\"!")
-  symbols = string_format.convert_string_to_symbols(content)
-
-  parse_as_string_format = string_format
-  if parse_as_string_format == StringFormat.SYMBOLS:
-    return symbols
-  if parse_as_string_format == StringFormat.TEXT:
-    return convert_symbols_to_text_string(symbols)
-  assert False
+def read_lines(path: Path, encoding: str) -> List[str]:
+  text = read_text(path, encoding)
+  lines = text.split("\n")
+  return lines
 
 
-def create_from_both_files(paths: List[Tuple[Path, Path]], symbol_formats: Tuple[SymbolFormat, SymbolFormat], string_formats: Tuple[StringFormat, StringFormat], language: Language, limit: Optional[int]) -> Tuple[Selection, ReadingPassages, Representations, Paths, ReadingPassagesPaths]:
+def str_is_empty_or_whitespace(string: str) -> bool:
+  assert string is not None
+  result = string.strip() == ""
+  return result
+
+
+def create_from_both_files2(paths: List[Tuple[Path, Path]], symbol_formats: Tuple[SymbolFormat, SymbolFormat], string_formats: Tuple[StringFormat, StringFormat], language: Language, encoding: str, limit: Optional[int]) -> Tuple[Selection, ReadingPassages, Representations, Paths, ReadingPassagesPaths]:
   logger = getLogger(__name__)
-  logger.info("Reading text files...")
   if limit is not None:
     logger.debug(f"Set limit to: {limit}.")
     paths = paths[:limit]
 
-  reading_passages_string_format, representations_string_format = string_formats
-  reading_passages_symbol_format, representations_symbol_format = symbol_formats
+  read_string_format, repr_string_format = string_formats
+  read_symbol_format, repr_symbol_format = symbol_formats
 
-  logger.info("Parsing reading passages...")
-  reading_passages = ReadingPassages((
-    (utterance_id, read_content(reading_passage_path, reading_passages_string_format)) for utterance_id, (reading_passage_path, _) in enumerate(tqdm(paths))
-  ))
-  reading_passages.symbol_format = reading_passages_symbol_format
-  reading_passages.language = language
+  read_paths_are_unique = len(set(x for x, _ in paths)) == len(paths)
+  assert read_paths_are_unique
 
-  both_paths_are_equal = all(path1 == path2 for path1, path2 in paths)
+  reading_passages = []
+  representations = []
+  paths_to_ids = Paths()
+  read_paths = []
 
-  logger.info("Parsing representations...")
-  if both_paths_are_equal:
-    representations = deepcopy(reading_passages)
-  else:
-    representations = Representations((
-      (utterance_id, read_content(representation_path, representations_string_format)) for utterance_id, (_, representation_path) in enumerate(tqdm(paths))
-    ))
-    representations.symbol_format = representations_symbol_format
-    representations.language = language
+  logger.info("Reading files...")
+  for path_id, (path_read, path_repr) in enumerate(tqdm(paths)):
+    lines_read = read_lines(path_read, encoding)
+    if path_repr == path_read:
+      lines_repr = lines_read
+    else:
+      lines_repr = read_lines(path_repr, encoding)
 
-  paths_to_ids = Paths((
-    (path_id, reading_passage_path) for path_id, (reading_passage_path, _) in enumerate(paths)
-  ))
+    if len(lines_repr) != len(lines_read):
+      logger.error(
+        f"Lines count does not match for files '{str(path_read)}' ({len(lines_read)}) and '{str(path_repr)}' ({len(lines_repr)})! Skipped.")
+      continue
 
-  utterance_paths = ReadingPassagesPaths(
-    (path_id, path_id) for path_id, _ in enumerate(paths)
-  )
+    for line_nr, (line_read, line_repr) in enumerate(zip(lines_read, lines_repr), start=1):
+      if str_is_empty_or_whitespace(line_read):
+        logger.error(f"Ignoring empty row! File '{str(path_read)}', Line: {line_nr}")
+        continue
+
+      if str_is_empty_or_whitespace(line_repr):
+        logger.error(f"Ignoring empty line! File '{str(path_repr)}', Line: {line_nr}")
+        continue
+
+      if not read_string_format.can_convert_string_to_symbols(line_read):
+        logger.error(
+          f"Line could not be parsed in the given format! File '{str(path_read)}', Line: {line_nr}")
+        continue
+
+      if not repr_string_format.can_convert_string_to_symbols(line_repr):
+        logger.error(
+          f"Line could not be parsed in the given format! File '{str(path_repr)}', Line: {line_nr}")
+        continue
+
+      symbols_read = read_string_format.convert_string_to_symbols(line_read)
+      symbols_repr = repr_string_format.convert_string_to_symbols(line_repr)
+      symbols_str_read = StringFormat.SYMBOLS.convert_symbols_to_string(symbols_read)
+      symbols_str_repr = StringFormat.SYMBOLS.convert_symbols_to_string(symbols_repr)
+      if path_id not in paths_to_ids:
+        paths_to_ids[path_id] = path_read
+
+      reading_passages.append(symbols_str_read)
+      representations.append(symbols_str_repr)
+      read_paths.append(path_id)
+
+  res_read = ReadingPassages(enumerate(reading_passages))
+  res_read.symbol_format = read_symbol_format
+  res_read.language = language
+  del reading_passages
+
+  res_repr = ReadingPassages(enumerate(representations))
+  res_repr.symbol_format = repr_symbol_format
+  res_repr.language = language
+  del representations
+
+  utterance_paths = ReadingPassagesPaths(enumerate(read_paths))
+  del read_paths
 
   selection = Selection()
 
-  return selection, reading_passages, representations, paths_to_ids, utterance_paths
-
-
-def add_corpus_from_text_files(files: Set[Path], lang: Language, text_format: SymbolFormat, limit: Optional[int], chunksize: int, n_jobs: int, maxtasksperchild: Optional[int]) -> Tuple[Selection, ReadingPassages, Representations, ReadingPassagesPaths]:
-  logger = getLogger(__name__)
-  logger.info("Reading text files...")
-  if limit is not None:
-    files = set(list(files)[:limit])
-  with ThreadPoolExecutor(max_workers=n_jobs) as ex:
-    res = list(tqdm(ex.map(read_textfile, files, chunksize=chunksize), total=len(files)))
-  logger.info("Done.")
-
-  return add_corpus_from_texts(
-    texts=res,
-    language=lang,
-    text_format=text_format,
-    n_jobs=n_jobs,
-    chunksize=chunksize,
-    maxtasksperchild=maxtasksperchild,
-  )
-
-
-def get_sentences_from_text(text: str, lang: Language, text_format: SymbolFormat) -> Set[str]:
-  utterances = file_to_utterances(text, lang, text_format)
-  sentences: Set[str] = set()
-
-  for utterance in utterances:
-    if not is_sentence(utterance, lang, text_format):
-      continue
-
-    # symbols = text_to_symbols(
-    #   text=utterance,
-    #   lang=lang,
-    #   text_format=text_format,
-    # )
-
-    sentences.add(utterance)
-  return sentences
-
-
-process_texts: List[Tuple[Path, str]] = None
-
-
-def init_pool(texts: List[Tuple[Path, str]]) -> None:
-  global process_texts
-  process_texts = texts
-
-
-def get_sentences_from_text_v2(text_nr: int, language: Language, text_format: SymbolFormat) -> Tuple[Path, Set[str]]:
-  # pylint: disable=global-variable-not-assigned
-  global process_texts
-  path, text = process_texts[text_nr]
-  utterances = file_to_utterances(text, language, text_format)
-  sentences: Set[str] = set()
-
-  for utterance in utterances:
-    if not is_sentence(utterance, language, text_format):
-      continue
-
-    # symbols = text_to_symbols(
-    #   text=utterance,
-    #   lang=lang,
-    #   text_format=text_format,
-    # )
-
-    sentences.add(utterance)
-  return path, sentences
-
-
-def add_corpus_from_texts(texts: List[Tuple[Path, str]], language: Language, text_format: SymbolFormat, chunksize: int, n_jobs: int, maxtasksperchild: Optional[int]) -> Tuple[Selection, ReadingPassages, Representations, ReadingPassagesPaths]:
-  logger = getLogger(__name__)
-  method_proxy = partial(get_sentences_from_text, lang=language, text_format=text_format)
-  logger.info("Detecting valid sentences...")
-  # tqdm_steps = 4
-  # chunksize = max(round(len(texts) / n_jobs / tqdm_steps), 1)
-  logger.info(f"Assigning {chunksize} files to {n_jobs} processor core.")
-
-  method_proxy = partial(
-    get_sentences_from_text_v2,
-    language=language,
-    text_format=text_format,
-  )
-
-  with Pool(
-    processes=n_jobs,
-    initializer=init_pool,
-    initargs=(texts,),
-    maxtasksperchild=maxtasksperchild,
-  ) as pool:
-    sentences_from_files: List[Set[str]] = list(tqdm(
-      pool.imap_unordered(method_proxy, range(len(texts)), chunksize=chunksize),
-      total=len(texts),
-    ))
-
-  # # todo optimize that texts are not passed as argument
-  # with ProcessPoolExecutor(max_workers=n_jobs) as ex:
-  #   sentences_from_files: List[Set[str]] = list(
-  #     tqdm(ex.map(method_proxy, texts, chunksize=chunksize), total=len(texts)))
-  logger.info("Done.")
-  logger.info("Extracting sentences...")
-  all_sentences: List[Tuple[Path, str]] = list(
-    (path, text_sentence)
-    for path, text_sentences in tqdm(sentences_from_files)
-    for text_sentence in text_sentences
-  )
-
-  utterance_paths = ReadingPassagesPaths((
-    (utterance_id, path) for utterance_id, (path, sentence) in enumerate(tqdm(all_sentences))
-  ))
-
-  reading_passages = ReadingPassages((
-    (utterance_id, sentence) for utterance_id, (path, sentence) in enumerate(tqdm(all_sentences))
-  ))
-  reading_passages.symbol_format = text_format
-  reading_passages.language = language
-
-  # selected_percent = len(reading_passages) / total_utterance_count
-  # logger.info(
-  #   f"{selected_percent*100:.2f}% ({len(reading_passages)}) of all {total_utterance_count} utterances were sentences and thus selected.")
-  logger.info("Cloning as representations...")
-  representations = Representations(reading_passages)
-  representations.symbol_format = text_format
-  representations.language = language
-  logger.info(f"Done. Detected {len(reading_passages)} sentences.")
-
-  selection = Selection()
-
-  return selection, reading_passages, representations, utterance_paths
+  return selection, res_read, res_repr, paths_to_ids, utterance_paths
 
 
 def merge(data: List[Tuple[Selection, ReadingPassages, Representations]]) -> Tuple[Selection, ReadingPassages, Representations]:
@@ -243,62 +139,3 @@ def merge(data: List[Tuple[Selection, ReadingPassages, Representations]]) -> Tup
         merged_selection.add(next_merged_utterance_id)
 
   return merged_selection, merged_reading_passages, merged_representations
-
-
-# def filter_after_duration(corpus: Dict[int, float], min_duration_incl: float, max_duration_excl: float) -> Set[int]:
-#   assert min_duration_incl >= 0
-#   assert max_duration_excl >= 0
-
-#   filtered_utterance_indicies = set()
-
-#   for utterance_id, utterance_duration in corpus.items():
-#     if min_duration_incl <= utterance_duration < max_duration_excl:
-#       filtered_utterance_indicies.add(utterance_id)
-
-#   return filtered_utterance_indicies
-
-def file_to_utterances(content: str, lang: Language, text_format: SymbolFormat) -> List[str]:
-  content_lines = content.split("\n")
-  res = []
-  for line in content_lines:
-    sentences = text_to_sentences(
-      text=line.strip(),
-      lang=lang,
-      text_format=text_format,
-    )
-    res.extend(sentences)
-  return res
-
-
-def ends_with_punctuation(sentence: str) -> bool:
-  if len(sentence) == 0:
-    return False
-
-  last_letter = sentence[-1]
-
-  contains_sentence_ending = last_letter in {".", "!", "?"}
-  if not contains_sentence_ending:
-    return False
-
-  return True
-
-
-def starts_with_big_letter(sentence: str) -> bool:
-  if len(sentence) == 0:
-    return False
-
-  first_letter = sentence[0]
-  res = first_letter.isupper()
-  return res
-
-
-def is_sentence(sentence: str, lang: Language, sentence_format: SymbolFormat) -> bool:
-  if sentence_format == SymbolFormat.GRAPHEMES:
-    if lang == Language.ENG or lang == Language.GER:
-      return starts_with_big_letter(sentence) and ends_with_punctuation(sentence)
-    else:
-      raise Exception("Not supported!")
-  elif sentence_format.is_IPA:
-    return ends_with_punctuation(sentence)
-  else:
-    assert False

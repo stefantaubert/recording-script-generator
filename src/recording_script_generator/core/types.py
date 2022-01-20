@@ -1,18 +1,17 @@
 from pathlib import Path
 from typing import Optional
 from typing import OrderedDict as OrderedDictType
-from typing import Tuple, Union
 
 from ordered_set import OrderedSet
-from text_utils import Language, String, SymbolFormat, Symbols, text_to_symbols
+from text_utils import (Language, StringFormat, SymbolFormat, Symbols,
+                        SymbolsString)
 
 Selection = OrderedSet
 
 UtteranceId = int
 PathId = int
 
-UtteranceKVPair = Tuple[UtteranceId, Symbols]
-Utterance = Union[str, Symbols]
+Utterance = SymbolsString
 Paths = OrderedDictType[PathId, Optional[Path]]
 
 UtterancesPaths = OrderedDictType[UtteranceId, PathId]
@@ -28,30 +27,22 @@ ReadingPassages = Utterances
 Representations = Utterances
 
 
-def utterance_to_str(utterance: Utterance) -> str:
-  if isinstance(utterance, str):
-    return utterance
-  elif isinstance(utterance, tuple):
-    return ''.join(utterance)
-  assert False
+def utterance_to_text(utterance: Utterance) -> str:
+  symbols = StringFormat.SYMBOLS.convert_string_to_symbols(utterance)
+  text = StringFormat.TEXT.convert_symbols_to_string(symbols)
+  del symbols
+  return text
 
 
-def utterance_to_symbols(utterance: Utterance, text_format: Optional[SymbolFormat], language: Optional[Language]) -> Symbols:
-  if isinstance(utterance, tuple):
-    return utterance
-  elif isinstance(utterance, str):
-    assert language is not None
-    assert text_format is not None
-    return text_to_symbols(
-      text=utterance,
-      text_format=text_format,
-      lang=language,
-    )
-  assert False
+def utterance_to_symbols(utterance: Utterance) -> Symbols:
+  symbols = StringFormat.SYMBOLS.convert_string_to_symbols(utterance)
+  return symbols
 
 
 def get_utterance_duration_s(utterance: Utterance, reading_speed_chars_per_s: float) -> float:
-  duration = len(utterance) / reading_speed_chars_per_s
+  symbols = utterance_to_symbols(utterance)
+  duration = len(symbols) / reading_speed_chars_per_s
+  del symbols
   return duration
 
 # def utterances_to_str_inplace(utterances: Utterances) -> None:

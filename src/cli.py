@@ -4,21 +4,18 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import Callable
 
-from general_utils import parse_set, parse_tuple_list
-from text_utils import Language
-from text_utils.string_format import StringFormat
-from text_utils.symbol_format import SymbolFormat
+from general_utils import parse_set
 
 from recording_script_generator.app import *
-from recording_script_generator.app.helper import add_overwrite_argument
-from recording_script_generator.app.importing import app_add_files
+from recording_script_generator.app.exporting import (
+    init_app_generate_deselected_script_parser,
+    init_app_generate_selected_script_parser, init_generate_textgrid_parser)
+from recording_script_generator.app.importing import init_app_add_files_parser
 from recording_script_generator.app.sentence_splitting import \
     app_split_sentences
 from recording_script_generator.app.transformation import app_replace
-from recording_script_generator.core.exporting import SortingMode
 from recording_script_generator.globals import (DEFAULT_AVG_CHARS_PER_S,
                                                 DEFAULT_BATCHES,
-                                                DEFAULT_CHUNKSIZE_FILES,
                                                 DEFAULT_CHUNKSIZE_UTTERANCES,
                                                 DEFAULT_MAXTASKSPERCHILD,
                                                 DEFAULT_N_JOBS, DEFAULT_SEED,
@@ -50,97 +47,12 @@ def _add_parser_to(subparsers, name: str, init_method: Callable[[ArgumentParser]
   return parser
 
 
-def init_add_corpus_from_text_file_parser(parser: ArgumentParser):
-  parser.add_argument('--corpus_name', type=str, required=True)
-  parser.add_argument('--step_name', type=str, required=True)
-  parser.add_argument('--text_path', type=Path, required=True)
-  parser.add_argument('--lang', choices=Language, type=Language.__getitem__)
-  parser.add_argument('--text_format', choices=SymbolFormat, type=SymbolFormat.__getitem__)
-  parser.add_argument('--overwrite', action='store_true')
-  return app_add_corpus_from_text_file
-
-
-def init_add_corpus_from_text_files_parser(parser: ArgumentParser):
-  parser.add_argument('--corpus_name', type=str, required=True)
-  parser.add_argument('--step_name', type=str, required=True)
-  parser.add_argument('--text_dir', type=Path, required=True)
-  parser.add_argument('--lang', choices=Language, type=Language.__getitem__)
-  parser.add_argument('--text_format', choices=SymbolFormat, type=SymbolFormat.__getitem__)
-  parser.add_argument('--limit', type=int)
-  parser.add_argument('--chunksize', type=int, default=DEFAULT_CHUNKSIZE_FILES)
-  parser.add_argument('--batches', type=int, default=DEFAULT_BATCHES)
-  parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS)
-  parser.add_argument('--maxtasksperchild', type=int, default=DEFAULT_MAXTASKSPERCHILD)
-  parser.add_argument('--overwrite', action='store_true')
-  return app_add_corpus_from_text_files
-
-
-def init_add_corpus_from_text_parser(parser: ArgumentParser):
-  parser.add_argument('--corpus_name', type=str, required=True)
-  parser.add_argument('--step_name', type=str, required=True)
-  parser.add_argument('--text', type=str, required=True)
-  parser.add_argument('--lang', choices=Language, type=Language.__getitem__)
-  parser.add_argument('--text_format', choices=SymbolFormat, type=SymbolFormat.__getitem__)
-  parser.add_argument('--overwrite', action='store_true')
-  return app_add_corpus_from_text
-
-
 def init_log_stats_parser(parser: ArgumentParser):
   parser.add_argument('--corpus_name', type=str, required=True)
   parser.add_argument('--step_name', type=str, required=True)
   parser.add_argument('--reading_speed_chars_per_s', type=float,
                       default=DEFAULT_AVG_CHARS_PER_S)
   return app_log_stats
-
-
-def init_app_generate_selected_script_parser(parser: ArgumentParser):
-  parser.add_argument('--corpus_name', type=str, required=True)
-  parser.add_argument('--step_name', type=str, required=True)
-  parser.add_argument('--sorting_mode', choices=SortingMode,
-                      type=SortingMode.__getitem__, required=True)
-  parser.add_argument('--seed', type=int, default=DEFAULT_SEED)
-  parser.add_argument('--parts_count', type=int, required=False)
-  parser.add_argument('--take_per_part', type=int, required=False)
-  parser.add_argument('--ignore_symbols', type=str, required=False)
-  return _app_generate_selected_script_cli
-
-
-def _app_generate_selected_script_cli(**args):
-  if args["ignore_symbols"] is not None:
-    args["ignore_symbols"] = parse_set(args["ignore_symbols"], split_symbol="&")
-  app_generate_selected_script(**args)
-
-
-def init_app_generate_deselected_script_parser(parser: ArgumentParser):
-  parser.add_argument('--corpus_name', type=str, required=True)
-  parser.add_argument('--step_name', type=str, required=True)
-  parser.add_argument('--sorting_mode', choices=SortingMode,
-                      type=SortingMode.__getitem__, default=SortingMode.SYMBOL_COUNT_ASC)
-  parser.add_argument('--seed', type=int, default=None)
-  parser.add_argument('--parts_count', type=int, default=None)
-  parser.add_argument('--take_per_part', type=int, default=None)
-  parser.add_argument('--ignore_symbols', type=str, default=None)
-  parser.add_argument('--only_txt', action='store_true')
-  return _app_generate_deselected_script_cli
-
-
-def _app_generate_deselected_script_cli(**args):
-  if args["ignore_symbols"] is not None:
-    args["ignore_symbols"] = parse_set(args["ignore_symbols"], split_symbol="&")
-  app_generate_deselected_script(**args)
-
-
-def init_merge_parser(parser: ArgumentParser):
-  parser.add_argument('--corpora_step_names', type=str, required=True)
-  parser.add_argument('--out_corpus_name', type=str, required=True)
-  parser.add_argument('--out_step_name', type=str, required=True)
-  parser.add_argument('--overwrite', action='store_true')
-  return _merge_cli
-
-
-def _merge_cli(**args):
-  args["corpora_step_names"] = parse_tuple_list(args["corpora_step_names"])
-  app_merge(**args)
 
 
 def init_normalize_parser(parser: ArgumentParser):
@@ -441,14 +353,6 @@ def _app_select_kld_ngrams_duration_cli(**args):
   app_select_kld_ngrams_duration(**args)
 
 
-def init_generate_textgrid_parser(parser: ArgumentParser):
-  parser.add_argument('--corpus_name', type=str, required=True)
-  parser.add_argument('--step_name', type=str, required=True)
-  parser.add_argument('--reading_speed_chars_per_s', type=float,
-                      default=DEFAULT_AVG_CHARS_PER_S)
-  return app_generate_textgrid
-
-
 def init_app_split_sentences_parser(parser: ArgumentParser):
   parser.add_argument('working_directory', metavar="working-directory", type=Path)
   parser.add_argument('--custom-output-directory', type=Path, required=False)
@@ -459,33 +363,10 @@ def init_app_split_sentences_parser(parser: ArgumentParser):
   return app_split_sentences
 
 
-def init_app_add_files_parser(parser: ArgumentParser):
-  parser.add_argument('working_directory', metavar="working-directory", type=Path)
-  parser.add_argument('directory', type=Path,
-                      help="directory containing the text files which should be added")
-  parser.add_argument('--language', choices=Language,
-                      type=Language.__getitem__, default=Language.ENG)
-  parser.add_argument('--symbol-format', choices=SymbolFormat,
-                      type=SymbolFormat.__getitem__, default=SymbolFormat.GRAPHEMES)
-  parser.add_argument('--string-format', choices=StringFormat,
-                      type=StringFormat.__getitem__, default=StringFormat.TEXT)
-  parser.add_argument('--limit', type=int, default=None)
-  parser.add_argument('--custom-representations-directory', type=Path, default=None)
-  parser.add_argument('--custom-representations-symbol-format', choices=SymbolFormat,
-                      type=SymbolFormat.__getitem__, default=None)
-  parser.add_argument('--custom-representations-string-format', choices=StringFormat,
-                      type=StringFormat.__getitem__, default=None)
-  add_overwrite_argument(parser)
-  return app_add_files
-
-
 def _init_parser():
   result = ArgumentParser()
   subparsers = result.add_subparsers(help='sub-command help')
   _add_parser_to(subparsers, "create", init_app_add_files_parser)
-  _add_parser_to(subparsers, "add-file", init_add_corpus_from_text_file_parser)
-  _add_parser_to(subparsers, "add-files", init_add_corpus_from_text_files_parser)
-  _add_parser_to(subparsers, "add-text", init_add_corpus_from_text_parser)
   _add_parser_to(subparsers, "split-sentences", init_app_split_sentences_parser)
   _add_parser_to(subparsers, "normalize", init_normalize_parser)
   _add_parser_to(subparsers, "replace", init_replace_parser)
@@ -495,10 +376,9 @@ def _init_parser():
   _add_parser_to(subparsers, "arpa-to-ipa", init_app_map_to_ipa_parser)
   _add_parser_to(subparsers, "change-ipa", init_change_ipa_parser)
   _add_parser_to(subparsers, "stats", init_log_stats_parser)
-  _add_parser_to(subparsers, "gen-reading-script", init_app_generate_selected_script_parser)
-  _add_parser_to(subparsers, "gen-rest-script", init_app_generate_deselected_script_parser)
+  _add_parser_to(subparsers, "gen-selected-script", init_app_generate_selected_script_parser)
+  _add_parser_to(subparsers, "gen-deselected-script", init_app_generate_deselected_script_parser)
   _add_parser_to(subparsers, "gen-textgrid", init_generate_textgrid_parser)
-  _add_parser_to(subparsers, "merge", init_merge_parser)
   _add_parser_to(subparsers, "remove-deselected", init_remove_deselected_parser)
   _add_parser_to(subparsers, "remove-text", init_remove_undesired_text_parser)
   _add_parser_to(subparsers, "remove-duplicates", init_remove_duplicate_utterances_parser)

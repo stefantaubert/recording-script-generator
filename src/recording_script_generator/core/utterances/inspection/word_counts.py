@@ -6,11 +6,11 @@ from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp_bool
 from recording_script_generator.core.types import (Utterance, UtteranceId,
                                                    Utterances,
-                                                   utterance_to_str)
+                                                   utterance_to_text)
 
 
 def main(utterance: Utterance, min_count: Optional[int], max_count: Optional[int]) -> bool:
-  utterance_str = utterance_to_str(utterance)
+  utterance_str = utterance_to_text(utterance)
   words = utterance_str.split(" ")
   words_count = len(words)
 

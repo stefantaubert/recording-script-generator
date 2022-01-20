@@ -12,7 +12,7 @@ from recording_script_generator.core.multiprocessing_helper import \
     execute_method_on_utterances_mp
 from recording_script_generator.core.types import (Utterance, UtteranceId,
                                                    Utterances,
-                                                   utterance_to_str)
+                                                   utterance_to_text)
 from tqdm import tqdm
 
 
@@ -27,7 +27,7 @@ def get_minimum_frequency(words: List[str], word_frequencies: Counter) -> int:
 
 
 def main_step_1(utterance: Utterance) -> str:
-  utterance_str = utterance_to_str(utterance)
+  utterance_str = utterance_to_text(utterance)
   utterance_str = utterance_str.lower()
   stripped_utterance = strip_punctuation_utterance(utterance_str)
   return stripped_utterance
