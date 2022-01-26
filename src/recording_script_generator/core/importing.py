@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from logging import getLogger
 from pathlib import Path
 from typing import Generator, List, Optional, Tuple
@@ -87,12 +88,14 @@ def create_from_both_files2(paths: List[Tuple[Path, Path]], symbol_formats: Tupl
       representations.append(symbols_str_repr)
       read_paths.append(path_id)
 
-  res_read = ReadingPassages(enumerate(reading_passages))
+  res_read = ReadingPassages()
+  res_read.entries = OrderedDict(enumerate(reading_passages))
   res_read.symbol_format = read_symbol_format
   res_read.language = language
   del reading_passages
 
-  res_repr = ReadingPassages(enumerate(representations))
+  res_repr = ReadingPassages()
+  res_repr.entries = OrderedDict(enumerate(representations))
   res_repr.symbol_format = repr_symbol_format
   res_repr.language = language
   del representations

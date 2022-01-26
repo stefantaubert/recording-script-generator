@@ -11,6 +11,8 @@ from recording_script_generator.app.exporting import (
     init_app_generate_deselected_script_parser,
     init_app_generate_selected_script_parser, init_generate_textgrid_parser)
 from recording_script_generator.app.importing import init_app_add_files_parser
+from recording_script_generator.app.selection_io import (
+    init_export_for_selection_parser, init_import_from_selection_parser)
 from recording_script_generator.app.sentence_splitting import \
     app_split_sentences
 from recording_script_generator.app.transformation import app_replace
@@ -367,6 +369,8 @@ def _init_parser():
   result = ArgumentParser()
   subparsers = result.add_subparsers(help='sub-command help')
   _add_parser_to(subparsers, "create", init_app_add_files_parser)
+  _add_parser_to(subparsers, "save-selection", init_export_for_selection_parser)
+  _add_parser_to(subparsers, "load-selection", init_import_from_selection_parser)
   _add_parser_to(subparsers, "split-sentences", init_app_split_sentences_parser)
   _add_parser_to(subparsers, "normalize", init_normalize_parser)
   _add_parser_to(subparsers, "replace", init_replace_parser)

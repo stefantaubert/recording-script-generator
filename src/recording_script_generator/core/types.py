@@ -19,6 +19,7 @@ ReadingPassagesPaths = UtterancesPaths
 
 
 class Utterances(OrderedDictType[UtteranceId, Utterance]):
+  entries: OrderedDictType[UtteranceId, Utterance]
   symbol_format: SymbolFormat
   language: Language
 
